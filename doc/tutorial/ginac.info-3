@@ -1,0 +1,1077 @@
+This is ginac.info, produced by makeinfo version 4.5 from
+/user/jensv/ginac/ginac/doc/tutorial/ginac.texi.
+
+INFO-DIR-SECTION Mathematics
+START-INFO-DIR-ENTRY
+* ginac: (ginac).                   C++ library for symbolic computation.
+END-INFO-DIR-ENTRY
+
+This is a tutorial that documents GiNaC 1.4.3, an open framework for
+symbolic computation within the C++ programming language.
+
+Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+
+Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+
+File: ginac.info,  Node: Non-commutative objects,  Next: Hash maps,  Prev: Indexed objects,  Up: Basic concepts
+
+Non-commutative objects
+=======================
+
+GiNaC is equipped to handle certain non-commutative algebras. Three
+classes of non-commutative objects are built-in which are mostly of use
+in high energy physics:
+
+   * Clifford (Dirac) algebra (class `clifford')
+
+   * su(3) Lie algebra (class `color')
+
+   * Matrices (unindexed) (class `matrix')
+
+The `clifford' and `color' classes are subclasses of `indexed' because
+the elements of these algebras usually carry indices. The `matrix'
+class is described in more detail in *Note Matrices::.
+
+Unlike most computer algebra systems, GiNaC does not primarily provide
+an operator (often denoted `&*') for representing inert products of
+arbitrary objects. Rather, non-commutativity in GiNaC is a property of
+the classes of objects involved, and non-commutative products are
+formed with the usual `*' operator, as are ordinary products. GiNaC is
+capable of figuring out by itself which objects commutate and will
+group the factors by their class. Consider this example:
+
+         ...
+         varidx mu(symbol("mu"), 4), nu(symbol("nu"), 4);
+         idx a(symbol("a"), 8), b(symbol("b"), 8);
+         ex e = -dirac_gamma(mu) * (2*color_T(a)) * 8 * color_T(b) * dirac_gamma(nu);
+         cout << e << endl;
+          // -> -16*(gamma~mu*gamma~nu)*(T.a*T.b)
+         ...
+
+As can be seen, GiNaC pulls out the overall commutative factor `-16' and
+groups the non-commutative factors (the gammas and the su(3) generators)
+together while preserving the order of factors within each class
+(because Clifford objects commutate with color objects). The resulting
+expression is a _commutative_ product with two factors that are
+themselves non-commutative products (`gamma~mu*gamma~nu' and
+`T.a*T.b'). For clarification, parentheses are placed around the
+non-commutative products in the output.
+
+Non-commutative products are internally represented by objects of the
+class `ncmul', as opposed to commutative products which are handled by
+the `mul' class. You will normally not have to worry about this
+distinction, though.
+
+The advantage of this approach is that you never have to worry about
+using (or forgetting to use) a special operator when constructing
+non-commutative expressions. Also, non-commutative products in GiNaC
+are more intelligent than in other computer algebra systems; they can,
+for example, automatically canonicalize themselves according to rules
+specified in the implementation of the non-commutative classes. The
+drawback is that to work with other than the built-in algebras you have
+to implement new classes yourself. Both symbols and user-defined
+functions can be specified as being non-commutative.
+
+Information about the commutativity of an object or expression can be
+obtained with the two member functions
+
+     unsigned ex::return_type() const;
+     unsigned ex::return_type_tinfo() const;
+
+The `return_type()' function returns one of three values (defined in
+the header file `flags.h'), corresponding to three categories of
+expressions in GiNaC:
+
+   * `return_types::commutative': Commutates with everything. Most GiNaC
+      classes are of this kind.
+
+   * `return_types::noncommutative': Non-commutative, belonging to a
+     certain class of non-commutative objects which can be determined
+     with the   `return_type_tinfo()' method. Expressions of this
+     category commutate   with everything except `noncommutative'
+     expressions of the same   class.
+
+   * `return_types::noncommutative_composite': Non-commutative, composed
+      of non-commutative objects of different classes. Expressions of
+     this   category don't commutate with any other `noncommutative' or
+      `noncommutative_composite' expressions.
+
+The value returned by the `return_type_tinfo()' method is valid only
+when the return type of the expression is `noncommutative'. It is a
+value that is unique to the class of the object, but may vary every
+time a GiNaC program is being run (it is dynamically assigned on
+start-up).
+
+Here are a couple of examples:
+
+*Expression*             *`return_type()'*        *`return_type_tinfo()'*
+`42'                     `commutative'            -
+`2*x-y'                  `commutative'            -
+`dirac_ONE()'            `noncommutative'         `TINFO_clifford'
+`dirac_gamma(mu)*dirac_gamma(nu)'`noncommutative'         `TINFO_clifford'
+`2*color_T(a)'           `noncommutative'         `TINFO_color'
+`dirac_ONE()*color_T(a)' `noncommutative_composite'-
+
+Note: the `return_type_tinfo()' of Clifford objects is only equal to
+`TINFO_clifford' for objects with a representation label of zero.
+Other representation labels yield a different `return_type_tinfo()',
+but it's the same for any two objects with the same label. This is also
+true for color objects.
+
+A last note: With the exception of matrices, positive integer powers of
+non-commutative objects are automatically expanded in GiNaC. For
+example, `pow(a*b, 2)' becomes `a*b*a*b' if `a' and `b' are
+non-commutative expressions).
+
+Clifford algebra
+----------------
+
+Clifford algebras are supported in two flavours: Dirac gamma matrices
+(more physical) and generic Clifford algebras (more mathematical).
+
+Dirac gamma matrices
+....................
+
+Dirac gamma matrices (note that GiNaC doesn't treat them as matrices)
+are designated as `gamma~mu' and satisfy `gamma~mu*gamma~nu +
+gamma~nu*gamma~mu = 2*eta~mu~nu' where `eta~mu~nu' is the Minkowski
+metric tensor. Dirac gammas are constructed by the function
+
+     ex dirac_gamma(const ex & mu, unsigned char rl = 0);
+
+which takes two arguments: the index and a "representation label" in the
+range 0 to 255 which is used to distinguish elements of different
+Clifford algebras (this is also called a "spin line index"). Gammas
+with different labels commutate with each other. The dimension of the
+index can be 4 or (in the framework of dimensional regularization) any
+symbolic value. Spinor indices on Dirac gammas are not supported in
+GiNaC.
+
+The unity element of a Clifford algebra is constructed by
+
+     ex dirac_ONE(unsigned char rl = 0);
+
+*Please notice:* You must always use `dirac_ONE()' when referring to
+multiples of the unity element, even though it's customary to omit it.
+E.g. instead of `dirac_gamma(mu)*(dirac_slash(q,4)+m)' you have to
+write `dirac_gamma(mu)*(dirac_slash(q,4)+m*dirac_ONE())'. Otherwise,
+GiNaC will complain and/or produce incorrect results.
+
+There is a special element `gamma5' that commutates with all other
+gammas, has a unit square, and in 4 dimensions equals `gamma~0 gamma~1
+gamma~2 gamma~3', provided by
+
+     ex dirac_gamma5(unsigned char rl = 0);
+
+The chiral projectors `(1+/-gamma5)/2' are also available as proper
+objects, constructed by
+
+     ex dirac_gammaL(unsigned char rl = 0);
+     ex dirac_gammaR(unsigned char rl = 0);
+
+They observe the relations `gammaL^2 = gammaL', `gammaR^2 = gammaR',
+and `gammaL gammaR = gammaR gammaL = 0'.
+
+Finally, the function
+
+     ex dirac_slash(const ex & e, const ex & dim, unsigned char rl = 0);
+
+creates a term that represents a contraction of `e' with the Dirac
+Lorentz vector (it behaves like a term of the form `e.mu gamma~mu' with
+a unique index whose dimension is given by the `dim' argument).  Such
+slashed expressions are printed with a trailing backslash, e.g. `e\'.
+
+In products of dirac gammas, superfluous unity elements are
+automatically removed, squares are replaced by their values, and
+`gamma5', `gammaL' and `gammaR' are moved to the front.
+
+The `simplify_indexed()' function performs contractions in gamma
+strings, for example
+
+     {
+         ...
+         symbol a("a"), b("b"), D("D");
+         varidx mu(symbol("mu"), D);
+         ex e = dirac_gamma(mu) * dirac_slash(a, D)
+              * dirac_gamma(mu.toggle_variance());
+         cout << e << endl;
+          // -> gamma~mu*a\*gamma.mu
+         e = e.simplify_indexed();
+         cout << e << endl;
+          // -> -D*a\+2*a\
+         cout << e.subs(D == 4) << endl;
+          // -> -2*a\
+         ...
+     }
+
+To calculate the trace of an expression containing strings of Dirac
+gammas you use one of the functions
+
+     ex dirac_trace(const ex & e, const std::set<unsigned char> & rls,
+                    const ex & trONE = 4);
+     ex dirac_trace(const ex & e, const lst & rll, const ex & trONE = 4);
+     ex dirac_trace(const ex & e, unsigned char rl = 0, const ex & trONE = 4);
+
+These functions take the trace over all gammas in the specified set
+`rls' or list `rll' of representation labels, or the single label `rl';
+gammas with other labels are left standing. The last argument to
+`dirac_trace()' is the value to be returned for the trace of the unity
+element, which defaults to 4.
+
+The `dirac_trace()' function is a linear functional that is equal to the
+ordinary matrix trace only in D = 4 dimensions. In particular, the
+functional is not cyclic in D != 4 dimensions when acting on
+expressions containing `gamma5', so it's not a proper trace. This
+`gamma5' scheme is described in greater detail in the article `The Role
+of gamma5 in Dimensional Regularization' (*Note Bibliography::).
+
+The value of the trace itself is also usually different in 4 and in D
+!= 4 dimensions:
+
+     {
+         // 4 dimensions
+         varidx mu(symbol("mu"), 4), nu(symbol("nu"), 4), rho(symbol("rho"), 4);
+         ex e = dirac_gamma(mu) * dirac_gamma(nu) *
+                dirac_gamma(mu.toggle_variance()) * dirac_gamma(rho);
+         cout << dirac_trace(e).simplify_indexed() << endl;
+          // -> -8*eta~rho~nu
+     }
+     ...
+     {
+         // D dimensions
+         symbol D("D");
+         varidx mu(symbol("mu"), D), nu(symbol("nu"), D), rho(symbol("rho"), D);
+         ex e = dirac_gamma(mu) * dirac_gamma(nu) *
+                dirac_gamma(mu.toggle_variance()) * dirac_gamma(rho);
+         cout << dirac_trace(e).simplify_indexed() << endl;
+          // -> 8*eta~rho~nu-4*eta~rho~nu*D
+     }
+
+Here is an example for using `dirac_trace()' to compute a value that
+appears in the calculation of the one-loop vacuum polarization
+amplitude in QED:
+
+     {
+         symbol q("q"), l("l"), m("m"), ldotq("ldotq"), D("D");
+         varidx mu(symbol("mu"), D), nu(symbol("nu"), D);
+     
+         scalar_products sp;
+         sp.add(l, l, pow(l, 2));
+         sp.add(l, q, ldotq);
+     
+         ex e = dirac_gamma(mu) *
+                (dirac_slash(l, D) + dirac_slash(q, D) + m * dirac_ONE()) *
+                dirac_gamma(mu.toggle_variance()) *
+                (dirac_slash(l, D) + m * dirac_ONE());
+         e = dirac_trace(e).simplify_indexed(sp);
+         e = e.collect(lst(l, ldotq, m));
+         cout << e << endl;
+          // -> (8-4*D)*l^2+(8-4*D)*ldotq+4*D*m^2
+     }
+
+The `canonicalize_clifford()' function reorders all gamma products that
+appear in an expression to a canonical (but not necessarily simple)
+form.  You can use this to compare two expressions or for further
+simplifications:
+
+     {
+         varidx mu(symbol("mu"), 4), nu(symbol("nu"), 4);
+         ex e = dirac_gamma(mu) * dirac_gamma(nu) + dirac_gamma(nu) * dirac_gamma(mu);
+         cout << e << endl;
+          // -> gamma~mu*gamma~nu+gamma~nu*gamma~mu
+     
+         e = canonicalize_clifford(e);
+         cout << e << endl;
+          // -> 2*ONE*eta~mu~nu
+     }
+
+A generic Clifford algebra
+..........................
+
+A generic Clifford algebra, i.e. a 2^n dimensional algebra with
+generators e_k satisfying the identities e~i e~j + e~j e~i = M(i, j) +
+M(j, i) for some bilinear form (`metric') M(i, j), which may be
+non-symmetric (see arXiv:math.QA/9911180) and contain symbolic entries.
+Such generators are created by the function
+
+         ex clifford_unit(const ex & mu, const ex & metr, unsigned char rl = 0);
+
+where `mu' should be a `idx' (or descendant) class object indexing the
+generators.  Parameter `metr' defines the metric M(i, j) and can be
+represented by a square `matrix', `tensormetric' or `indexed' class
+object. In fact, any expression either with two free indices or without
+indices at all is admitted as `metr'. In the later case an `indexed'
+object with two newly created indices with `metr' as its `op(0)' will
+be used.  Optional parameter `rl' allows to distinguish different
+Clifford algebras, which will commute with each other.
+
+Note that the call `clifford_unit(mu, minkmetric())' creates something
+very close to `dirac_gamma(mu)', although `dirac_gamma' have more
+efficient simplification mechanism.  The method
+`clifford::get_metric()' returns a metric defining this Clifford number.
+
+If the matrix M(i, j) is in fact symmetric you may prefer to create the
+Clifford algebra units with a call like that
+
+         ex e = clifford_unit(mu, indexed(M, sy_symm(), i, j));
+
+since this may yield some further automatic simplifications. Again, for
+a metric defined through a `matrix' such a symmetry is detected
+automatically.
+
+Individual generators of a Clifford algebra can be accessed in several
+ways. For example
+
+     {
+         ...
+         idx i(symbol("i"), 4);
+         realsymbol s("s");
+         ex M = diag_matrix(lst(1, -1, 0, s));
+         ex e = clifford_unit(i, M);
+         ex e0 = e.subs(i == 0);
+         ex e1 = e.subs(i == 1);
+         ex e2 = e.subs(i == 2);
+         ex e3 = e.subs(i == 3);
+         ...
+     }
+
+will produce four anti-commuting generators of a Clifford algebra with
+properties `pow(e0, 2) = 1', `pow(e1, 2) = -1', `pow(e2, 2) = 0' and
+`pow(e3, 2) = s'.
+
+A similar effect can be achieved from the function
+
+         ex lst_to_clifford(const ex & v, const ex & mu,  const ex & metr,
+                            unsigned char rl = 0);
+         ex lst_to_clifford(const ex & v, const ex & e);
+
+which converts a list or vector `v = (v~0, v~1, ..., v~n)' into the
+Clifford number `v~0 e.0 + v~1 e.1 + ... + v~n e.n' with `e.k' directly
+supplied in the second form of the procedure. In the first form the
+Clifford unit `e.k' is generated by the call of `clifford_unit(mu,
+metr, rl)'.  If the number of components supplied by `v' exceeds the
+dimensionality of the Clifford unit `e' by 1 then function
+`lst_to_clifford()' uses the following pseudo-vector representation:
+`v~0 ONE + v~1 e.0 + v~2 e.1 + ... + v~[n+1] e.n'
+
+The previous code may be rewritten with the help of `lst_to_clifford()'
+as follows
+
+     {
+         ...
+         idx i(symbol("i"), 4);
+         realsymbol s("s");
+         ex M = diag_matrix(lst(1, -1, 0, s));
+         ex e0 = lst_to_clifford(lst(1, 0, 0, 0), i, M);
+         ex e1 = lst_to_clifford(lst(0, 1, 0, 0), i, M);
+         ex e2 = lst_to_clifford(lst(0, 0, 1, 0), i, M);
+         ex e3 = lst_to_clifford(lst(0, 0, 0, 1), i, M);
+       ...
+     }
+
+There is the inverse function
+
+         lst clifford_to_lst(const ex & e, const ex & c, bool algebraic = true);
+
+which takes an expression `e' and tries to find a list `v = (v~0, v~1,
+..., v~n)' such that the expression is either vector `e = v~0 c.0 + v~1
+c.1 + ... + v~n c.n' or pseudo-vector `v~0 ONE + v~1 e.0 + v~2 e.1 +
+... + v~[n+1] e.n' with respect to the given Clifford units `c'. Here
+none of the `v~k' should contain Clifford units `c' (of course, this
+may be impossible). This function can use an `algebraic' method
+(default) or a symbolic one. With the `algebraic' method the `v~k' are
+calculated as `(e c.k + c.k e)/pow(c.k, 2)'.   If `pow(c.k, 2)' is zero
+or is not `numeric' for some `k' then the method will be automatically
+changed to symbolic. The same effect is obtained by the assignment
+(`algebraic = false') in the procedure call.
+
+There are several functions for (anti-)automorphisms of Clifford
+algebras:
+
+         ex clifford_prime(const ex & e)
+         inline ex clifford_star(const ex & e) { return e.conjugate(); }
+         inline ex clifford_bar(const ex & e) { return clifford_prime(e.conjugate()); }
+
+The automorphism of a Clifford algebra `clifford_prime()' simply
+changes signs of all Clifford units in the expression. The reversion of
+a Clifford algebra `clifford_star()' coincides with the `conjugate()'
+method and effectively reverses the order of Clifford units in any
+product. Finally the main anti-automorphism of a Clifford algebra
+`clifford_bar()' is the composition of the previous two, i.e. it makes
+the reversion and changes signs of all Clifford units in a product.
+These functions correspond to the notations e', e* and `\bar{e}' used
+in Clifford algebra textbooks.
+
+The function
+
+         ex clifford_norm(const ex & e);
+
+calculates the norm of a Clifford number from the expression `||e||^2 =
+e \bar{e}'  The inverse of a Clifford expression is returned by the
+function
+
+         ex clifford_inverse(const ex & e);
+
+which calculates it as e^{-1} = \bar{e}/||e||^2  If ||e||=0 then an
+exception is raised.
+
+If a Clifford number happens to be a factor of `dirac_ONE()' then we
+can convert it to a "real" (non-Clifford) expression by the function
+
+         ex remove_dirac_ONE(const ex & e);
+
+The function `canonicalize_clifford()' works for a generic Clifford
+algebra in a similar way as for Dirac gammas.
+
+The next provided function is
+
+         ex clifford_moebius_map(const ex & a, const ex & b, const ex & c,
+                                 const ex & d, const ex & v, const ex & G,
+                                 unsigned char rl = 0);
+         ex clifford_moebius_map(const ex & M, const ex & v, const ex & G,
+                                 unsigned char rl = 0);
+
+It takes a list or vector `v' and makes the Moebius (conformal or
+linear-fractional) transformation `v -> (av+b)/(cv+d)' defined by the
+matrix `M = [[a, b], [c, d]]'. The parameter `G' defines the metric of
+the surrounding (pseudo-)Euclidean space. This can be an indexed
+object, tensormetric, matrix or a Clifford unit, in the later case the
+optional parameter `rl' is ignored even if supplied.  Depending from
+the type of `v' the returned value of this function is either a vector
+or a list holding vector's components.
+
+Finally the function
+
+     char clifford_max_label(const ex & e, bool ignore_ONE = false);
+
+can detect a presence of Clifford objects in the expression `e': if
+such objects are found it returns the maximal `representation_label' of
+them, otherwise `-1'. The optional parameter `ignore_ONE' indicates if
+`dirac_ONE' objects should be ignored during the search.
+
+LaTeX output for Clifford units looks like `\clifford[1]{e}^{{\nu}}',
+where `1' is the `representation_label' and `\nu' is the index of the
+corresponding unit. This provides a flexible typesetting with a suitable
+definition of the `\clifford' command. For example, the definition
+         \newcommand{\clifford}[1][]{}
+typesets all Clifford units identically, while the alternative
+definition
+         \newcommand{\clifford}[2][]{\ifcase #1 #2\or \tilde{#2} \or \breve{#2} \fi}
+prints units with `representation_label=0' as `e', with
+`representation_label=1' as `\tilde{e}'  and with
+`representation_label=2' as `\breve{e}'.
+
+Color algebra
+-------------
+
+For computations in quantum chromodynamics, GiNaC implements the base
+elements and structure constants of the su(3) Lie algebra (color
+algebra). The base elements T_a are constructed by the function
+
+     ex color_T(const ex & a, unsigned char rl = 0);
+
+which takes two arguments: the index and a "representation label" in the
+range 0 to 255 which is used to distinguish elements of different color
+algebras. Objects with different labels commutate with each other. The
+dimension of the index must be exactly 8 and it should be of class
+`idx', not `varidx'.
+
+The unity element of a color algebra is constructed by
+
+     ex color_ONE(unsigned char rl = 0);
+
+*Please notice:* You must always use `color_ONE()' when referring to
+multiples of the unity element, even though it's customary to omit it.
+E.g. instead of `color_T(a)*(color_T(b)*indexed(X,b)+1)' you have to
+write `color_T(a)*(color_T(b)*indexed(X,b)+color_ONE())'. Otherwise,
+GiNaC may produce incorrect results.
+
+The functions
+
+     ex color_d(const ex & a, const ex & b, const ex & c);
+     ex color_f(const ex & a, const ex & b, const ex & c);
+
+create the symmetric and antisymmetric structure constants d_abc and
+f_abc which satisfy {T_a, T_b} = 1/3 delta_ab + d_abc T_c and [T_a,
+T_b] = i f_abc T_c.
+
+These functions evaluate to their numerical values, if you supply
+numeric indices to them. The index values should be in the range from 1
+to 8, not from 0 to 7. This departure from usual conventions goes along
+better with the notations used in physical literature.
+
+There's an additional function
+
+     ex color_h(const ex & a, const ex & b, const ex & c);
+
+which returns the linear combination `color_d(a, b, c)+I*color_f(a, b,
+c)'.
+
+The function `simplify_indexed()' performs some simplifications on
+expressions containing color objects:
+
+     {
+         ...
+         idx a(symbol("a"), 8), b(symbol("b"), 8), c(symbol("c"), 8),
+             k(symbol("k"), 8), l(symbol("l"), 8);
+     
+         e = color_d(a, b, l) * color_f(a, b, k);
+         cout << e.simplify_indexed() << endl;
+          // -> 0
+     
+         e = color_d(a, b, l) * color_d(a, b, k);
+         cout << e.simplify_indexed() << endl;
+          // -> 5/3*delta.k.l
+     
+         e = color_f(l, a, b) * color_f(a, b, k);
+         cout << e.simplify_indexed() << endl;
+          // -> 3*delta.k.l
+     
+         e = color_h(a, b, c) * color_h(a, b, c);
+         cout << e.simplify_indexed() << endl;
+          // -> -32/3
+     
+         e = color_h(a, b, c) * color_T(b) * color_T(c);
+         cout << e.simplify_indexed() << endl;
+          // -> -2/3*T.a
+     
+         e = color_h(a, b, c) * color_T(a) * color_T(b) * color_T(c);
+         cout << e.simplify_indexed() << endl;
+          // -> -8/9*ONE
+     
+         e = color_T(k) * color_T(a) * color_T(b) * color_T(k);
+         cout << e.simplify_indexed() << endl;
+          // -> 1/4*delta.b.a*ONE-1/6*T.a*T.b
+         ...
+
+To calculate the trace of an expression containing color objects you
+use one of the functions
+
+     ex color_trace(const ex & e, const std::set<unsigned char> & rls);
+     ex color_trace(const ex & e, const lst & rll);
+     ex color_trace(const ex & e, unsigned char rl = 0);
+
+These functions take the trace over all color `T' objects in the
+specified set `rls' or list `rll' of representation labels, or the
+single label `rl'; `T's with other labels are left standing. For
+example:
+
+         ...
+         e = color_trace(4 * color_T(a) * color_T(b) * color_T(c));
+         cout << e << endl;
+          // -> -I*f.a.c.b+d.a.c.b
+     }
+
+
+File: ginac.info,  Node: Hash maps,  Next: Methods and functions,  Prev: Non-commutative objects,  Up: Basic concepts
+
+Hash Maps
+=========
+
+For your convenience, GiNaC offers the container template `exhashmap<T>'
+that can be used as a drop-in replacement for the STL `std::map<ex, T,
+ex_is_less>', using hash tables to provide faster, typically
+constant-time, element look-up than `map<>'.
+
+`exhashmap<>' supports all `map<>' members and operations, with the
+following differences:
+
+   * no `lower_bound()' and `upper_bound()' methods
+
+   * no reverse iterators, no `rbegin()'/`rend()'
+
+   * no `operator<(exhashmap, exhashmap)'
+
+   * the comparison function object `key_compare' is hardcoded to
+     `ex_is_less'
+
+   * the constructor `exhashmap(size_t n)' allows specifying the minimum
+     initial hash table size (the actual table size after construction
+     may be larger than the specified value)
+
+   * the method `size_t bucket_count()' returns the current size of the
+     hash table
+
+   * `insert()' and `erase()' operations invalidate all iterators
+
+
+File: ginac.info,  Node: Methods and functions,  Next: Information about expressions,  Prev: Hash maps,  Up: Top
+
+Methods and functions
+*********************
+
+In this chapter the most important algorithms provided by GiNaC will be
+described.  Some of them are implemented as functions on expressions,
+others are implemented as methods provided by expression objects.  If
+they are methods, there exists a wrapper function around it, so you can
+alternatively call it in a functional way as shown in the simple
+example:
+
+         ...
+         cout << "As method:   " << sin(1).evalf() << endl;
+         cout << "As function: " << evalf(sin(1)) << endl;
+         ...
+
+The general rule is that wherever methods accept one or more parameters
+(ARG1, ARG2, ...) the order of arguments the function wrapper accepts
+is the same but preceded by the object to act on (OBJECT, ARG1, ARG2,
+...).  This approach is the most natural one in an OO model but it may
+lead to confusion for MapleV users because where they would type
+`A:=x+1; subs(x=2,A);' GiNaC would require `A=x+1; subs(A,x==2);'
+(after proper declaration of `A' and `x').  On the other hand, since
+MapleV returns 3 on `A:=x^2+3; coeff(A,x,0);' (GiNaC: `A=pow(x,2)+3;
+coeff(A,x,0);') it is clear that MapleV is not trying to be consistent
+here.  Also, users of MuPAD will in most cases feel more comfortable
+with GiNaC's convention.  All function wrappers are implemented as
+simple inline functions which just call the corresponding method and
+are only provided for users uncomfortable with OO who are dead set to
+avoid method invocations.  Generally, nested function wrappers are much
+harder to read than a sequence of methods and should therefore be
+avoided if possible.  On the other hand, not everything in GiNaC is a
+method on class `ex' and sometimes calling a function cannot be avoided.
+
+* Menu:
+
+* Information about expressions::
+* Numerical evaluation::
+* Substituting expressions::
+* Pattern matching and advanced substitutions::
+* Applying a function on subexpressions::
+* Visitors and tree traversal::
+* Polynomial arithmetic::           Working with polynomials.
+* Rational expressions::            Working with rational functions.
+* Symbolic differentiation::
+* Series expansion::                Taylor and Laurent expansion.
+* Symmetrization::
+* Built-in functions::              List of predefined mathematical functions.
+* Multiple polylogarithms::
+* Complex expressions::
+* Solving linear systems of equations::
+* Input/output::                    Input and output of expressions.
+
+
+File: ginac.info,  Node: Information about expressions,  Next: Numerical evaluation,  Prev: Methods and functions,  Up: Methods and functions
+
+Getting information about expressions
+=====================================
+
+Checking expression types
+-------------------------
+
+Sometimes it's useful to check whether a given expression is a plain
+number, a sum, a polynomial with integer coefficients, or of some other
+specific type.  GiNaC provides a couple of functions for this:
+
+     bool is_a<T>(const ex & e);
+     bool is_exactly_a<T>(const ex & e);
+     bool ex::info(unsigned flag);
+     unsigned ex::return_type() const;
+     unsigned ex::return_type_tinfo() const;
+
+When the test made by `is_a<T>()' returns true, it is safe to call one
+of the functions `ex_to<T>()', where `T' is one of the class names
+(*Note The class hierarchy::, for a list of all classes). For example,
+assuming `e' is an `ex':
+
+     {
+         ...
+         if (is_a<numeric>(e))
+             numeric n = ex_to<numeric>(e);
+         ...
+     }
+
+`is_a<T>(e)' allows you to check whether the top-level object of an
+expression `e' is an instance of the GiNaC class `T' (*Note The class
+hierarchy::, for a list of all classes). This is most useful, e.g., for
+checking whether an expression is a number, a sum, or a product:
+
+     {
+         symbol x("x");
+         ex e1 = 42;
+         ex e2 = 4*x - 3;
+         is_a<numeric>(e1);  // true
+         is_a<numeric>(e2);  // false
+         is_a<add>(e1);      // false
+         is_a<add>(e2);      // true
+         is_a<mul>(e1);      // false
+         is_a<mul>(e2);      // false
+     }
+
+In contrast, `is_exactly_a<T>(e)' allows you to check whether the
+top-level object of an expression `e' is an instance of the GiNaC class
+`T', not including parent classes.
+
+The `info()' method is used for checking certain attributes of
+expressions. The possible values for the `flag' argument are defined in
+`ginac/flags.h', the most important being explained in the following
+table:
+
+*Flag*                 *Returns true if the object is...*
+`numeric'              ...a number (same as `is_a<numeric>(...)')
+`real'                 ...a real number, symbol or constant (i.e. is not
+                       complex)
+`rational'             ...an exact rational number (integers are
+                       rational, too)
+`integer'              ...a (non-complex) integer
+`crational'            ...an exact (complex) rational number (such as
+                       2/3+7/2*I)
+`cinteger'             ...a (complex) integer (such as 2-3*I)
+`positive'             ...not complex and greater than 0
+`negative'             ...not complex and less than 0
+`nonnegative'          ...not complex and greater than or equal to 0
+`posint'               ...an integer greater than 0
+`negint'               ...an integer less than 0
+`nonnegint'            ...an integer greater than or equal to 0
+`even'                 ...an even integer
+`odd'                  ...an odd integer
+`prime'                ...a prime integer (probabilistic primality test)
+`relation'             ...a relation (same as `is_a<relational>(...)')
+`relation_equal'       ...a `==' relation
+`relation_not_equal'   ...a `!=' relation
+`relation_less'        ...a `<' relation
+`relation_less_or_equal'...a `<=' relation
+`relation_greater'     ...a `>' relation
+`relation_greater_or_equal'...a `>=' relation
+`symbol'               ...a symbol (same as `is_a<symbol>(...)')
+`list'                 ...a list (same as `is_a<lst>(...)')
+`polynomial'           ...a polynomial (i.e. only consists of sums and
+                       products of numbers and symbols with positive
+                       integer powers)
+`integer_polynomial'   ...a polynomial with (non-complex) integer
+                       coefficients
+`cinteger_polynomial'  ...a polynomial with (possibly complex) integer
+                       coefficients (such as 2-3*I)
+`rational_polynomial'  ...a polynomial with (non-complex) rational
+                       coefficients
+`crational_polynomial' ...a polynomial with (possibly complex) rational
+                       coefficients (such as 2/3+7/2*I)
+`rational_function'    ...a rational function (x+y, z/(x+y))
+`algebraic'            ...an algebraic object (sqrt(2), sqrt(x)-1)
+
+To determine whether an expression is commutative or non-commutative
+and if so, with which other expressions it would commutate, you use the
+methods `return_type()' and `return_type_tinfo()'. *Note
+Non-commutative objects::, for an explanation of these.
+
+Accessing subexpressions
+------------------------
+
+Many GiNaC classes, like `add', `mul', `lst', and `function', act as
+containers for subexpressions. For example, the subexpressions of a sum
+(an `add' object) are the individual terms, and the subexpressions of a
+`function' are the function's arguments.
+
+GiNaC provides several ways of accessing subexpressions. The first way
+is to use the two methods
+
+     size_t ex::nops();
+     ex ex::op(size_t i);
+
+`nops()' determines the number of subexpressions (operands) contained
+in the expression, while `op(i)' returns the `i'-th (0..`nops()-1')
+subexpression. In the case of a `power' object, `op(0)' will return the
+basis and `op(1)' the exponent. For `indexed' objects, `op(0)' is the
+base expression and `op(i)', i>0 are the indices.
+
+The second way to access subexpressions is via the STL-style
+random-access iterator class `const_iterator' and the methods
+
+     const_iterator ex::begin();
+     const_iterator ex::end();
+
+`begin()' returns an iterator referring to the first subexpression;
+`end()' returns an iterator which is one-past the last subexpression.
+If the expression has no subexpressions, then `begin() == end()'. These
+iterators can also be used in conjunction with non-modifying STL
+algorithms.
+
+Here is an example that (non-recursively) prints the subexpressions of a
+given expression in three different ways:
+
+     {
+         ex e = ...
+     
+         // with nops()/op()
+         for (size_t i = 0; i != e.nops(); ++i)
+             cout << e.op(i) << endl;
+     
+         // with iterators
+         for (const_iterator i = e.begin(); i != e.end(); ++i)
+             cout << *i << endl;
+     
+         // with iterators and STL copy()
+         std::copy(e.begin(), e.end(), std::ostream_iterator<ex>(cout, "\n"));
+     }
+
+`op()'/`nops()' and `const_iterator' only access an expression's
+immediate children. GiNaC provides two additional iterator classes,
+`const_preorder_iterator' and `const_postorder_iterator', that iterate
+over all objects in an expression tree, in preorder or postorder,
+respectively. They are STL-style forward iterators, and are created
+with the methods
+
+     const_preorder_iterator ex::preorder_begin();
+     const_preorder_iterator ex::preorder_end();
+     const_postorder_iterator ex::postorder_begin();
+     const_postorder_iterator ex::postorder_end();
+
+The following example illustrates the differences between
+`const_iterator', `const_preorder_iterator', and
+`const_postorder_iterator':
+
+     {
+         symbol A("A"), B("B"), C("C");
+         ex e = lst(lst(A, B), C);
+     
+         std::copy(e.begin(), e.end(),
+                   std::ostream_iterator<ex>(cout, "\n"));
+         // {A,B}
+         // C
+     
+         std::copy(e.preorder_begin(), e.preorder_end(),
+                   std::ostream_iterator<ex>(cout, "\n"));
+         // {{A,B},C}
+         // {A,B}
+         // A
+         // B
+         // C
+     
+         std::copy(e.postorder_begin(), e.postorder_end(),
+                   std::ostream_iterator<ex>(cout, "\n"));
+         // A
+         // B
+         // {A,B}
+         // C
+         // {{A,B},C}
+     }
+
+Finally, the left-hand side and right-hand side expressions of objects
+of class `relational' (and only of these) can also be accessed with the
+methods
+
+     ex ex::lhs();
+     ex ex::rhs();
+
+Comparing expressions
+---------------------
+
+Expressions can be compared with the usual C++ relational operators like
+`==', `>', and `<' but if the expressions contain symbols, the result
+is usually not determinable and the result will be `false', except in
+the case of the `!=' operator. You should also be aware that GiNaC will
+only do the most trivial test for equality (subtracting both
+expressions), so something like `(pow(x,2)+x)/x==x+1' will return
+`false'.
+
+Actually, if you construct an expression like `a == b', this will be
+represented by an object of the `relational' class (*note Relations::)
+which is not evaluated until (explicitly or implicitly) cast to a
+`bool'.
+
+There are also two methods
+
+     bool ex::is_equal(const ex & other);
+     bool ex::is_zero();
+
+for checking whether one expression is equal to another, or equal to
+zero, respectively. See also the method `ex::is_zero_matrix()', *note
+Matrices::.
+
+Ordering expressions
+--------------------
+
+Sometimes it is necessary to establish a mathematically well-defined
+ordering on a set of arbitrary expressions, for example to use
+expressions as keys in a `std::map<>' container, or to bring a vector
+of expressions into a canonical order (which is done internally by
+GiNaC for sums and products).
+
+The operators `<', `>' etc. described in the last section cannot be
+used for this, as they don't implement an ordering relation in the
+mathematical sense. In particular, they are not guaranteed to be
+antisymmetric: if `a' and `b' are different expressions, and `a < b'
+yields `false', then `b < a' doesn't necessarily yield `true'.
+
+By default, STL classes and algorithms use the `<' and `==' operators
+to compare objects, which are unsuitable for expressions, but GiNaC
+provides two functors that can be supplied as proper binary comparison
+predicates to the STL:
+
+     class ex_is_less : public std::binary_function<ex, ex, bool> {
+     public:
+         bool operator()(const ex &lh, const ex &rh) const;
+     };
+     
+     class ex_is_equal : public std::binary_function<ex, ex, bool> {
+     public:
+         bool operator()(const ex &lh, const ex &rh) const;
+     };
+
+For example, to define a `map' that maps expressions to strings you
+have to use
+
+     std::map<ex, std::string, ex_is_less> myMap;
+
+Omitting the `ex_is_less' template parameter will introduce spurious
+bugs because the map operates improperly.
+
+Other examples for the use of the functors:
+
+     std::vector<ex> v;
+     // fill vector
+     ...
+     
+     // sort vector
+     std::sort(v.begin(), v.end(), ex_is_less());
+     
+     // count the number of expressions equal to '1'
+     unsigned num_ones = std::count_if(v.begin(), v.end(),
+                                       std::bind2nd(ex_is_equal(), 1));
+
+The implementation of `ex_is_less' uses the member function
+
+     int ex::compare(const ex & other) const;
+
+which returns 0 if `*this' and `other' are equal, -1 if `*this' sorts
+before `other', and 1 if `*this' sorts after `other'.
+
+
+File: ginac.info,  Node: Numerical evaluation,  Next: Substituting expressions,  Prev: Information about expressions,  Up: Methods and functions
+
+Numerical evaluation
+====================
+
+GiNaC keeps algebraic expressions, numbers and constants in their exact
+form.  To evaluate them using floating-point arithmetic you need to call
+
+     ex ex::evalf(int level = 0) const;
+
+The accuracy of the evaluation is controlled by the global object
+`Digits' which can be assigned an integer value. The default value of
+`Digits' is 17. *Note Numbers::, for more information and examples.
+
+To evaluate an expression to a `double' floating-point number you can
+call `evalf()' followed by `numeric::to_double()', like this:
+
+     {
+         // Approximate sin(x/Pi)
+         symbol x("x");
+         ex e = series(sin(x/Pi), x == 0, 6);
+     
+         // Evaluate numerically at x=0.1
+         ex f = evalf(e.subs(x == 0.1));
+     
+         // ex_to<numeric> is an unsafe cast, so check the type first
+         if (is_a<numeric>(f)) {
+             double d = ex_to<numeric>(f).to_double();
+             cout << d << endl;
+              // -> 0.0318256
+         } else
+             // error
+     }
+
+
+File: ginac.info,  Node: Substituting expressions,  Next: Pattern matching and advanced substitutions,  Prev: Numerical evaluation,  Up: Methods and functions
+
+Substituting expressions
+========================
+
+Algebraic objects inside expressions can be replaced with arbitrary
+expressions via the `.subs()' method:
+
+     ex ex::subs(const ex & e, unsigned options = 0);
+     ex ex::subs(const exmap & m, unsigned options = 0);
+     ex ex::subs(const lst & syms, const lst & repls, unsigned options = 0);
+
+In the first form, `subs()' accepts a relational of the form `object ==
+expression' or a `lst' of such relationals:
+
+     {
+         symbol x("x"), y("y");
+     
+         ex e1 = 2*x^2-4*x+3;
+         cout << "e1(7) = " << e1.subs(x == 7) << endl;
+          // -> 73
+     
+         ex e2 = x*y + x;
+         cout << "e2(-2, 4) = " << e2.subs(lst(x == -2, y == 4)) << endl;
+          // -> -10
+     }
+
+If you specify multiple substitutions, they are performed in parallel,
+so e.g.  `subs(lst(x == y, y == x))' exchanges `x' and `y'.
+
+The second form of `subs()' takes an `exmap' object which is a pair
+associative container that maps expressions to expressions (currently
+implemented as a `std::map'). This is the most efficient one of the
+three `subs()' forms and should be used when the number of objects to
+be substituted is large or unknown.
+
+Using this form, the second example from above would look like this:
+
+     {
+         symbol x("x"), y("y");
+         ex e2 = x*y + x;
+     
+         exmap m;
+         m[x] = -2;
+         m[y] = 4;
+         cout << "e2(-2, 4) = " << e2.subs(m) << endl;
+     }
+
+The third form of `subs()' takes two lists, one for the objects to be
+replaced and one for the expressions to be substituted (both lists must
+contain the same number of elements). Using this form, you would write
+
+     {
+         symbol x("x"), y("y");
+         ex e2 = x*y + x;
+     
+         cout << "e2(-2, 4) = " << e2.subs(lst(x, y), lst(-2, 4)) << endl;
+     }
+
+The optional last argument to `subs()' is a combination of
+`subs_options' flags. There are three options available:
+`subs_options::no_pattern' disables pattern matching, which makes large
+`subs()' operations significantly faster if you are not using patterns.
+The second option, `subs_options::algebraic' enables algebraic
+substitutions in products and powers.  *Note Pattern matching and
+advanced substitutions::, for more information about patterns and
+algebraic substitutions. The third option,
+`subs_options::no_index_renaming' disables the feature that dummy
+indices are renamed if the substitution could give a result in which a
+dummy index occurs more than two times. This is sometimes necessary if
+you want to use `subs()' to rename your dummy indices.
+
+`subs()' performs syntactic substitution of any complete algebraic
+object; it does not try to match sub-expressions as is demonstrated by
+the following example:
+
+     {
+         symbol x("x"), y("y"), z("z");
+     
+         ex e1 = pow(x+y, 2);
+         cout << e1.subs(x+y == 4) << endl;
+          // -> 16
+     
+         ex e2 = sin(x)*sin(y)*cos(x);
+         cout << e2.subs(sin(x) == cos(x)) << endl;
+          // -> cos(x)^2*sin(y)
+     
+         ex e3 = x+y+z;
+         cout << e3.subs(x+y == 4) << endl;
+          // -> x+y+z
+          // (and not 4+z as one might expect)
+     }
+
+A more powerful form of substitution using wildcards is described in the
+next section.
+

@@ -1,0 +1,1045 @@
+This is ginac.info, produced by makeinfo version 4.5 from
+/user/jensv/ginac/ginac/doc/tutorial/ginac.texi.
+
+INFO-DIR-SECTION Mathematics
+START-INFO-DIR-ENTRY
+* ginac: (ginac).                   C++ library for symbolic computation.
+END-INFO-DIR-ENTRY
+
+This is a tutorial that documents GiNaC 1.4.3, an open framework for
+symbolic computation within the C++ programming language.
+
+Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+
+Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+
+File: ginac.info,  Node: Multiple polylogarithms,  Next: Complex expressions,  Prev: Built-in functions,  Up: Methods and functions
+
+Multiple polylogarithms
+-----------------------
+
+The multiple polylogarithm is the most generic member of a family of
+functions, to which others like the harmonic polylogarithm, Nielsen's
+generalized polylogarithm and the multiple zeta value belong.  Everyone
+of these functions can also be written as a multiple polylogarithm with
+specific parameters. This whole family of functions is therefore often
+referred to simply as multiple polylogarithms, containing `Li', `G',
+`H', `S' and `zeta'.  The multiple polylogarithm itself comes in two
+variants: `Li' and `G'. While `Li' and `G' in principle represent the
+same function, the different notations are more natural to the series
+representation or the integral representation, respectively.
+
+To facilitate the discussion of these functions we distinguish between
+indices and arguments as parameters. In the table above indices are
+printed as `m', `s', `n' or `p', whereas arguments are printed as `x',
+`a' and `y'.
+
+To define a `Li', `H' or `zeta' with a depth greater than one, you have
+to pass a GiNaC `lst' for the indices `m' and `s', and in the case of
+`Li' for the argument `x' as well. The parameter `a' of `G' must always
+be a `lst' containing the arguments in expanded form. If `G' is used
+with a third parameter `s', `s' must have the same length as `a'. It
+contains then the signs of the imaginary parts of the arguments. If `s'
+is not given, the signs default to +1.  Note that `Li' and `zeta' are
+polymorphic in this respect. They can stand in for the classical
+polylogarithm and Riemann's zeta function (if depth is one), as well as
+for the multiple polylogarithm and the multiple zeta value,
+respectively. Note also, that GiNaC doesn't check whether the `lst's
+for two parameters do have the same length.  It is up to the user to
+ensure this, otherwise evaluating will result in undefined behavior.
+
+The functions print in LaTeX format as
+`\mbox{Li}_{m_1,m_2,...,m_k}(x_1,x_2,...,x_k)', `\mbox{S}_{n,p}(x)',
+`\mbox{H}_{m_1,m_2,...,m_k}(x)' and `\zeta(m_1,m_2,...,m_k)' (with the
+dots replaced by actual parameters).  If `zeta' is an alternating zeta
+sum, i.e. `zeta(m,s)', the indices with negative sign are printed with
+a line above, e.g.  `\zeta(5,\overline{2})'.  The order of indices and
+arguments in the GiNaC `lst's and in the output is the same.
+
+Definitions and analytical as well as numerical properties of multiple
+polylogarithms are too numerous to be covered here. Instead, the user
+is referred to the publications listed at the end of this section. The
+implementation in GiNaC adheres to the definitions and conventions
+therein, except for a few differences which will be explicitly stated
+in the following.
+
+One difference is about the order of the indices and arguments. For
+GiNaC we adopt the convention that the indices and arguments are
+understood to be in the same order as in which they appear in the
+series representation. This means `Li_{m_1,m_2,m_3}(x,1,1) =
+H_{m_1,m_2,m_3}(x)' and `Li_{2,1}(1,1) = zeta(2,1) = zeta(3)', but
+`zeta(1,2)' evaluates to infinity.  So in comparison to the older ones
+of the referenced publications the order of indices and arguments for
+`Li' is reversed.
+
+The functions only evaluate if the indices are integers greater than
+zero, except for the indices `s' in `zeta' and `G' as well as `m' in
+`H'. Since `s' will be interpreted as the sequence of signs for the
+corresponding indices `m' or the sign of the imaginary part for the
+corresponding arguments `a', it must contain 1 or -1, e.g.
+`zeta(lst(3,4), lst(-1,1))' means `zeta(\overline{3},4)' and
+`G(lst(a,b), lst(-1,1), c)' means `G(a-0\epsilon,b+0\epsilon;c)'.  The
+definition of `H' allows indices to be 0, 1 or -1 (in expanded
+notation) or equally to be any integer (in compact notation). With
+GiNaC expanded and compact notation can be mixed, e.g.
+`lst(0,0,-1,0,1,0,0)', `lst(0,0,-1,2,0,0)' and `lst(-3,2,0,0)' are
+equivalent as indices. The anonymous evaluator `eval()' tries to reduce
+the functions, if possible, to the least-generic multiple
+polylogarithm. If all arguments are unit, it returns `zeta'.  Arguments
+equal to zero get considered, too. Riemann's zeta function `zeta' (with
+depth one) evaluates also for negative integers and positive even
+integers. For example:
+
+     > Li({3,1},{x,1});
+     S(2,2,x)
+     > H({-3,2},1);
+     -zeta({3,2},{-1,-1})
+     > S(3,1,1);
+     1/90*Pi^4
+
+It is easy to tell for a given function into which other function it
+can be rewritten, may it be a less-generic or a more-generic one,
+except for harmonic polylogarithms `H' with negative indices or
+trailing zeros (the example above gives a hint). Signs can quickly be
+messed up, for example. Therefore GiNaC offers a C++ function
+`convert_H_to_Li()' to deal with the upgrade of a `H' to a multiple
+polylogarithm `Li' (`eval()' already cares for the possible downgrade):
+
+     > convert_H_to_Li({0,-2,-1,3},x);
+     Li({3,1,3},{-x,1,-1})
+     > convert_H_to_Li({2,-1,0},x);
+     -Li({2,1},{x,-1})*log(x)+2*Li({3,1},{x,-1})+Li({2,2},{x,-1})
+
+Every function can be numerically evaluated for arbitrary real or
+complex arguments. The precision is arbitrary and can be set through the
+global variable `Digits':
+
+     > Digits=100;
+     100
+     > evalf(zeta({3,1,3,1}));
+     0.005229569563530960100930652283899231589890420784634635522547448972148869544...
+
+Note that the convention for arguments on the branch cut in GiNaC as
+stated above is different from the one Remiddi and Vermaseren have
+chosen for the harmonic polylogarithm.
+
+If a function evaluates to infinity, no exceptions are raised, but the
+function is returned unevaluated, e.g.  `zeta(1)'.  In long expressions
+this helps a lot with debugging, because you can easily spot the
+divergencies. But on the other hand, you have to make sure for
+yourself, that no illegal cancellations of divergencies happen.
+
+Useful publications:
+
+`Nested Sums, Expansion of Transcendental Functions and Multi-Scale
+Multi-Loop Integrals', S.Moch, P.Uwer, S.Weinzierl, hep-ph/0110083
+
+`Harmonic Polylogarithms', E.Remiddi, J.A.M.Vermaseren, Int.J.Mod.Phys.
+A15 (2000), pp. 725-754
+
+`Special Values of Multiple Polylogarithms', J.Borwein, D.Bradley,
+D.Broadhurst, P.Lisonek, Trans.Amer.Math.Soc. 353/3 (2001), pp. 907-941
+
+`Numerical Evaluation of Multiple Polylogarithms', J.Vollinga,
+S.Weinzierl, hep-ph/0410259
+
+
+File: ginac.info,  Node: Complex expressions,  Next: Solving linear systems of equations,  Prev: Multiple polylogarithms,  Up: Methods and functions
+
+Complex expressions
+===================
+
+For dealing with complex expressions there are the methods
+
+     ex ex::conjugate();
+     ex ex::real_part();
+     ex ex::imag_part();
+
+that return respectively the complex conjugate, the real part and the
+imaginary part of an expression. Complex conjugation works as expected
+for all built-in functions and objects. Taking real and imaginary parts
+has not yet been implemented for all built-in functions. In cases where
+it is not known how to conjugate or take a real/imaginary part one of
+the functions `conjugate', `real_part' or `imag_part' is returned. For
+instance, in case of a complex symbol `x' (symbols are complex by
+default), one could not simplify `conjugate(x)'. In the case of strings
+of gamma matrices, the `conjugate' method takes the Dirac conjugate.
+
+For example,
+     {
+         varidx a(symbol("a"), 4), b(symbol("b"), 4);
+         symbol x("x");
+         realsymbol y("y");
+     
+         cout << (3*I*x*y + sin(2*Pi*I*y)).conjugate() << endl;
+          // -> -3*I*conjugate(x)*y+sin(-2*I*Pi*y)
+         cout << (dirac_gamma(a)*dirac_gamma(b)*dirac_gamma5()).conjugate() << endl;
+          // -> -gamma5*gamma~b*gamma~a
+     }
+
+If you declare your own GiNaC functions, then they will conjugate
+themselves by conjugating their arguments. This is the default
+strategy. If you want to change this behavior, you have to supply a
+specialized conjugation method for your function (see *Note Symbolic
+functions:: and the GiNaC source-code for `abs' as an example). Also,
+specialized methods can be provided to take real and imaginary parts of
+user-defined functions.
+
+
+File: ginac.info,  Node: Solving linear systems of equations,  Next: Input/output,  Prev: Complex expressions,  Up: Methods and functions
+
+Solving linear systems of equations
+===================================
+
+The function `lsolve()' provides a convenient wrapper around some
+matrix operations that comes in handy when a system of linear equations
+needs to be solved:
+
+     ex lsolve(const ex & eqns, const ex & symbols,
+               unsigned options = solve_algo::automatic);
+
+Here, `eqns' is a `lst' of equalities (i.e. class `relational') while
+`symbols' is a `lst' of indeterminates.  (*Note The class hierarchy::,
+for an exposition of class `lst').
+
+It returns the `lst' of solutions as an expression.  As an example, let
+us solve the two equations `a*x+b*y==3' and `x-y==b':
+
+     {
+         symbol a("a"), b("b"), x("x"), y("y");
+         lst eqns, vars;
+         eqns = a*x+b*y==3, x-y==b;
+         vars = x, y;
+         cout << lsolve(eqns, vars) << endl;
+          // -> {x==(3+b^2)/(b+a),y==(3-b*a)/(b+a)}
+
+When the linear equations `eqns' are underdetermined, the solution will
+contain one or more tautological entries like `x==x', depending on the
+rank of the system.  When they are overdetermined, the solution will be
+an empty `lst'.  Note the third optional parameter to `lsolve()': it
+accepts the same parameters as `matrix::solve()'.  This is because
+`lsolve' is just a wrapper around that method.
+
+
+File: ginac.info,  Node: Input/output,  Next: Extending GiNaC,  Prev: Solving linear systems of equations,  Up: Methods and functions
+
+Input and output of expressions
+===============================
+
+Expression output
+-----------------
+
+Expressions can simply be written to any stream:
+
+     {
+         symbol x("x");
+         ex e = 4.5*I+pow(x,2)*3/2;
+         cout << e << endl;    // prints '4.5*I+3/2*x^2'
+         // ...
+
+The default output format is identical to the `ginsh' input syntax and
+to that used by most computer algebra systems, but not directly pastable
+into a GiNaC C++ program (note that in the above example, `pow(x,2)' is
+printed as `x^2').
+
+It is possible to print expressions in a number of different formats
+with a set of stream manipulators;
+
+     std::ostream & dflt(std::ostream & os);
+     std::ostream & latex(std::ostream & os);
+     std::ostream & tree(std::ostream & os);
+     std::ostream & csrc(std::ostream & os);
+     std::ostream & csrc_float(std::ostream & os);
+     std::ostream & csrc_double(std::ostream & os);
+     std::ostream & csrc_cl_N(std::ostream & os);
+     std::ostream & index_dimensions(std::ostream & os);
+     std::ostream & no_index_dimensions(std::ostream & os);
+
+The `tree', `latex' and `csrc' formats are also available in `ginsh'
+via the `print()', `print_latex()' and `print_csrc()' functions,
+respectively.
+
+All manipulators affect the stream state permanently. To reset the
+output format to the default, use the `dflt' manipulator:
+
+         // ...
+         cout << latex;            // all output to cout will be in LaTeX format from
+                                   // now on
+         cout << e << endl;        // prints '4.5 i+\frac{3}{2} x^{2}'
+         cout << sin(x/2) << endl; // prints '\sin(\frac{1}{2} x)'
+         cout << dflt;             // revert to default output format
+         cout << e << endl;        // prints '4.5*I+3/2*x^2'
+         // ...
+
+If you don't want to affect the format of the stream you're working
+with, you can output to a temporary `ostringstream' like this:
+
+         // ...
+         ostringstream s;
+         s << latex << e;         // format of cout remains unchanged
+         cout << s.str() << endl; // prints '4.5 i+\frac{3}{2} x^{2}'
+         // ...
+
+The `csrc' (an alias for `csrc_double'), `csrc_float', `csrc_double'
+and `csrc_cl_N' manipulators set the output to a format that can be
+directly used in a C or C++ program. The three possible formats select
+the data types used for numbers (`csrc_cl_N' uses the classes provided
+by the CLN library):
+
+         // ...
+         cout << "f = " << csrc_float << e << ";\n";
+         cout << "d = " << csrc_double << e << ";\n";
+         cout << "n = " << csrc_cl_N << e << ";\n";
+         // ...
+
+The above example will produce (note the `x^2' being converted to
+`x*x'):
+
+     f = (3.0/2.0)*(x*x)+std::complex<float>(0.0,4.5000000e+00);
+     d = (3.0/2.0)*(x*x)+std::complex<double>(0.0,4.5000000000000000e+00);
+     n = cln::cl_RA("3/2")*(x*x)+cln::complex(cln::cl_I("0"),cln::cl_F("4.5_17"));
+
+The `tree' manipulator allows dumping the internal structure of an
+expression for debugging purposes:
+
+         // ...
+         cout << tree << e;
+     }
+
+produces
+
+     add, hash=0x0, flags=0x3, nops=2
+         power, hash=0x0, flags=0x3, nops=2
+             x (symbol), serial=0, hash=0xc8d5bcdd, flags=0xf
+             2 (numeric), hash=0x6526b0fa, flags=0xf
+         3/2 (numeric), hash=0xf9828fbd, flags=0xf
+         -----
+         overall_coeff
+         4.5L0i (numeric), hash=0xa40a97e0, flags=0xf
+         =====
+
+The `latex' output format is for LaTeX parsing in mathematical mode.
+It is rather similar to the default format but provides some braces
+needed by LaTeX for delimiting boxes and also converts some common
+objects to conventional LaTeX names. It is possible to give symbols a
+special name for LaTeX output by supplying it as a second argument to
+the `symbol' constructor.
+
+For example, the code snippet
+
+     {
+         symbol x("x", "\\circ");
+         ex e = lgamma(x).series(x==0,3);
+         cout << latex << e << endl;
+     }
+
+will print
+
+         {(-\ln(\circ))}+{(-\gamma_E)} \circ+{(\frac{1}{12} \pi^{2})} \circ^{2}
+         +\mathcal{O}(\circ^{3})
+
+Index dimensions are normally hidden in the output. To make them
+visible, use the `index_dimensions' manipulator. The dimensions will be
+written in square brackets behind each index value in the default and
+LaTeX output formats:
+
+     {
+         symbol x("x"), y("y");
+         varidx mu(symbol("mu"), 4), nu(symbol("nu"), 4);
+         ex e = indexed(x, mu) * indexed(y, nu);
+     
+         cout << e << endl;
+          // prints 'x~mu*y~nu'
+         cout << index_dimensions << e << endl;
+          // prints 'x~mu[4]*y~nu[4]'
+         cout << no_index_dimensions << e << endl;
+          // prints 'x~mu*y~nu'
+     }
+
+If you need any fancy special output format, e.g. for interfacing GiNaC
+with other algebra systems or for producing code for different
+programming languages, you can always traverse the expression tree
+yourself:
+
+     static void my_print(const ex & e)
+     {
+         if (is_a<function>(e))
+             cout << ex_to<function>(e).get_name();
+         else
+             cout << ex_to<basic>(e).class_name();
+         cout << "(";
+         size_t n = e.nops();
+         if (n)
+             for (size_t i=0; i<n; i++) {
+                 my_print(e.op(i));
+                 if (i != n-1)
+                     cout << ",";
+             }
+         else
+             cout << e;
+         cout << ")";
+     }
+     
+     int main()
+     {
+         my_print(pow(3, x) - 2 * sin(y / Pi)); cout << endl;
+         return 0;
+     }
+
+This will produce
+
+     add(power(numeric(3),symbol(x)),mul(sin(mul(power(constant(Pi),numeric(-1)),
+     symbol(y))),numeric(-2)))
+
+If you need an output format that makes it possible to accurately
+reconstruct an expression by feeding the output to a suitable parser or
+object factory, you should consider storing the expression in an
+`archive' object and reading the object properties from there.  See the
+section on archiving for more information.
+
+Expression input
+----------------
+
+GiNaC provides no way to directly read an expression from a stream
+because you will usually want the user to be able to enter something
+like `2*x+sin(y)' and have the `x' and `y' correspond to the symbols
+`x' and `y' you defined in your program and there is no way to specify
+the desired symbols to the `>>' stream input operator.
+
+Instead, GiNaC lets you construct an expression from a string,
+specifying the list of symbols to be used:
+
+     {
+         symbol x("x"), y("y");
+         ex e("2*x+sin(y)", lst(x, y));
+     }
+
+The input syntax is the same as that used by `ginsh' and the stream
+output operator `<<'. The symbols in the string are matched by name to
+the symbols in the list and if GiNaC encounters a symbol not specified
+in the list it will throw an exception.
+
+With this constructor, it's also easy to implement interactive GiNaC
+programs:
+
+     #include <iostream>
+     #include <string>
+     #include <stdexcept>
+     #include <ginac/ginac.h>
+     using namespace std;
+     using namespace GiNaC;
+     
+     int main()
+     {
+         symbol x("x");
+         string s;
+     
+         cout << "Enter an expression containing 'x': ";
+         getline(cin, s);
+     
+         try {
+             ex e(s, lst(x));
+             cout << "The derivative of " << e << " with respect to x is ";
+             cout << e.diff(x) << ".\n";
+         } catch (exception &p) {
+             cerr << p.what() << endl;
+         }
+     }
+
+Compiling expressions to C function pointers
+--------------------------------------------
+
+Numerical evaluation of algebraic expressions is seamlessly integrated
+into GiNaC by help of the CLN library. While CLN allows for very fast
+arbitrary precision numerics, which is more than sufficient for most
+users, sometimes only the speed of built-in floating point numbers is
+fast enough, e.g. for Monte Carlo integration. The only viable option
+then is the following: print the expression in C syntax format,
+manually add necessary C code, compile that program and run is as a
+separate application. This is not only cumbersome and involves a lot of
+manual intervention, but it also separates the algebraic and the
+numerical evaluation into different execution stages.
+
+GiNaC offers a couple of functions that help to avoid these
+inconveniences and problems. The functions automatically perform the
+printing of a GiNaC expression and the subsequent compiling of its
+associated C code. The created object code is then dynamically linked
+to the currently running program. A function pointer to the C function
+that performs the numerical evaluation is returned and can be used
+instantly. This all happens automatically, no user intervention is
+needed.
+
+The following example demonstrates the use of `compile_ex':
+
+         // ...
+         symbol x("x");
+         ex myexpr = sin(x) / x;
+     
+         FUNCP_1P fp;
+         compile_ex(myexpr, x, fp);
+     
+         cout << fp(3.2) << endl;
+         // ...
+
+The function `compile_ex' is called with the expression to be compiled
+and its only free variable `x'. Upon successful completion the third
+parameter contains a valid function pointer to the corresponding C code
+module. If called like in the last line only built-in double precision
+numerics is involved.
+
+The function pointer has to be defined in advance. GiNaC offers three
+function pointer types at the moment:
+
+         typedef double (*FUNCP_1P) (double);
+         typedef double (*FUNCP_2P) (double, double);
+         typedef void (*FUNCP_CUBA) (const int*, const double[], const int*, double[]);
+
+`FUNCP_2P' allows for two variables in the expression. `FUNCP_CUBA' is
+the correct type to be used with the CUBA library
+(`http://www.feynarts/cuba') for numerical integrations. The details
+for the parameters of `FUNCP_CUBA' are explained in the CUBA manual.
+
+For every function pointer type there is a matching `compile_ex'
+available:
+
+         void compile_ex(const ex& expr, const symbol& sym, FUNCP_1P& fp,
+                         const std::string filename = "");
+         void compile_ex(const ex& expr, const symbol& sym1, const symbol& sym2,
+                         FUNCP_2P& fp, const std::string filename = "");
+         void compile_ex(const lst& exprs, const lst& syms, FUNCP_CUBA& fp,
+                         const std::string filename = "");
+
+When the last parameter `filename' is not supplied, `compile_ex' will
+choose a unique random name for the intermediate source and object
+files it produces. On program termination these files will be deleted.
+If one wishes to keep the C code and the object files, one can supply
+the `filename' parameter. The intermediate files will use that filename
+and will not be deleted.
+
+`link_ex' is a function that allows to dynamically link an existing
+object file and to make it available via a function pointer. This is
+useful if you have already used `compile_ex' on an expression and want
+to avoid the compilation step to be performed over and over again when
+you restart your program. The precondition for this is of course, that
+you have chosen a filename when you did call `compile_ex'. For every
+above mentioned function pointer type there exists a corresponding
+`link_ex' function:
+
+         void link_ex(const std::string filename, FUNCP_1P& fp);
+         void link_ex(const std::string filename, FUNCP_2P& fp);
+         void link_ex(const std::string filename, FUNCP_CUBA& fp);
+
+The complete filename (including the suffix `.so') of the object file
+has to be supplied.
+
+The function
+
+         void unlink_ex(const std::string filename);
+
+is supplied for the rare cases when one wishes to close the dynamically
+linked object files directly and have the intermediate files (only if
+filename has not been given) deleted. Normally one doesn't need this
+function, because all the clean-up will be done automatically upon
+(regular) program termination.
+
+All the described functions will throw an exception in case they cannot
+perform correctly, like for example when writing the file or starting
+the compiler fails. Since internally the same printing methods as
+described in section *Note csrc printing:: are used, only functions and
+objects that are available in standard C will compile successfully
+(that excludes polylogarithms for example at the moment). Another
+precondition for success is, of course, that it must be possible to
+evaluate the expression numerically. No free variables despite the ones
+supplied to `compile_ex' should appear in the expression.
+
+`compile_ex' uses the shell script `ginac-excompiler' to start the C
+compiler and produce the object files. This shell script comes with
+GiNaC and will be installed together with GiNaC in the configured
+`$PREFIX/bin' directory.
+
+Archiving
+---------
+
+GiNaC allows creating "archives" of expressions which can be stored to
+or retrieved from files. To create an archive, you declare an object of
+class `archive' and archive expressions in it, giving each expression a
+unique name:
+
+     #include <fstream>
+     using namespace std;
+     #include <ginac/ginac.h>
+     using namespace GiNaC;
+     
+     int main()
+     {
+         symbol x("x"), y("y"), z("z");
+     
+         ex foo = sin(x + 2*y) + 3*z + 41;
+         ex bar = foo + 1;
+     
+         archive a;
+         a.archive_ex(foo, "foo");
+         a.archive_ex(bar, "the second one");
+         // ...
+
+The archive can then be written to a file:
+
+         // ...
+         ofstream out("foobar.gar");
+         out << a;
+         out.close();
+         // ...
+
+The file `foobar.gar' contains all information that is needed to
+reconstruct the expressions `foo' and `bar'.
+
+The tool `viewgar' that comes with GiNaC can be used to view the
+contents of GiNaC archive files:
+
+     $ viewgar foobar.gar
+     foo = 41+sin(x+2*y)+3*z
+     the second one = 42+sin(x+2*y)+3*z
+
+The point of writing archive files is of course that they can later be
+read in again:
+
+         // ...
+         archive a2;
+         ifstream in("foobar.gar");
+         in >> a2;
+         // ...
+
+And the stored expressions can be retrieved by their name:
+
+         // ...
+         lst syms;
+         syms = x, y;
+     
+         ex ex1 = a2.unarchive_ex(syms, "foo");
+         ex ex2 = a2.unarchive_ex(syms, "the second one");
+     
+         cout << ex1 << endl;              // prints "41+sin(x+2*y)+3*z"
+         cout << ex2 << endl;              // prints "42+sin(x+2*y)+3*z"
+         cout << ex1.subs(x == 2) << endl; // prints "41+sin(2+2*y)+3*z"
+     }
+
+Note that you have to supply a list of the symbols which are to be
+inserted in the expressions. Symbols in archives are stored by their
+name only and if you don't specify which symbols you have, unarchiving
+the expression will create new symbols with that name. E.g. if you
+hadn't included `x' in the `syms' list above, the `ex1.subs(x == 2)'
+statement would have had no effect because the `x' in `ex1' would have
+been a different symbol than the `x' which was defined at the beginning
+of the program, although both would appear as `x' when printed.
+
+You can also use the information stored in an `archive' object to
+output expressions in a format suitable for exact reconstruction. The
+`archive' and `archive_node' classes have a couple of member functions
+that let you access the stored properties:
+
+     static void my_print2(const archive_node & n)
+     {
+         string class_name;
+         n.find_string("class", class_name);
+         cout << class_name << "(";
+     
+         archive_node::propinfovector p;
+         n.get_properties(p);
+     
+         size_t num = p.size();
+         for (size_t i=0; i<num; i++) {
+             const string &name = p[i].name;
+             if (name == "class")
+                 continue;
+             cout << name << "=";
+     
+             unsigned count = p[i].count;
+             if (count > 1)
+                 cout << "{";
+     
+             for (unsigned j=0; j<count; j++) {
+                 switch (p[i].type) {
+                     case archive_node::PTYPE_BOOL: {
+                         bool x;
+                         n.find_bool(name, x, j);
+                         cout << (x ? "true" : "false");
+                         break;
+                     }
+                     case archive_node::PTYPE_UNSIGNED: {
+                         unsigned x;
+                         n.find_unsigned(name, x, j);
+                         cout << x;
+                         break;
+                     }
+                     case archive_node::PTYPE_STRING: {
+                         string x;
+                         n.find_string(name, x, j);
+                         cout << '\"' << x << '\"';
+                         break;
+                     }
+                     case archive_node::PTYPE_NODE: {
+                         const archive_node &x = n.find_ex_node(name, j);
+                         my_print2(x);
+                         break;
+                     }
+                 }
+     
+                 if (j != count-1)
+                     cout << ",";
+             }
+     
+             if (count > 1)
+                 cout << "}";
+     
+             if (i != num-1)
+                 cout << ",";
+         }
+     
+         cout << ")";
+     }
+     
+     int main()
+     {
+         ex e = pow(2, x) - y;
+         archive ar(e, "e");
+         my_print2(ar.get_top_node(0)); cout << endl;
+         return 0;
+     }
+
+This will produce:
+
+     add(rest={power(basis=numeric(number="2"),exponent=symbol(name="x")),
+     symbol(name="y")},coeff={numeric(number="1"),numeric(number="-1")},
+     overall_coeff=numeric(number="0"))
+
+Be warned, however, that the set of properties and their meaning for
+each class may change between GiNaC versions.
+
+
+File: ginac.info,  Node: Extending GiNaC,  Next: What does not belong into GiNaC,  Prev: Input/output,  Up: Top
+
+Extending GiNaC
+***************
+
+By reading so far you should have gotten a fairly good understanding of
+GiNaC's design patterns.  From here on you should start reading the
+sources.  All we can do now is issue some recommendations how to tackle
+GiNaC's many loose ends in order to fulfill everybody's dreams.  If you
+develop some useful extension please don't hesitate to contact the GiNaC
+authors--they will happily incorporate them into future versions.
+
+* Menu:
+
+* What does not belong into GiNaC::  What to avoid.
+* Symbolic functions::               Implementing symbolic functions.
+* Printing::                         Adding new output formats.
+* Structures::                       Defining new algebraic classes (the easy way).
+* Adding classes::                   Defining new algebraic classes (the hard way).
+
+
+File: ginac.info,  Node: What does not belong into GiNaC,  Next: Symbolic functions,  Prev: Extending GiNaC,  Up: Extending GiNaC
+
+What doesn't belong into GiNaC
+==============================
+
+First of all, GiNaC's name must be read literally.  It is designed to be
+a library for use within C++.  The tiny `ginsh' accompanying GiNaC
+makes this even more clear: it doesn't even attempt to provide a
+language.  There are no loops or conditional expressions in `ginsh', it
+is merely a window into the library for the programmer to test stuff
+(or to show off).  Still, the design of a complete CAS with a language
+of its own, graphical capabilities and all this on top of GiNaC is
+possible and is without doubt a nice project for the future.
+
+There are many built-in functions in GiNaC that do not know how to
+evaluate themselves numerically to a precision declared at runtime
+(using `Digits').  Some may be evaluated at certain points, but not
+generally.  This ought to be fixed.  However, doing numerical
+computations with GiNaC's quite abstract classes is doomed to be
+inefficient.  For this purpose, the underlying foundation classes
+provided by CLN are much better suited.
+
+
+File: ginac.info,  Node: Symbolic functions,  Next: Printing,  Prev: What does not belong into GiNaC,  Up: Extending GiNaC
+
+Symbolic functions
+==================
+
+The easiest and most instructive way to start extending GiNaC is
+probably to create your own symbolic functions. These are implemented
+with the help of two preprocessor macros:
+
+     DECLARE_FUNCTION_<n>P(<name>)
+     REGISTER_FUNCTION(<name>, <options>)
+
+The `DECLARE_FUNCTION' macro will usually appear in a header file. It
+declares a C++ function with the given `name' that takes exactly `n'
+parameters of type `ex' and returns a newly constructed GiNaC
+`function' object that represents your function.
+
+The `REGISTER_FUNCTION' macro implements the function. It must be passed
+the same `name' as the respective `DECLARE_FUNCTION' macro, and a set
+of options that associate the symbolic function with C++ functions you
+provide to implement the various methods such as evaluation, derivative,
+series expansion etc. They also describe additional attributes the
+function might have, such as symmetry and commutation properties, and a
+name for LaTeX output. Multiple options are separated by the member
+access operator `.' and can be given in an arbitrary order.
+
+(By the way: in case you are worrying about all the macros above we can
+assure you that functions are GiNaC's most macro-intense classes. We
+have done our best to avoid macros where we can.)
+
+A minimal example
+-----------------
+
+Here is an example for the implementation of a function with two
+arguments that is not further evaluated:
+
+     DECLARE_FUNCTION_2P(myfcn)
+     
+     REGISTER_FUNCTION(myfcn, dummy())
+
+Any code that has seen the `DECLARE_FUNCTION' line can use `myfcn()' in
+algebraic expressions:
+
+     {
+         ...
+         symbol x("x");
+         ex e = 2*myfcn(42, 1+3*x) - x;
+         cout << e << endl;
+          // prints '2*myfcn(42,1+3*x)-x'
+         ...
+     }
+
+The `dummy()' option in the `REGISTER_FUNCTION' line signifies "no
+options". A function with no options specified merely acts as a kind of
+container for its arguments. It is a pure "dummy" function with no
+associated logic (which is, however, sometimes perfectly sufficient).
+
+Let's now have a look at the implementation of GiNaC's cosine function
+for an example of how to make an "intelligent" function.
+
+The cosine function
+-------------------
+
+The GiNaC header file `inifcns.h' contains the line
+
+     DECLARE_FUNCTION_1P(cos)
+
+which declares to all programs using GiNaC that there is a function
+`cos' that takes one `ex' as an argument. This is all they need to know
+to use this function in expressions.
+
+The implementation of the cosine function is in `inifcns_trans.cpp'.
+Here is its `REGISTER_FUNCTION' line:
+
+     REGISTER_FUNCTION(cos, eval_func(cos_eval).
+                            evalf_func(cos_evalf).
+                            derivative_func(cos_deriv).
+                            latex_name("\\cos"));
+
+There are four options defined for the cosine function. One of them
+(`latex_name') gives the function a proper name for LaTeX output; the
+other three indicate the C++ functions in which the "brains" of the
+cosine function are defined.
+
+The `eval_func()' option specifies the C++ function that implements the
+`eval()' method, GiNaC's anonymous evaluator. This function takes the
+same number of arguments as the associated symbolic function (one in
+this case) and returns the (possibly transformed or in some way
+simplified) symbolically evaluated function (*Note Automatic
+evaluation::, for a description of the automatic evaluation process).
+If no (further) evaluation is to take place, the `eval_func()' function
+must return the original function with `.hold()', to avoid a potential
+infinite recursion. If your symbolic functions produce a segmentation
+fault or stack overflow when using them in expressions, you are
+probably missing a `.hold()' somewhere.
+
+The `eval_func()' function for the cosine looks something like this
+(actually, it doesn't look like this at all, but it should give you an
+idea what is going on):
+
+     static ex cos_eval(const ex & x)
+     {
+         if ("x is a multiple of 2*Pi")
+             return 1;
+         else if ("x is a multiple of Pi")
+             return -1;
+         else if ("x is a multiple of Pi/2")
+             return 0;
+         // more rules...
+     
+         else if ("x has the form 'acos(y)'")
+             return y;
+         else if ("x has the form 'asin(y)'")
+             return sqrt(1-y^2);
+         // more rules...
+     
+         else
+             return cos(x).hold();
+     }
+
+This function is called every time the cosine is used in a symbolic
+expression:
+
+     {
+         ...
+         e = cos(Pi);
+          // this calls cos_eval(Pi), and inserts its return value into
+          // the actual expression
+         cout << e << endl;
+          // prints '-1'
+         ...
+     }
+
+In this way, `cos(4*Pi)' automatically becomes 1, `cos(asin(a+b))'
+becomes `sqrt(1-(a+b)^2)', etc. If no reasonable symbolic
+transformation can be done, the unmodified function is returned with
+`.hold()'.
+
+GiNaC doesn't automatically transform `cos(2)' to `-0.416146...'.  The
+user has to call `evalf()' for that. This is implemented in a different
+function:
+
+     static ex cos_evalf(const ex & x)
+     {
+         if (is_a<numeric>(x))
+             return cos(ex_to<numeric>(x));
+         else
+             return cos(x).hold();
+     }
+
+Since we are lazy we defer the problem of numeric evaluation to
+somebody else, in this case the `cos()' function for `numeric' objects,
+which in turn hands it over to the `cos()' function in CLN. The
+`.hold()' isn't really needed here, but reminds us that the
+corresponding `eval()' function would require it in this place.
+
+Differentiation will surely turn up and so we need to tell `cos' what
+its first derivative is (higher derivatives, `.diff(x,3)' for instance,
+are then handled automatically by `basic::diff' and `ex::diff'):
+
+     static ex cos_deriv(const ex & x, unsigned diff_param)
+     {
+         return -sin(x);
+     }
+
+The second parameter is obligatory but uninteresting at this point.  It
+specifies which parameter to differentiate in a partial derivative in
+case the function has more than one parameter, and its main application
+is for correct handling of the chain rule.
+
+An implementation of the series expansion is not needed for `cos()' as
+it doesn't have any poles and GiNaC can do Taylor expansion by itself
+(as long as it knows what the derivative of `cos()' is). `tan()', on
+the other hand, does have poles and may need to do Laurent expansion:
+
+     static ex tan_series(const ex & x, const relational & rel,
+                          int order, unsigned options)
+     {
+         // Find the actual expansion point
+         const ex x_pt = x.subs(rel);
+     
+         if ("x_pt is not an odd multiple of Pi/2")
+             throw do_taylor();  // tell function::series() to do Taylor expansion
+     
+         // On a pole, expand sin()/cos()
+         return (sin(x)/cos(x)).series(rel, order+2, options);
+     }
+
+The `series()' implementation of a function _must_ return a `pseries'
+object, otherwise your code will crash.
+
+Function options
+----------------
+
+GiNaC functions understand several more options which are always
+specified as `.option(params)'. None of them are required, but you need
+to specify at least one option to `REGISTER_FUNCTION()'. There is a
+do-nothing option called `dummy()' which you can use to define
+functions without any special options.
+
+     eval_func(<C++ function>)
+     evalf_func(<C++ function>)
+     derivative_func(<C++ function>)
+     series_func(<C++ function>)
+     conjugate_func(<C++ function>)
+
+These specify the C++ functions that implement symbolic evaluation,
+numeric evaluation, partial derivatives, and series expansion,
+respectively.  They correspond to the GiNaC methods `eval()', `evalf()',
+`diff()' and `series()'.
+
+The `eval_func()' function needs to use `.hold()' if no further
+automatic evaluation is desired or possible.
+
+If no `series_func()' is given, GiNaC defaults to simple Taylor
+expansion, which is correct if there are no poles involved. If the
+function has poles in the complex plane, the `series_func()' needs to
+check whether the expansion point is on a pole and fall back to Taylor
+expansion if it isn't. Otherwise, the pole usually needs to be
+regularized by some suitable transformation.
+
+     latex_name(const string & n)
+
+specifies the LaTeX code that represents the name of the function in
+LaTeX output. The default is to put the function name in an `\mbox{}'.
+
+     do_not_evalf_params()
+
+This tells `evalf()' to not recursively evaluate the parameters of the
+function before calling the `evalf_func()'.
+
+     set_return_type(unsigned return_type, unsigned return_type_tinfo)
+
+This allows you to explicitly specify the commutation properties of the
+function (*Note Non-commutative objects::, for an explanation of
+(non)commutativity in GiNaC). For example, you can use
+`set_return_type(return_types::noncommutative, TINFO_matrix)' to make
+GiNaC treat your function like a matrix. By default, functions inherit
+the commutation properties of their first argument.
+
+     set_symmetry(const symmetry & s)
+
+specifies the symmetry properties of the function with respect to its
+arguments. *Note Indexed objects::, for an explanation of symmetry
+specifications. GiNaC will automatically rearrange the arguments of
+symmetric functions into a canonical order.
+
+Sometimes you may want to have finer control over how functions are
+displayed in the output. For example, the `abs()' function prints
+itself as `abs(x)' in the default output format, but as `|x|' in LaTeX
+mode, and `fabs(x)' in C source output. This is achieved with the
+
+     print_func<C>(<C++ function>)
+
+option which is explained in the next section.
+
+Functions with a variable number of arguments
+---------------------------------------------
+
+The `DECLARE_FUNCTION' and `REGISTER_FUNCTION' macros define functions
+with a fixed number of arguments. Sometimes, though, you may need to
+have a function that accepts a variable number of expressions. One way
+to accomplish this is to pass variable-length lists as arguments. The
+`Li()' function uses this method for multiple polylogarithms.
+
+It is also possible to define functions that accept a different number
+of parameters under the same function name, such as the `psi()' function
+which can be called either as `psi(z)' (the digamma function) or as
+`psi(n, z)' (polygamma functions). These are actually two different
+functions in GiNaC that, however, have the same name. Defining such
+functions is not possible with the macros but requires manually fiddling
+with GiNaC internals. If you are interested, please consult the GiNaC
+source code for the `psi()' function (`inifcns.h' and
+`inifcns_gamma.cpp').
+

@@ -1,0 +1,1255 @@
+This is ginac.info, produced by makeinfo version 4.5 from
+/user/jensv/ginac/ginac/doc/tutorial/ginac.texi.
+
+INFO-DIR-SECTION Mathematics
+START-INFO-DIR-ENTRY
+* ginac: (ginac).                   C++ library for symbolic computation.
+END-INFO-DIR-ENTRY
+
+This is a tutorial that documents GiNaC 1.4.3, an open framework for
+symbolic computation within the C++ programming language.
+
+Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+
+Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+
+File: ginac.info,  Node: Top,  Next: Introduction,  Prev: (dir),  Up: (dir)
+
+GiNaC
+*****
+
+This is a tutorial that documents GiNaC 1.4.3, an open framework for
+symbolic computation within the C++ programming language.
+
+* Menu:
+
+* Introduction::                 GiNaC's purpose.
+* A tour of GiNaC::              A quick tour of the library.
+* Installation::                 How to install the package.
+* Basic concepts::               Description of fundamental classes.
+* Methods and functions::        Algorithms for symbolic manipulations.
+* Extending GiNaC::              How to extend the library.
+* A comparison with other CAS::  Compares GiNaC to traditional CAS.
+* Internal structures::          Description of some internal structures.
+* Package tools::                Configuring packages to work with GiNaC.
+* Bibliography::
+* Concept index::
+
+
+File: ginac.info,  Node: Introduction,  Next: A tour of GiNaC,  Prev: Top,  Up: Top
+
+Introduction
+************
+
+The motivation behind GiNaC derives from the observation that most
+present day computer algebra systems (CAS) are linguistically and
+semantically impoverished.  Although they are quite powerful tools for
+learning math and solving particular problems they lack modern
+linguistic structures that allow for the creation of large-scale
+projects.  GiNaC is an attempt to overcome this situation by extending a
+well established and standardized computer language (C++) by some
+fundamental symbolic capabilities, thus allowing for integrated systems
+that embed symbolic manipulations together with more established areas
+of computer science (like computation-intense numeric applications,
+graphical interfaces, etc.) under one roof.
+
+The particular problem that led to the writing of the GiNaC framework is
+still a very active field of research, namely the calculation of higher
+order corrections to elementary particle interactions.  There,
+theoretical physicists are interested in matching present day theories
+against experiments taking place at particle accelerators.  The
+computations involved are so complex they call for a combined symbolical
+and numerical approach.  This turned out to be quite difficult to
+accomplish with the present day CAS we have worked with so far and so we
+tried to fill the gap by writing GiNaC.  But of course its applications
+are in no way restricted to theoretical physics.
+
+This tutorial is intended for the novice user who is new to GiNaC but
+already has some background in C++ programming.  However, since a
+hand-made documentation like this one is difficult to keep in sync with
+the development, the actual documentation is inside the sources in the
+form of comments.  That documentation may be parsed by one of the many
+Javadoc-like documentation systems.  If you fail at generating it you
+may access it from the GiNaC home page
+(http://www.ginac.de/reference/).  It is an invaluable resource not
+only for the advanced user who wishes to extend the system (or chase
+bugs) but for everybody who wants to comprehend the inner workings of
+GiNaC.  This little tutorial on the other hand only covers the basic
+things that are unlikely to change in the near future.
+
+License
+=======
+
+The GiNaC framework for symbolic computation within the C++ programming
+language is Copyright (C) 1999-2008 Johannes Gutenberg University
+Mainz, Germany.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
+
+
+File: ginac.info,  Node: A tour of GiNaC,  Next: How to use it from within C++,  Prev: Introduction,  Up: Top
+
+A Tour of GiNaC
+***************
+
+This quick tour of GiNaC wants to arise your interest in the subsequent
+chapters by showing off a bit.  Please excuse us if it leaves many open
+questions.
+
+* Menu:
+
+* How to use it from within C++::  Two simple examples.
+* What it can do for you::         A Tour of GiNaC's features.
+
+
+File: ginac.info,  Node: How to use it from within C++,  Next: What it can do for you,  Prev: A tour of GiNaC,  Up: A tour of GiNaC
+
+How to use it from within C++
+=============================
+
+The GiNaC open framework for symbolic computation within the C++
+programming language does not try to define a language of its own as
+conventional CAS do.  Instead, it extends the capabilities of C++ by
+symbolic manipulations.  Here is how to generate and print a simple
+(and rather pointless) bivariate polynomial with some large
+coefficients:
+
+     #include <iostream>
+     #include <ginac/ginac.h>
+     using namespace std;
+     using namespace GiNaC;
+     
+     int main()
+     {
+         symbol x("x"), y("y");
+         ex poly;
+     
+         for (int i=0; i<3; ++i)
+             poly += factorial(i+16)*pow(x,i)*pow(y,2-i);
+     
+         cout << poly << endl;
+         return 0;
+     }
+
+Assuming the file is called `hello.cc', on our system we can compile
+and run it like this:
+
+     $ c++ hello.cc -o hello -lcln -lginac
+     $ ./hello
+     355687428096000*x*y+20922789888000*y^2+6402373705728000*x^2
+
+(*Note Package tools::, for tools that help you when creating a software
+package that uses GiNaC.)
+
+Next, there is a more meaningful C++ program that calls a function which
+generates Hermite polynomials in a specified free variable.
+
+     #include <iostream>
+     #include <ginac/ginac.h>
+     using namespace std;
+     using namespace GiNaC;
+     
+     ex HermitePoly(const symbol & x, int n)
+     {
+         ex HKer=exp(-pow(x, 2));
+         // uses the identity H_n(x) == (-1)^n exp(x^2) (d/dx)^n exp(-x^2)
+         return normal(pow(-1, n) * diff(HKer, x, n) / HKer);
+     }
+     
+     int main()
+     {
+         symbol z("z");
+     
+         for (int i=0; i<6; ++i)
+             cout << "H_" << i << "(z) == " << HermitePoly(z,i) << endl;
+     
+         return 0;
+     }
+
+When run, this will type out
+
+     H_0(z) == 1
+     H_1(z) == 2*z
+     H_2(z) == 4*z^2-2
+     H_3(z) == -12*z+8*z^3
+     H_4(z) == -48*z^2+16*z^4+12
+     H_5(z) == 120*z-160*z^3+32*z^5
+
+This method of generating the coefficients is of course far from optimal
+for production purposes.
+
+In order to show some more examples of what GiNaC can do we will now use
+the `ginsh', a simple GiNaC interactive shell that provides a
+convenient window into GiNaC's capabilities.
+
+
+File: ginac.info,  Node: What it can do for you,  Next: Installation,  Prev: How to use it from within C++,  Up: A tour of GiNaC
+
+What it can do for you
+======================
+
+After invoking `ginsh' one can test and experiment with GiNaC's
+features much like in other Computer Algebra Systems except that it does
+not provide programming constructs like loops or conditionals.  For a
+concise description of the `ginsh' syntax we refer to its accompanied
+man page. Suffice to say that assignments and comparisons in `ginsh'
+are written as they are in C, i.e. `=' assigns and `==' compares.
+
+It can manipulate arbitrary precision integers in a very fast way.
+Rational numbers are automatically converted to fractions of coprime
+integers:
+
+     > x=3^150;
+     369988485035126972924700782451696644186473100389722973815184405301748249
+     > y=3^149;
+     123329495011708990974900260817232214728824366796574324605061468433916083
+     > x/y;
+     3
+     > y/x;
+     1/3
+
+Exact numbers are always retained as exact numbers and only evaluated as
+floating point numbers if requested.  For instance, with numeric
+radicals is dealt pretty much as with symbols.  Products of sums of them
+can be expanded:
+
+     > expand((1+a^(1/5)-a^(2/5))^3);
+     1+3*a+3*a^(1/5)-5*a^(3/5)-a^(6/5)
+     > expand((1+3^(1/5)-3^(2/5))^3);
+     10-5*3^(3/5)
+     > evalf((1+3^(1/5)-3^(2/5))^3);
+     0.33408977534118624228
+
+The function `evalf' that was used above converts any number in GiNaC's
+expressions into floating point numbers.  This can be done to arbitrary
+predefined accuracy:
+
+     > evalf(1/7);
+     0.14285714285714285714
+     > Digits=150;
+     150
+     > evalf(1/7);
+     0.1428571428571428571428571428571428571428571428571428571428571428571428
+     5714285714285714285714285714285714285
+
+Exact numbers other than rationals that can be manipulated in GiNaC
+include predefined constants like Archimedes' `Pi'.  They can both be
+used in symbolic manipulations (as an exact number) as well as in
+numeric expressions (as an inexact number):
+
+     > a=Pi^2+x;
+     x+Pi^2
+     > evalf(a);
+     9.869604401089358619+x
+     > x=2;
+     2
+     > evalf(a);
+     11.869604401089358619
+
+Built-in functions evaluate immediately to exact numbers if this is
+possible.  Conversions that can be safely performed are done
+immediately; conversions that are not generally valid are not done:
+
+     > cos(42*Pi);
+     1
+     > cos(acos(x));
+     x
+     > acos(cos(x));
+     acos(cos(x))
+
+(Note that converting the last input to `x' would allow one to conclude
+that `42*Pi' is equal to `0'.)
+
+Linear equation systems can be solved along with basic linear algebra
+manipulations over symbolic expressions.  In C++ GiNaC offers a matrix
+class for this purpose but we can see what it can do using `ginsh''s
+bracket notation to type them in:
+
+     > lsolve(a+x*y==z,x);
+     y^(-1)*(z-a);
+     > lsolve({3*x+5*y == 7, -2*x+10*y == -5}, {x, y});
+     {x==19/8,y==-1/40}
+     > M = [ [1, 3], [-3, 2] ];
+     [[1,3],[-3,2]]
+     > determinant(M);
+     11
+     > charpoly(M,lambda);
+     lambda^2-3*lambda+11
+     > A = [ [1, 1], [2, -1] ];
+     [[1,1],[2,-1]]
+     > A+2*M;
+     [[1,1],[2,-1]]+2*[[1,3],[-3,2]]
+     > evalm(%);
+     [[3,7],[-4,3]]
+     > B = [ [0, 0, a], [b, 1, -b], [-1/a, 0, 0] ];
+     > evalm(B^(2^12345));
+     [[1,0,0],[0,1,0],[0,0,1]]
+
+Multivariate polynomials and rational functions may be expanded,
+collected and normalized (i.e. converted to a ratio of two coprime
+polynomials):
+
+     > a = x^4 + 2*x^2*y^2 + 4*x^3*y + 12*x*y^3 - 3*y^4;
+     12*x*y^3+2*x^2*y^2+4*x^3*y-3*y^4+x^4
+     > b = x^2 + 4*x*y - y^2;
+     4*x*y-y^2+x^2
+     > expand(a*b);
+     8*x^5*y+17*x^4*y^2+43*x^2*y^4-24*x*y^5+16*x^3*y^3+3*y^6+x^6
+     > collect(a+b,x);
+     4*x^3*y-y^2-3*y^4+(12*y^3+4*y)*x+x^4+x^2*(1+2*y^2)
+     > collect(a+b,y);
+     12*x*y^3-3*y^4+(-1+2*x^2)*y^2+(4*x+4*x^3)*y+x^2+x^4
+     > normal(a/b);
+     3*y^2+x^2
+
+You can differentiate functions and expand them as Taylor or Laurent
+series in a very natural syntax (the second argument of `series' is a
+relation defining the evaluation point, the third specifies the order):
+
+     > diff(tan(x),x);
+     tan(x)^2+1
+     > series(sin(x),x==0,4);
+     x-1/6*x^3+Order(x^4)
+     > series(1/tan(x),x==0,4);
+     x^(-1)-1/3*x+Order(x^2)
+     > series(tgamma(x),x==0,3);
+     x^(-1)-Euler+(1/12*Pi^2+1/2*Euler^2)*x+
+     (-1/3*zeta(3)-1/12*Pi^2*Euler-1/6*Euler^3)*x^2+Order(x^3)
+     > evalf(%);
+     x^(-1)-0.5772156649015328606+(0.9890559953279725555)*x
+     -(0.90747907608088628905)*x^2+Order(x^3)
+     > series(tgamma(2*sin(x)-2),x==Pi/2,6);
+     -(x-1/2*Pi)^(-2)+(-1/12*Pi^2-1/2*Euler^2-1/240)*(x-1/2*Pi)^2
+     -Euler-1/12+Order((x-1/2*Pi)^3)
+
+Here we have made use of the `ginsh'-command `%' to pop the previously
+evaluated element from `ginsh''s internal stack.
+
+Often, functions don't have roots in closed form.  Nevertheless, it's
+quite easy to compute a solution numerically, to arbitrary precision:
+
+     > Digits=50:
+     > fsolve(cos(x)==x,x,0,2);
+     0.7390851332151606416553120876738734040134117589007574649658
+     > f=exp(sin(x))-x:
+     > X=fsolve(f,x,-10,10);
+     2.2191071489137460325957851882042901681753665565320678854155
+     > subs(f,x==X);
+     -6.372367644529809108115521591070847222364418220770475144296E-58
+
+Notice how the final result above differs slightly from zero by about
+6*10^(-58).  This is because with 50 decimal digits precision the root
+cannot be represented more accurately than `X'.  Such inaccuracies are
+to be expected when computing with finite floating point values.
+
+If you ever wanted to convert units in C or C++ and found this is
+cumbersome, here is the solution.  Symbolic types can always be used as
+tags for different types of objects.  Converting from wrong units to the
+metric system is now easy:
+
+     > in=.0254*m;
+     0.0254*m
+     > lb=.45359237*kg;
+     0.45359237*kg
+     > 200*lb/in^2;
+     140613.91592783185568*kg*m^(-2)
+
+
+File: ginac.info,  Node: Installation,  Next: Prerequisites,  Prev: What it can do for you,  Up: Top
+
+Installation
+************
+
+GiNaC's installation follows the spirit of most GNU software. It is
+easily installed on your system by three steps: configuration, build,
+installation.
+
+* Menu:
+
+* Prerequisites::                Packages upon which GiNaC depends.
+* Configuration::                How to configure GiNaC.
+* Building GiNaC::               How to compile GiNaC.
+* Installing GiNaC::             How to install GiNaC on your system.
+
+
+File: ginac.info,  Node: Prerequisites,  Next: Configuration,  Prev: Installation,  Up: Installation
+
+Prerequisites
+=============
+
+In order to install GiNaC on your system, some prerequisites need to be
+met.  First of all, you need to have a C++-compiler adhering to the
+ANSI-standard `ISO/IEC 14882:1998(E)'.  We used GCC for development so
+if you have a different compiler you are on your own.  For the
+configuration to succeed you need a Posix compliant shell installed in
+`/bin/sh', GNU `bash' is fine. The pkg-config utility is required for
+the configuration, it can be downloaded from
+`http://pkg-config.freedesktop.org'.  Last but not least, the CLN
+library is used extensively and needs to be installed on your system.
+Please get it from `ftp://ftpthep.physik.uni-mainz.de/pub/gnu/' (it is
+covered by GPL) and install it prior to trying to install GiNaC.  The
+configure script checks if it can find it and if it cannot it will
+refuse to continue.
+
+
+File: ginac.info,  Node: Configuration,  Next: Building GiNaC,  Prev: Prerequisites,  Up: Installation
+
+Configuration
+=============
+
+To configure GiNaC means to prepare the source distribution for
+building.  It is done via a shell script called `configure' that is
+shipped with the sources and was originally generated by GNU Autoconf.
+Since a configure script generated by GNU Autoconf never prompts, all
+customization must be done either via command line parameters or
+environment variables.  It accepts a list of parameters, the complete
+set of which can be listed by calling it with the `--help' option.  The
+most important ones will be shortly described in what follows:
+
+   * `--disable-shared': When given, this option switches off the build
+     of a shared library, i.e. a `.so' file.  This may be convenient
+     when developing because it considerably speeds up compilation.
+
+   * `--prefix=PREFIX': The directory where the compiled library and
+     headers are installed. It defaults to `/usr/local' which means
+     that the library is installed in the directory `/usr/local/lib',
+     the header files in `/usr/local/include/ginac' and the
+     documentation (like this one) into `/usr/local/share/doc/GiNaC'.
+
+   * `--libdir=LIBDIR': Use this option in case you want to have the
+     library installed in some other directory than `PREFIX/lib/'.
+
+   * `--includedir=INCLUDEDIR': Use this option in case you want to
+     have the header files installed in some other directory than
+     `PREFIX/include/ginac/'. For instance, if you specify
+     `--includedir=/usr/include' you will end up with the header files
+     sitting in the directory `/usr/include/ginac/'. Note that the
+     subdirectory `ginac' is enforced by this process in order to keep
+     the header files separated from others.  This avoids some clashes
+     and allows for an easier deinstallation of GiNaC. This ought to be
+     considered A Good Thing (tm).
+
+   * `--datadir=DATADIR': This option may be given in case you want to
+     have the documentation installed in some other directory than
+     `PREFIX/share/doc/GiNaC/'.
+
+
+In addition, you may specify some environment variables.  `CXX' holds
+the path and the name of the C++ compiler in case you want to override
+the default in your path.  (The `configure' script searches your path
+for `c++', `g++', `gcc', `CC', `cxx' and `cc++' in that order.)  It may
+be very useful to define some compiler flags with the `CXXFLAGS'
+environment variable, like optimization, debugging information and
+warning levels.  If omitted, it defaults to `-g -O2'.(1)
+
+The whole process is illustrated in the following two examples.
+(Substitute `setenv VARIABLE VALUE' for `export VARIABLE=VALUE' if the
+Berkeley C shell is your login shell.)
+
+Here is a simple configuration for a site-wide GiNaC library assuming
+everything is in default paths:
+
+     $ export CXXFLAGS="-Wall -O2"
+     $ ./configure
+
+And here is a configuration for a private static GiNaC library with
+several components sitting in custom places (site-wide GCC and private
+CLN).  The compiler is persuaded to be picky and full assertions and
+debugging information are switched on:
+
+     $ export CXX=/usr/local/gnu/bin/c++
+     $ export CPPFLAGS="$(CPPFLAGS) -I$(HOME)/include"
+     $ export CXXFLAGS="$(CXXFLAGS) -DDO_GINAC_ASSERT -ggdb -Wall -pedantic"
+     $ export LDFLAGS="$(LDFLAGS) -L$(HOME)/lib"
+     $ ./configure --disable-shared --prefix=$(HOME)
+
+---------- Footnotes ----------
+
+(1) The `configure' script is itself generated from the file
+`configure.ac'.  It is only distributed in packaged releases of GiNaC.
+If you got the naked sources, e.g. from CVS, you must generate
+`configure' along with the various `Makefile.in' by using the
+`autoreconf' utility.  This will require a fair amount of support from
+your local toolchain, though.
+
+
+File: ginac.info,  Node: Building GiNaC,  Next: Installing GiNaC,  Prev: Configuration,  Up: Installation
+
+Building GiNaC
+==============
+
+After proper configuration you should just build the whole library by
+typing
+     $ make
+at the command prompt and go for a cup of coffee.  The exact time it
+takes to compile GiNaC depends not only on the speed of your machines
+but also on other parameters, for instance what value for `CXXFLAGS'
+you entered.  Optimization may be very time-consuming.
+
+Just to make sure GiNaC works properly you may run a collection of
+regression tests by typing
+
+     $ make check
+
+This will compile some sample programs, run them and check the output
+for correctness.  The regression tests fall in three categories.  First,
+the so called _exams_ are performed, simple tests where some predefined
+input is evaluated (like a pupils' exam).  Second, the _checks_ test
+the coherence of results among each other with possible random input.
+Third, some _timings_ are performed, which benchmark some predefined
+problems with different sizes and display the CPU time used in seconds.
+Each individual test should return a message `passed'.  This is mostly
+intended to be a QA-check if something was broken during development,
+not a sanity check of your system.  Some of the tests in sections
+_checks_ and _timings_ may require insane amounts of memory and CPU
+time.  Feel free to kill them if your machine catches fire.  Another
+quite important intent is to allow people to fiddle around with
+optimization.
+
+By default, the only documentation that will be built is this tutorial
+in `.info' format. To build the GiNaC tutorial and reference manual in
+HTML, DVI, PostScript, or PDF formats, use one of
+
+     $ make html
+     $ make dvi
+     $ make ps
+     $ make pdf
+
+Generally, the top-level Makefile runs recursively to the
+subdirectories.  It is therefore safe to go into any subdirectory
+(`doc/', `ginsh/', ...) and simply type `make' TARGET there in case
+something went wrong.
+
+
+File: ginac.info,  Node: Installing GiNaC,  Next: Basic concepts,  Prev: Building GiNaC,  Up: Installation
+
+Installing GiNaC
+================
+
+To install GiNaC on your system, simply type
+
+     $ make install
+
+As described in the section about configuration the files will be
+installed in the following directories (the directories will be created
+if they don't already exist):
+
+   * `libginac.a' will go into `PREFIX/lib/' (or `LIBDIR') which
+     defaults to `/usr/local/lib/'.  So will `libginac.so' unless the
+     configure script was given the option `--disable-shared'.  The
+     proper symlinks will be established as well.
+
+   * All the header files will be installed into `PREFIX/include/ginac/'
+     (or `INCLUDEDIR/ginac/', if specified).
+
+   * All documentation (info) will be stuffed into
+     `PREFIX/share/doc/GiNaC/' (or `DATADIR/doc/GiNaC/', if DATADIR was
+     specified).
+
+
+For the sake of completeness we will list some other useful make
+targets: `make clean' deletes all files generated by `make', i.e. all
+the object files.  In addition `make distclean' removes all files
+generated by the configuration and `make maintainer-clean' goes one
+step further and deletes files that may require special tools to
+rebuild (like the `libtool' for instance).  Finally `make uninstall'
+removes the installed library, header files and documentation(1).
+
+---------- Footnotes ----------
+
+(1) Uninstallation does not work after you have called `make distclean'
+since the `Makefile' is itself generated by the configuration from
+`Makefile.in' and hence deleted by `make distclean'.  There are two
+obvious ways out of this dilemma.  First, you can run the configuration
+again with the same PREFIX thus creating a `Makefile' with a working
+`uninstall' target.  Second, you can do it by hand since you now know
+where all the files went during installation.
+
+
+File: ginac.info,  Node: Basic concepts,  Next: Expressions,  Prev: Installing GiNaC,  Up: Top
+
+Basic concepts
+**************
+
+This chapter will describe the different fundamental objects that can be
+handled by GiNaC.  But before doing so, it is worthwhile introducing you
+to the more commonly used class of expressions, representing a flexible
+meta-class for storing all mathematical objects.
+
+* Menu:
+
+* Expressions::                  The fundamental GiNaC class.
+* Automatic evaluation::         Evaluation and canonicalization.
+* Error handling::               How the library reports errors.
+* The class hierarchy::          Overview of GiNaC's classes.
+* Symbols::                      Symbolic objects.
+* Numbers::                      Numerical objects.
+* Constants::                    Pre-defined constants.
+* Fundamental containers::       Sums, products and powers.
+* Lists::                        Lists of expressions.
+* Mathematical functions::       Mathematical functions.
+* Relations::                    Equality, Inequality and all that.
+* Integrals::                    Symbolic integrals.
+* Matrices::                     Matrices.
+* Indexed objects::              Handling indexed quantities.
+* Non-commutative objects::      Algebras with non-commutative products.
+* Hash maps::                    A faster alternative to std::map<>.
+
+
+File: ginac.info,  Node: Expressions,  Next: Automatic evaluation,  Prev: Basic concepts,  Up: Basic concepts
+
+Expressions
+===========
+
+The most common class of objects a user deals with is the expression
+`ex', representing a mathematical object like a variable, number,
+function, sum, product, etc...  Expressions may be put together to form
+new expressions, passed as arguments to functions, and so on.  Here is a
+little collection of valid expressions:
+
+     ex MyEx1 = 5;                       // simple number
+     ex MyEx2 = x + 2*y;                 // polynomial in x and y
+     ex MyEx3 = (x + 1)/(x - 1);         // rational expression
+     ex MyEx4 = sin(x + 2*y) + 3*z + 41; // containing a function
+     ex MyEx5 = MyEx4 + 1;               // similar to above
+
+Expressions are handles to other more fundamental objects, that often
+contain other expressions thus creating a tree of expressions (*Note
+Internal structures::, for particular examples).  Most methods on `ex'
+therefore run top-down through such an expression tree.  For example,
+the method `has()' scans recursively for occurrences of something
+inside an expression.  Thus, if you have declared `MyEx4' as in the
+example above `MyEx4.has(y)' will find `y' inside the argument of `sin'
+and hence return `true'.
+
+The next sections will outline the general picture of GiNaC's class
+hierarchy and describe the classes of objects that are handled by `ex'.
+
+Note: Expressions and STL containers
+------------------------------------
+
+GiNaC expressions (`ex' objects) have value semantics (they can be
+assigned, reassigned and copied like integral types) but the operator
+`<' doesn't provide a well-defined ordering on them. In STL-speak,
+expressions are `Assignable' but not `LessThanComparable'.
+
+This implies that in order to use expressions in sorted containers such
+as `std::map<>' and `std::set<>' you have to supply a suitable
+comparison predicate. GiNaC provides such a predicate, called
+`ex_is_less'. For example, a set of expressions should be defined as
+`std::set<ex, ex_is_less>'.
+
+Unsorted containers such as `std::vector<>' and `std::list<>' don't
+pose a problem. A `std::vector<ex>' works as expected.
+
+*Note Information about expressions::, for more about comparing and
+ordering expressions.
+
+
+File: ginac.info,  Node: Automatic evaluation,  Next: Error handling,  Prev: Expressions,  Up: Basic concepts
+
+Automatic evaluation and canonicalization of expressions
+========================================================
+
+GiNaC performs some automatic transformations on expressions, to
+simplify them and put them into a canonical form. Some examples:
+
+     ex MyEx1 = 2*x - 1 + x;  // 3*x-1
+     ex MyEx2 = x - x;        // 0
+     ex MyEx3 = cos(2*Pi);    // 1
+     ex MyEx4 = x*y/x;        // y
+
+This behavior is usually referred to as "automatic" or "anonymous
+evaluation". GiNaC only performs transformations that are
+
+   * at most of complexity O(n log n)
+
+   * algebraically correct, possibly except for a set of measure zero
+     (e.g.  x/x is transformed to 1 although this is incorrect for x=0)
+
+There are two types of automatic transformations in GiNaC that may not
+behave in an entirely obvious way at first glance:
+
+   * The terms of sums and products (and some other things like the
+     arguments of symmetric functions, the indices of symmetric tensors
+     etc.) are re-ordered into a canonical form that is deterministic,
+     but not lexicographical or in any other way easy to guess (it
+     almost always depends on the number and order of the symbols you
+     define). However, constructing the same expression twice, either
+     implicitly or explicitly, will always result in the same canonical
+     form.
+
+   * Expressions of the form 'number times sum' are automatically
+     expanded (this has to do with GiNaC's internal representation of
+     sums and products). For example
+          ex MyEx5 = 2*(x + y);   // 2*x+2*y
+          ex MyEx6 = z*(x + y);   // z*(x+y)
+
+The general rule is that when you construct expressions, GiNaC
+automatically creates them in canonical form, which might differ from
+the form you typed in your program. This may create some awkward
+looking output (`-y+x' instead of `x-y') but allows for more efficient
+operation and usually yields some immediate simplifications.
+
+Internally, the anonymous evaluator in GiNaC is implemented by the
+methods
+
+     ex ex::eval(int level = 0) const;
+     ex basic::eval(int level = 0) const;
+
+but unless you are extending GiNaC with your own classes or functions,
+there should never be any reason to call them explicitly. All GiNaC
+methods that transform expressions, like `subs()' or `normal()',
+automatically re-evaluate their results.
+
+
+File: ginac.info,  Node: Error handling,  Next: The class hierarchy,  Prev: Automatic evaluation,  Up: Basic concepts
+
+Error handling
+==============
+
+GiNaC reports run-time errors by throwing C++ exceptions. All exceptions
+generated by GiNaC are subclassed from the standard `exception' class
+defined in the `<stdexcept>' header. In addition to the predefined
+`logic_error', `domain_error', `out_of_range', `invalid_argument',
+`runtime_error', `range_error' and `overflow_error' types, GiNaC also
+defines a `pole_error' exception that gets thrown when trying to
+evaluate a mathematical function at a singularity.
+
+The `pole_error' class has a member function
+
+     int pole_error::degree() const;
+
+that returns the order of the singularity (or 0 when the pole is
+logarithmic or the order is undefined).
+
+When using GiNaC it is useful to arrange for exceptions to be caught in
+the main program even if you don't want to do any special error
+handling.  Otherwise whenever an error occurs in GiNaC, it will be
+delegated to the default exception handler of your C++ compiler's
+run-time system which usually only aborts the program without giving
+any information what went wrong.
+
+Here is an example for a `main()' function that catches and prints
+exceptions generated by GiNaC:
+
+     #include <iostream>
+     #include <stdexcept>
+     #include <ginac/ginac.h>
+     using namespace std;
+     using namespace GiNaC;
+     
+     int main()
+     {
+         try {
+             ...
+             // code using GiNaC
+             ...
+         } catch (exception &p) {
+             cerr << p.what() << endl;
+             return 1;
+         }
+         return 0;
+     }
+
+
+File: ginac.info,  Node: The class hierarchy,  Next: Symbols,  Prev: Error handling,  Up: Basic concepts
+
+The class hierarchy
+===================
+
+GiNaC's class hierarchy consists of several classes representing
+mathematical objects, all of which (except for `ex' and some helpers)
+are internally derived from one abstract base class called `basic'.
+You do not have to deal with objects of class `basic', instead you'll
+be dealing with symbols, numbers, containers of expressions and so on.
+
+To get an idea about what kinds of symbolic composites may be built we
+have a look at the most important classes in the class hierarchy and
+some of the relations among the classes:
+
+<PICTURE MISSING>
+
+The abstract classes shown here (the ones without drop-shadow) are of no
+interest for the user.  They are used internally in order to avoid code
+duplication if two or more classes derived from them share certain
+features.  An example is `expairseq', a container for a sequence of
+pairs each consisting of one expression and a number (`numeric').  What
+_is_ visible to the user are the derived classes `add' and `mul',
+representing sums and products.  *Note Internal structures::, where
+these two classes are described in more detail.  The following table
+shortly summarizes what kinds of mathematical objects are stored in the
+different classes:
+
+`symbol'         Algebraic symbols a, x, y...
+`constant'       Constants like Pi
+`numeric'        All kinds of numbers, 42, 7/3*I, 3.14159...
+`add'            Sums like x+y or a-(2*b)+3
+`mul'            Products like x*y or 2*a^2*(x+y+z)/b
+`ncmul'          Products of non-commutative objects
+`power'          Exponentials such as x^2, a^b, `sqrt('2`)' ...
+`pseries'        Power Series, e.g. x-1/6*x^3+1/120*x^5+O(x^7)
+`function'       A symbolic function like sin(2*x)
+`lst'            Lists of expressions {x, 2*y, 3+z}
+`matrix'         mxn matrices of expressions
+`relational'     A relation like the identity x`=='y
+`indexed'        Indexed object like A_ij
+`tensor'         Special tensor like the delta and metric tensors
+`idx'            Index of an indexed object
+`varidx'         Index with variance
+`spinidx'        Index with variance and dot (used in
+                 Weyl-van-der-Waerden spinor formalism)
+`wildcard'       Wildcard for pattern matching
+`structure'      Template for user-defined classes
+
+
+File: ginac.info,  Node: Symbols,  Next: Numbers,  Prev: The class hierarchy,  Up: Basic concepts
+
+Symbols
+=======
+
+Symbolic indeterminates, or "symbols" for short, are for symbolic
+manipulation what atoms are for chemistry.
+
+A typical symbol definition looks like this:
+     symbol x("x");
+
+This definition actually contains three very different things:
+   * a C++ variable named `x'
+
+   * a `symbol' object stored in this C++ variable; this object
+     represents the symbol in a GiNaC expression
+
+   * the string `"x"' which is the name of the symbol, used (almost)
+     exclusively for printing expressions holding the symbol
+
+Symbols have an explicit name, supplied as a string during construction,
+because in C++, variable names can't be used as values, and the C++
+compiler throws them away during compilation.
+
+It is possible to omit the symbol name in the definition:
+     symbol x;
+
+In this case, GiNaC will assign the symbol an internal, unique name of
+the form `symbolNNN'. This won't affect the usability of the symbol but
+the output of your calculations will become more readable if you give
+your symbols sensible names (for intermediate expressions that are only
+used internally such anonymous symbols can be quite useful, however).
+
+Now, here is one important property of GiNaC that differentiates it from
+other computer algebra programs you may have used: GiNaC does _not_ use
+the names of symbols to tell them apart, but a (hidden) serial number
+that is unique for each newly created `symbol' object. If you want to
+use one and the same symbol in different places in your program, you
+must only create one `symbol' object and pass that around. If you
+create another symbol, even if it has the same name, GiNaC will treat
+it as a different indeterminate.
+
+Observe:
+     ex f(int n)
+     {
+         symbol x("x");
+         return pow(x, n);
+     }
+     
+     int main()
+     {
+         symbol x("x");
+         ex e = f(6);
+     
+         cout << e << endl;
+          // prints "x^6" which looks right, but...
+     
+         cout << e.degree(x) << endl;
+          // ...this doesn't work. The symbol "x" here is different from the one
+          // in f() and in the expression returned by f(). Consequently, it
+          // prints "0".
+     }
+
+One possibility to ensure that `f()' and `main()' use the same symbol
+is to pass the symbol as an argument to `f()':
+     ex f(int n, const ex & x)
+     {
+         return pow(x, n);
+     }
+     
+     int main()
+     {
+         symbol x("x");
+     
+         // Now, f() uses the same symbol.
+         ex e = f(6, x);
+     
+         cout << e.degree(x) << endl;
+          // prints "6", as expected
+     }
+
+Another possibility would be to define a global symbol `x' that is used
+by both `f()' and `main()'. If you are using global symbols and
+multiple compilation units you must take special care, however. Suppose
+that you have a header file `globals.h' in your program that defines a
+`symbol x("x");'. In this case, every unit that includes `globals.h'
+would also get its own definition of `x' (because header files are just
+inlined into the source code by the C++ preprocessor), and hence you
+would again end up with multiple equally-named, but different, symbols.
+Instead, the `globals.h' header should only contain a _declaration_
+like `extern symbol x;', with the definition of `x' moved into a C++
+source file such as `globals.cpp'.
+
+A different approach to ensuring that symbols used in different parts of
+your program are identical is to create them with a _factory_ function
+like this one:
+     const symbol & get_symbol(const string & s)
+     {
+         static map<string, symbol> directory;
+         map<string, symbol>::iterator i = directory.find(s);
+         if (i != directory.end())
+             return i->second;
+         else
+             return directory.insert(make_pair(s, symbol(s))).first->second;
+     }
+
+This function returns one newly constructed symbol for each name that is
+passed in, and it returns the same symbol when called multiple times
+with the same name. Using this symbol factory, we can rewrite our
+example like this:
+     ex f(int n)
+     {
+         return pow(get_symbol("x"), n);
+     }
+     
+     int main()
+     {
+         ex e = f(6);
+     
+         // Both calls of get_symbol("x") yield the same symbol.
+         cout << e.degree(get_symbol("x")) << endl;
+          // prints "6"
+     }
+
+Instead of creating symbols from strings we could also have
+`get_symbol()' take, for example, an integer number as its argument.
+In this case, we would probably want to give the generated symbols names
+that include this number, which can be accomplished with the help of an
+`ostringstream'.
+
+In general, if you're getting weird results from GiNaC such as an
+expression `x-x' that is not simplified to zero, you should check your
+symbol definitions.
+
+As we said, the names of symbols primarily serve for purposes of
+expression output. But there are actually two instances where GiNaC
+uses the names for identifying symbols: When constructing an expression
+from a string, and when recreating an expression from an archive (*note
+Input/output::).
+
+In addition to its name, a symbol may contain a special string that is
+used in LaTeX output:
+     symbol x("x", "\\Box");
+
+This creates a symbol that is printed as "`x'" in normal output, but as
+"`\Box'" in LaTeX code (*Note Input/output::, for more information
+about the different output formats of expressions in GiNaC).  GiNaC
+automatically creates proper LaTeX code for symbols having names of
+greek letters (`alpha', `mu', etc.).
+
+Symbols in GiNaC can't be assigned values. If you need to store results
+of calculations and give them a name, use C++ variables of type `ex'.
+If you want to replace a symbol in an expression with something else,
+you can invoke the expression's `.subs()' method (*note Substituting
+expressions::).
+
+By default, symbols are expected to stand in for complex values, i.e.
+they live in the complex domain.  As a consequence, operations like
+complex conjugation, for example (*note Complex expressions::), do
+_not_ evaluate if applied to such symbols. Likewise `log(exp(x))' does
+not evaluate to `x', because of the unknown imaginary part of `x'.  On
+the other hand, if you are sure that your symbols will hold only real
+values, you would like to have such functions evaluated. Therefore GiNaC
+allows you to specify the domain of the symbol. Instead of `symbol
+x("x");' you can write `realsymbol x("x");' to tell GiNaC that `x'
+stands in for real values.
+
+Furthermore, it is also possible to declare a symbol as positive. This
+will, for instance, enable the automatic simplification of `abs(x)' into
+`x'. This is done by declaring the symbol as `possymbol x("x");'.
+
+
+File: ginac.info,  Node: Numbers,  Next: Constants,  Prev: Symbols,  Up: Basic concepts
+
+Numbers
+=======
+
+For storing numerical things, GiNaC uses Bruno Haible's library CLN.
+The classes therein serve as foundation classes for GiNaC.  CLN stands
+for Class Library for Numbers or alternatively for Common Lisp Numbers.
+In order to find out more about CLN's internals, the reader is referred
+to the documentation of that library.  *note (cln)Introduction::, for
+more information. Suffice to say that it is by itself build on top of
+another library, the GNU Multiple Precision library GMP, which is an
+extremely fast library for arbitrary long integers and rationals as well
+as arbitrary precision floating point numbers.  It is very commonly used
+by several popular cryptographic applications.  CLN extends GMP by
+several useful things: First, it introduces the complex number field
+over either reals (i.e. floating point numbers with arbitrary precision)
+or rationals.  Second, it automatically converts rationals to integers
+if the denominator is unity and complex numbers to real numbers if the
+imaginary part vanishes and also correctly treats algebraic functions.
+Third it provides good implementations of state-of-the-art algorithms
+for all trigonometric and hyperbolic functions as well as for
+calculation of some useful constants.
+
+The user can construct an object of class `numeric' in several ways.
+The following example shows the four most important constructors.  It
+uses construction from C-integer, construction of fractions from two
+integers, construction from C-float and construction from a string:
+
+     #include <iostream>
+     #include <ginac/ginac.h>
+     using namespace GiNaC;
+     
+     int main()
+     {
+         numeric two = 2;                      // exact integer 2
+         numeric r(2,3);                       // exact fraction 2/3
+         numeric e(2.71828);                   // floating point number
+         numeric p = "3.14159265358979323846"; // constructor from string
+         // Trott's constant in scientific notation:
+         numeric trott("1.0841015122311136151E-2");
+     
+         std::cout << two*p << std::endl;  // floating point 6.283...
+         ...
+
+The imaginary unit in GiNaC is a predefined `numeric' object with the
+name `I':
+
+         ...
+         numeric z1 = 2-3*I;                    // exact complex number 2-3i
+         numeric z2 = 5.9+1.6*I;                // complex floating point number
+     }
+
+It may be tempting to construct fractions by writing `numeric r(3/2)'.
+This would, however, call C's built-in operator `/' for integers first
+and result in a numeric holding a plain integer 1.  *Never use the
+operator `/' on integers* unless you know exactly what you are doing!
+Use the constructor from two integers instead, as shown in the example
+above.  Writing `numeric(1)/2' may look funny but works also.
+
+We have seen now the distinction between exact numbers and floating
+point numbers.  Clearly, the user should never have to worry about
+dynamically created exact numbers, since their `exactness' always
+determines how they ought to be handled, i.e. how `long' they are.  The
+situation is different for floating point numbers.  Their accuracy is
+controlled by one _global_ variable, called `Digits'.  (For those
+readers who know about Maple: it behaves very much like Maple's
+`Digits').  All objects of class numeric that are constructed from then
+on will be stored with a precision matching that number of decimal
+digits:
+
+     #include <iostream>
+     #include <ginac/ginac.h>
+     using namespace std;
+     using namespace GiNaC;
+     
+     void foo()
+     {
+         numeric three(3.0), one(1.0);
+         numeric x = one/three;
+     
+         cout << "in " << Digits << " digits:" << endl;
+         cout << x << endl;
+         cout << Pi.evalf() << endl;
+     }
+     
+     int main()
+     {
+         foo();
+         Digits = 60;
+         foo();
+         return 0;
+     }
+
+The above example prints the following output to screen:
+
+     in 17 digits:
+     0.33333333333333333334
+     3.1415926535897932385
+     in 60 digits:
+     0.33333333333333333333333333333333333333333333333333333333333333333334
+     3.1415926535897932384626433832795028841971693993751058209749445923078
+
+Note that the last number is not necessarily rounded as you would
+naively expect it to be rounded in the decimal system.  But note also,
+that in both cases you got a couple of extra digits.  This is because
+numbers are internally stored by CLN as chunks of binary digits in order
+to match your machine's word size and to not waste precision.  Thus, on
+architectures with different word size, the above output might even
+differ with regard to actually computed digits.
+
+It should be clear that objects of class `numeric' should be used for
+constructing numbers or for doing arithmetic with them.  The objects
+one deals with most of the time are the polymorphic expressions `ex'.
+
+Tests on numbers
+----------------
+
+Once you have declared some numbers, assigned them to expressions and
+done some arithmetic with them it is frequently desired to retrieve some
+kind of information from them like asking whether that number is
+integer, rational, real or complex.  For those cases GiNaC provides
+several useful methods.  (Internally, they fall back to invocations of
+certain CLN functions.)
+
+As an example, let's construct some rational number, multiply it with
+some multiple of its denominator and test what comes out:
+
+     #include <iostream>
+     #include <ginac/ginac.h>
+     using namespace std;
+     using namespace GiNaC;
+     
+     // some very important constants:
+     const numeric twentyone(21);
+     const numeric ten(10);
+     const numeric five(5);
+     
+     int main()
+     {
+         numeric answer = twentyone;
+     
+         answer /= five;
+         cout << answer.is_integer() << endl;  // false, it's 21/5
+         answer *= ten;
+         cout << answer.is_integer() << endl;  // true, it's 42 now!
+     }
+
+Note that the variable `answer' is constructed here as an integer by
+`numeric''s copy constructor, but in an intermediate step it holds a
+rational number represented as integer numerator and integer
+denominator.  When multiplied by 10, the denominator becomes unity and
+the result is automatically converted to a pure integer again.
+Internally, the underlying CLN is responsible for this behavior and we
+refer the reader to CLN's documentation.  Suffice to say that the same
+behavior applies to complex numbers as well as return values of certain
+functions.  Complex numbers are automatically converted to real numbers
+if the imaginary part becomes zero.  The full set of tests that can be
+applied is listed in the following table.
+
+*Method*               *Returns true if the object is...*
+`.is_zero()'           ...equal to zero
+`.is_positive()'       ...not complex and greater than 0
+`.is_negative()'       ...not complex and smaller than 0
+`.is_integer()'        ...a (non-complex) integer
+`.is_pos_integer()'    ...an integer and greater than 0
+`.is_nonneg_integer()' ...an integer and greater equal 0
+`.is_even()'           ...an even integer
+`.is_odd()'            ...an odd integer
+`.is_prime()'          ...a prime integer (probabilistic primality test)
+`.is_rational()'       ...an exact rational number (integers are
+                       rational, too)
+`.is_real()'           ...a real integer, rational or float (i.e. is not
+                       complex)
+`.is_cinteger()'       ...a (complex) integer (such as 2-3*I)
+`.is_crational()'      ...an exact (complex) rational number (such as
+                       2/3+7/2*I)
+
+Numeric functions
+-----------------
+
+The following functions can be applied to `numeric' objects and will be
+evaluated immediately:
+
+*Name*                 *Function*
+`inverse(z)'           returns 1/z
+`pow(a, b)'            exponentiation a^b
+`abs(z)'               absolute value
+`real(z)'              real part
+`imag(z)'              imaginary part
+`csgn(z)'              complex sign (returns an `int')
+`step(x)'              step function (returns an `numeric')
+`numer(z)'             numerator of rational or complex rational number
+`denom(z)'             denominator of rational or complex rational number
+`sqrt(z)'              square root
+`isqrt(n)'             integer square root
+`sin(z)'               sine
+`cos(z)'               cosine
+`tan(z)'               tangent
+`asin(z)'              inverse sine
+`acos(z)'              inverse cosine
+`atan(z)'              inverse tangent
+`atan(y, x)'           inverse tangent with two arguments
+`sinh(z)'              hyperbolic sine
+`cosh(z)'              hyperbolic cosine
+`tanh(z)'              hyperbolic tangent
+`asinh(z)'             inverse hyperbolic sine
+`acosh(z)'             inverse hyperbolic cosine
+`atanh(z)'             inverse hyperbolic tangent
+`exp(z)'               exponential function
+`log(z)'               natural logarithm
+`Li2(z)'               dilogarithm
+`zeta(z)'              Riemann's zeta function
+`tgamma(z)'            gamma function
+`lgamma(z)'            logarithm of gamma function
+`psi(z)'               psi (digamma) function
+`psi(n, z)'            derivatives of psi function (polygamma functions)
+`factorial(n)'         factorial function n!
+`doublefactorial(n)'   double factorial function n!!
+`binomial(n, k)'       binomial coefficients
+`bernoulli(n)'         Bernoulli numbers
+`fibonacci(n)'         Fibonacci numbers
+`mod(a, b)'            modulus in positive representation (in the range
+                       `[0, abs(b)-1]' with the sign of b, or zero)
+`smod(a, b)'           modulus in symmetric representation (in the range
+                       `[-iquo(abs(b)-1, 2), iquo(abs(b), 2)]')
+`irem(a, b)'           integer remainder (has the sign of a, or is zero)
+`irem(a, b, q)'        integer remainder and quotient, `irem(a, b, q) ==
+                       a-q*b'
+`iquo(a, b)'           integer quotient
+`iquo(a, b, r)'        integer quotient and remainder, `r == a-iquo(a,
+                       b)*b'
+`gcd(a, b)'            greatest common divisor
+`lcm(a, b)'            least common multiple
+
+Most of these functions are also available as symbolic functions that
+can be used in expressions (*note Mathematical functions::) or, like
+`gcd()', as polynomial algorithms.
+
+Converting numbers
+------------------
+
+Sometimes it is desirable to convert a `numeric' object back to a
+built-in arithmetic type (`int', `double', etc.). The `numeric' class
+provides a couple of methods for this purpose:
+
+     int numeric::to_int() const;
+     long numeric::to_long() const;
+     double numeric::to_double() const;
+     cln::cl_N numeric::to_cl_N() const;
+
+`to_int()' and `to_long()' only work when the number they are applied
+on is an exact integer. Otherwise the program will halt with a message
+like `Not a 32-bit integer'. `to_double()' applied on a rational number
+will return a floating-point approximation. Both `to_int()/to_long()'
+and `to_double()' discard the imaginary part of complex numbers.
+
