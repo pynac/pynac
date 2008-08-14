@@ -156,8 +156,8 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-SUBDIRS = ginac check ginsh tools doc
-DIST_SUBDIRS = ginac check ginsh tools doc
+SUBDIRS = ginac check
+DIST_SUBDIRS = ginac check
 
 # pkg-config metadata
 pkgconfigdir = $(libdir)/pkgconfig
@@ -394,7 +394,7 @@ distcleancheck_listfiles = find . -type f -print
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkinstalldirs) $(distdir)/. $(distdir)/doc/reference $(distdir)/ginac $(distdir)/ginsh $(distdir)/tools
+	$(mkinstalldirs) $(distdir)/. $(distdir)/doc/reference $(distdir)/ginac $(distdir)/tools
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
