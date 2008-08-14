@@ -1,0 +1,55 @@
+This is ginac-examples.info, produced by makeinfo version 4.5 from
+/user/jensv/ginac/ginac/doc/examples/ginac-examples.texi.
+
+
+File: ginac-examples.info,  Node: Top,  Up: (dir)
+
+GiNaC Examples
+**************
+
+This is a collection of code examples using GiNaC.
+
+Input / Output
+**************
+
+Archiving expressions (source) (archive1.cpp)
+=============================================
+
+Two expression are stored in an archive on the disk and are restored
+again.
+
+Monte Carlo Integration
+***********************
+
+Example showing compile_ex (source) (compile1.cpp)
+==================================================
+
+Simple example showing compile_ex with one free variable. Timing
+between CLN and C double numerics is done.
+
+Using VEGAS from CUBA (source) (compile2.cpp)
+=============================================
+
+An expression in two variables is integrated by using VEGAS from the
+CUBA library (http://www.feynarts.de/cuba/).
+
+Example showing link_ex (source) (compile3.cpp)
+===============================================
+
+Demonstrates the use of link_ex. Program has to be called more than
+once to see the effect.
+
+Lanczos Approximation
+*********************
+
+The program lanczos.cpp calculates coefficients for use in the Lanczos
+approximation of the gamma function. The Lanczos approximation is used
+by the function inside GiNaC that approximates the gamma function
+numerically.  See the comments in the source file for more information.
+
+
+
+Tag Table:
+Node: Top126
+
+End Tag Table
