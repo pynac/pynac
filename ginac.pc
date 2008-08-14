@@ -1,4 +1,4 @@
-prefix=/usr/local
+prefix=/home/pernet/Logiciels/sage-3.0.3.alpha2/local
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
