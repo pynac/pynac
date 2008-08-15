@@ -1,0 +1,724 @@
+This is ginac.info, produced by makeinfo version 4.5 from
+/user/jensv/ginac/ginac/doc/tutorial/ginac.texi.
+
+INFO-DIR-SECTION Mathematics
+START-INFO-DIR-ENTRY
+* ginac: (ginac).                   C++ library for symbolic computation.
+END-INFO-DIR-ENTRY
+
+This is a tutorial that documents GiNaC 1.4.3, an open framework for
+symbolic computation within the C++ programming language.
+
+Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+
+Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+
+File: ginac.info,  Node: Expressions are reference counted,  Next: Internal representation of products and sums,  Prev: Internal structures,  Up: Internal structures
+
+Expressions are reference counted
+=================================
+
+In GiNaC, there is an _intrusive reference-counting_ mechanism at work
+where the counter belongs to the algebraic objects derived from class
+`basic' but is maintained by the smart pointer class `ptr', of which
+`ex' contains an instance. If you understood that, you can safely skip
+the rest of this passage.
+
+Expressions are extremely light-weight since internally they work like
+handles to the actual representation.  They really hold nothing more
+than a pointer to some other object.  What this means in practice is
+that whenever you create two `ex' and set the second equal to the first
+no copying process is involved. Instead, the copying takes place as
+soon as you try to change the second.  Consider the simple sequence of
+code:
+
+     #include <iostream>
+     #include <ginac/ginac.h>
+     using namespace std;
+     using namespace GiNaC;
+     
+     int main()
+     {
+         symbol x("x"), y("y"), z("z");
+         ex e1, e2;
+     
+         e1 = sin(x + 2*y) + 3*z + 41;
+         e2 = e1;                // e2 points to same object as e1
+         cout << e2 << endl;     // prints sin(x+2*y)+3*z+41
+         e2 += 1;                // e2 is copied into a new object
+         cout << e2 << endl;     // prints sin(x+2*y)+3*z+42
+     }
+
+The line `e2 = e1;' creates a second expression pointing to the object
+held already by `e1'.  The time involved for this operation is
+therefore constant, no matter how large `e1' was.  Actual copying,
+however, must take place in the line `e2 += 1;' because `e1' and `e2'
+are not handles for the same object any more.  This concept is called
+"copy-on-write semantics".  It increases performance considerably
+whenever one object occurs multiple times and represents a simple
+garbage collection scheme because when an `ex' runs out of scope its
+destructor checks whether other expressions handle the object it points
+to too and deletes the object from memory if that turns out not to be
+the case.  A slightly less trivial example of differentiation using the
+chain-rule should make clear how powerful this can be:
+
+     {
+         symbol x("x"), y("y");
+     
+         ex e1 = x + 3*y;
+         ex e2 = pow(e1, 3);
+         ex e3 = diff(sin(e2), x);   // first derivative of sin(e2) by x
+         cout << e1 << endl          // prints x+3*y
+              << e2 << endl          // prints (x+3*y)^3
+              << e3 << endl;         // prints 3*(x+3*y)^2*cos((x+3*y)^3)
+     }
+
+Here, `e1' will actually be referenced three times while `e2' will be
+referenced two times.  When the power of an expression is built, that
+expression needs not be copied.  Likewise, since the derivative of a
+power of an expression can be easily expressed in terms of that
+expression, no copying of `e1' is involved when `e3' is constructed.
+So, when `e3' is constructed it will print as
+`3*(x+3*y)^2*cos((x+3*y)^3)' but the argument of `cos()' only holds a
+reference to `e2' and the factor in front is just `3*e1^2'.
+
+As a user of GiNaC, you cannot see this mechanism of copy-on-write
+semantics.  When you insert an expression into a second expression, the
+result behaves exactly as if the contents of the first expression were
+inserted.  But it may be useful to remember that this is not what
+happens.  Knowing this will enable you to write much more efficient
+code.  If you still have an uncertain feeling with copy-on-write
+semantics, we recommend you have a look at the C++-FAQ lite
+(http://www.parashift.com/c++-faq-lite/) by Marshall Cline.  Chapter 16
+covers this issue and presents an implementation which is pretty close
+to the one in GiNaC.
+
+
+File: ginac.info,  Node: Internal representation of products and sums,  Next: Package tools,  Prev: Expressions are reference counted,  Up: Internal structures
+
+Internal representation of products and sums
+============================================
+
+Although it should be completely transparent for the user of GiNaC a
+short discussion of this topic helps to understand the sources and also
+explain performance to a large degree.  Consider the unexpanded
+symbolic expression 2*d^3*(4*a+5*b-3) which could naively be
+represented by a tree of linear containers for addition and
+multiplication, one container for exponentiation with base and exponent
+and some atomic leaves of symbols and numbers in this fashion:
+
+<PICTURE MISSING>
+
+However, doing so results in a rather deeply nested tree which will
+quickly become inefficient to manipulate.  We can improve on this by
+representing the sum as a sequence of terms, each one being a pair of a
+purely numeric multiplicative coefficient and its rest.  In the same
+spirit we can store the multiplication as a sequence of terms, each
+having a numeric exponent and a possibly complicated base, the tree
+becomes much more flat:
+
+<PICTURE MISSING>
+
+The number `3' above the symbol `d' shows that `mul' objects are
+treated similarly where the coefficients are interpreted as _exponents_
+now.  Addition of sums of terms or multiplication of products with
+numerical exponents can be coded to be very efficient with such a
+pair-wise representation.  Internally, this handling is performed by
+most CAS in this way.  It typically speeds up manipulations by an order
+of magnitude.  The overall multiplicative factor `2' and the additive
+term `-3' look somewhat out of place in this representation, however,
+since they are still carrying a trivial exponent and multiplicative
+factor `1' respectively.  Within GiNaC, this is avoided by adding a
+field that carries an overall numeric coefficient.  This results in the
+realistic picture of internal representation for 2*d^3*(4*a+5*b-3):
+
+<PICTURE MISSING>
+
+This also allows for a better handling of numeric radicals, since
+`sqrt(2)' can now be carried along calculations.  Now it should be
+clear, why both classes `add' and `mul' are derived from the same
+abstract class: the data representation is the same, only the semantics
+differs.  In the class hierarchy, methods for polynomial expansion and
+the like are reimplemented for `add' and `mul', but the data structure
+is inherited from `expairseq'.
+
+
+File: ginac.info,  Node: Package tools,  Next: Configure script options,  Prev: Internal representation of products and sums,  Up: Top
+
+Package tools
+*************
+
+If you are creating a software package that uses the GiNaC library,
+setting the correct command line options for the compiler and linker can
+be difficult.  The `pkg-config' utility makes this process easier.
+GiNaC supplies all necessary data in `ginac.pc' (installed into
+`/usr/local/lib/pkgconfig' by default). To compile a simple program use
+(1)
+     g++ -o simple `pkg-config --cflags --libs ginac` simple.cpp
+
+This command line might expand to (for example):
+     g++ -o simple -lginac -lcln simple.cpp
+
+Not only is the form using `pkg-config' easier to type, it will work on
+any system, no matter how GiNaC was configured.
+
+For packages configured using GNU automake, `pkg-config' also provides
+the `PKG_CHECK_MODULES' macro to automate the process of checking for
+libraries
+
+     PKG_CHECK_MODULES(MYAPP, ginac >= MINIMUM_VERSION,
+                       [ACTION-IF-FOUND],
+                       [ACTION-IF-NOT-FOUND])
+
+This macro:
+
+   * Determines the location of GiNaC using data from `ginac.pc', which
+     is either found in the default `pkg-config' search path, or from
+     the environment variable `PKG_CONFIG_PATH'.
+
+   * Tests the installed libraries to make sure that their version is
+     later than MINIMUM-VERSION.
+
+   * If the required version was found, sets the `MYAPP_CFLAGS' variable
+     to the output of `pkg-config --cflags ginac' and the `MYAPP_LIBS'
+     variable to the output of `pkg-config --libs ginac', and calls
+     `AC_SUBST()' for these variables so they can be used in generated
+     makefiles, and then executes ACTION-IF-FOUND.
+
+   * If the required version was not found, executes
+     ACTION-IF-NOT-FOUND.
+
+
+* Menu:
+
+* Configure script options::  Configuring a package that uses GiNaC
+* Example package::           Example of a package using GiNaC
+
+---------- Footnotes ----------
+
+(1) If GiNaC is installed into some non-standard directory PREFIX one
+should set the PKG_CONFIG_PATH environment variable to
+PREFIX/lib/pkgconfig for this to work.
+
+
+File: ginac.info,  Node: Configure script options,  Next: Example package,  Prev: Package tools,  Up: Package tools
+
+Configuring a package that uses GiNaC
+-------------------------------------
+
+The directory where the GiNaC libraries are installed needs to be found
+by your system's dynamic linkers (both compile- and run-time ones).
+See the documentation of your system linker for details.  Also make
+sure that `ginac.pc' is in `pkg-config''s search path, *Note
+pkg-config: (*manpages*)pkg-config.
+
+The short summary below describes how to do this on a GNU/Linux system.
+
+Suppose GiNaC is installed into the directory `PREFIX'. To tell the
+linkers where to find the library one should
+
+   * edit `/etc/ld.so.conf' and run `ldconfig'. For example,
+          # echo PREFIX/lib >> /etc/ld.so.conf
+          # ldconfig
+
+   * or set the environment variables `LD_LIBRARY_PATH' and
+     `LD_RUN_PATH'
+          $ export LD_LIBRARY_PATH=PREFIX/lib
+          $ export LD_RUN_PATH=PREFIX/lib
+
+   * or give a `-L' and `--rpath' flags when running configure, for
+     instance:
+
+          $ LDFLAGS='-Wl,-LPREFIX/lib -Wl,--rpath=PREFIX/lib' ./configure
+
+To tell `pkg-config' where the `ginac.pc' file is, set the
+`PKG_CONFIG_PATH' environment variable:
+     $ export PKG_CONFIG_PATH=PREFIX/lib/pkgconfig
+
+Finally, run the `configure' script
+     $ ./configure
+
+
+File: ginac.info,  Node: Example package,  Next: Bibliography,  Prev: Configure script options,  Up: Package tools
+
+Example of a package using GiNaC
+--------------------------------
+
+The following shows how to build a simple package using automake and
+the `PKG_CHECK_MODULES' macro. The program used here is `simple.cpp':
+
+     #include <iostream>
+     #include <ginac/ginac.h>
+     
+     int main()
+     {
+         GiNaC::symbol x("x");
+         GiNaC::ex a = GiNaC::sin(x);
+         std::cout << "Derivative of " << a
+                   << " is " << a.diff(x) << std::endl;
+         return 0;
+     }
+
+You should first read the introductory portions of the automake Manual,
+if you are not already familiar with it.
+
+Two files are needed, `configure.ac', which is used to build the
+configure script:
+
+     dnl Process this file with autoreconf to produce a configure script.
+     AC_INIT([simple], 1.0.0, bogus@example.net)
+     AC_CONFIG_SRCDIR(simple.cpp)
+     AM_INIT_AUTOMAKE([foreign 1.8])
+     
+     AC_PROG_CXX
+     AC_PROG_INSTALL
+     AC_LANG([C++])
+     
+     PKG_CHECK_MODULES(SIMPLE, ginac >= 1.3.7)
+     
+     AC_OUTPUT(Makefile)
+
+The `PKG_CHECK_MODULES' macro does the following: If a GiNaC version
+greater or equal than 1.3.7 is found, then it defines SIMPLE_CFLAGS and
+SIMPLE_LIBS. Otherwise, it dies with the error message like
+     configure: error: Package requirements (ginac >= 1.3.7) were not met:
+     
+     Requested 'ginac >= 1.3.7' but version of GiNaC is 1.3.5
+     
+     Consider adjusting the PKG_CONFIG_PATH environment variable if you
+     installed software in a non-standard prefix.
+     
+     Alternatively, you may set the environment variables SIMPLE_CFLAGS
+     and SIMPLE_LIBS to avoid the need to call pkg-config.
+     See the pkg-config man page for more details.
+
+And the `Makefile.am', which will be used to build the Makefile.
+
+     ## Process this file with automake to produce Makefile.in
+     bin_PROGRAMS = simple
+     simple_SOURCES = simple.cpp
+     simple_CPPFLAGS = $(SIMPLE_CFLAGS)
+     simple_LDADD = $(SIMPLE_LIBS)
+
+This `Makefile.am', says that we are building a single executable, from
+a single source file `simple.cpp'. Since every program we are building
+uses GiNaC we could have simply added SIMPLE_CFLAGS to CPPFLAGS and
+SIMPLE_LIBS to LIBS. However, it is more flexible to specify libraries
+and complier options on a per-program basis.
+
+To try this example out, create a new directory and add the three files
+above to it.
+
+Now execute the following command:
+
+     $ autoreconf -i
+
+You now have a package that can be built in the normal fashion
+
+     $ ./configure
+     $ make
+     $ make install
+
+
+File: ginac.info,  Node: Bibliography,  Next: Concept index,  Prev: Example package,  Up: Top
+
+Bibliography
+************
+
+   - `ISO/IEC 14882:1998: Programming Languages: C++'
+
+   - `CLN: A Class Library for Numbers', Bruno Haible <haible@ilog.fr>
+
+   - `The C++ Programming Language', Bjarne Stroustrup, 3rd Edition,
+     ISBN 0-201-88954-4, Addison Wesley
+
+   - `C++ FAQs', Marshall Cline, ISBN 0-201-58958-3, 1995, Addison
+     Wesley
+
+   - `Algorithms for Computer Algebra', Keith O. Geddes, Stephen R.
+     Czapor, and George Labahn, ISBN 0-7923-9259-0, 1992, Kluwer
+     Academic Publishers, Norwell, Massachusetts
+
+   - `Computer Algebra: Systems and Algorithms for Algebraic
+     Computation', James H. Davenport, Yvon Siret and Evelyne Tournier,
+     ISBN 0-12-204230-1, 1988, Academic Press, London
+
+   - `Computer Algebra Systems - A Practical Guide', Michael J. Wester
+     (editor), ISBN 0-471-98353-5, 1999, Wiley, Chichester
+
+   - `The Art of Computer Programming, Vol 2: Seminumerical Algorithms',
+     Donald E. Knuth, ISBN 0-201-89684-2, 1998, Addison Wesley
+
+   - `Pi Unleashed', Jo"rg Arndt and Christoph Haenel, ISBN
+     3-540-66572-2, 2001, Springer, Heidelberg
+
+   - `The Role of gamma5 in Dimensional Regularization', Dirk Kreimer,
+     hep-ph/9401354
+
+
+
+File: ginac.info,  Node: Concept index,  Prev: Bibliography,  Up: Top
+
+Concept index
+*************
+
+* Menu:
+
+* abs():                                 Built-in functions.
+* accept():                              Visitors and tree traversal.
+* accuracy:                              Numbers.
+* acos():                                Built-in functions.
+* acosh():                               Built-in functions.
+* add <1>:                               Internal representation of products and sums.
+* add:                                   Fundamental containers.
+* advocacy:                              A comparison with other CAS.
+* alternating Euler sum:                 Multiple polylogarithms.
+* antisymmetrize():                      Symmetrization.
+* append():                              Lists.
+* archive (class):                       Input/output.
+* archiving:                             Input/output.
+* asin():                                Built-in functions.
+* asinh():                               Built-in functions.
+* atan():                                Built-in functions.
+* atanh():                               Built-in functions.
+* atom <1>:                              Symbols.
+* atom:                                  The class hierarchy.
+* Autoconf:                              Configuration.
+* bernoulli():                           Numbers.
+* beta():                                Built-in functions.
+* binomial():                            Built-in functions.
+* branch cut:                            Built-in functions.
+* building GiNaC:                        Building GiNaC.
+* calchash():                            Adding classes.
+* canonicalize_clifford():               Non-commutative objects.
+* Catalan:                               Constants.
+* chain rule:                            Symbolic differentiation.
+* charpoly():                            Matrices.
+* clifford (class):                      Non-commutative objects.
+* clifford::get_metric():                Non-commutative objects.
+* clifford_bar():                        Non-commutative objects.
+* clifford_inverse():                    Non-commutative objects.
+* clifford_max_label():                  Non-commutative objects.
+* clifford_moebius_map():                Non-commutative objects.
+* clifford_norm():                       Non-commutative objects.
+* clifford_prime():                      Non-commutative objects.
+* clifford_star():                       Non-commutative objects.
+* clifford_to_lst():                     Non-commutative objects.
+* clifford_unit():                       Non-commutative objects.
+* CLN <1>:                               Numbers.
+* CLN:                                   Installation.
+* coeff():                               Polynomial arithmetic.
+* collect():                             Polynomial arithmetic.
+* collect_common_factors():              Polynomial arithmetic.
+* color (class):                         Non-commutative objects.
+* color_d():                             Non-commutative objects.
+* color_f():                             Non-commutative objects.
+* color_h():                             Non-commutative objects.
+* color_ONE():                           Non-commutative objects.
+* color_T():                             Non-commutative objects.
+* color_trace():                         Non-commutative objects.
+* compare():                             Information about expressions.
+* compare_same_type():                   Adding classes.
+* compile_ex:                            Input/output.
+* compiling expressions:                 Input/output.
+* complex numbers:                       Numbers.
+* configuration:                         Configuration.
+* conjugate() <1>:                       Complex expressions.
+* conjugate():                           Built-in functions.
+* const_iterator:                        Information about expressions.
+* const_postorder_iterator:              Information about expressions.
+* const_preorder_iterator:               Information about expressions.
+* constant (class):                      Constants.
+* container <1>:                         Information about expressions.
+* container:                             The class hierarchy.
+* content():                             Polynomial arithmetic.
+* contravariant:                         Indexed objects.
+* Converting ex to other classes:        Information about expressions.
+* copy-on-write:                         Expressions are reference counted.
+* cos():                                 Built-in functions.
+* cosh():                                Built-in functions.
+* covariant:                             Indexed objects.
+* csrc:                                  Input/output.
+* csrc_cl_N:                             Input/output.
+* csrc_double:                           Input/output.
+* csrc_float:                            Input/output.
+* CUBA library:                          Input/output.
+* DECLARE_FUNCTION:                      Symbolic functions.
+* degree():                              Polynomial arithmetic.
+* delta_tensor():                        Indexed objects.
+* denom():                               Rational expressions.
+* denominator:                           Rational expressions.
+* determinant():                         Matrices.
+* dflt:                                  Input/output.
+* diag_matrix():                         Matrices.
+* diff():                                Symbolic differentiation.
+* differentiation:                       Symbolic differentiation.
+* Digits <1>:                            Numerical evaluation.
+* Digits:                                Numbers.
+* dirac_gamma():                         Non-commutative objects.
+* dirac_gamma5():                        Non-commutative objects.
+* dirac_gammaL():                        Non-commutative objects.
+* dirac_gammaR():                        Non-commutative objects.
+* dirac_ONE():                           Non-commutative objects.
+* dirac_slash():                         Non-commutative objects.
+* dirac_trace():                         Non-commutative objects.
+* divide():                              Polynomial arithmetic.
+* doublefactorial():                     Numbers.
+* dummy index:                           Indexed objects.
+* epsilon_tensor():                      Indexed objects.
+* Euler:                                 Constants.
+* Euler numbers:                         Symbolic differentiation.
+* eval() <1>:                            Adding classes.
+* eval():                                Automatic evaluation.
+* evalf() <1>:                           Numerical evaluation.
+* evalf():                               Constants.
+* evalm():                               Matrices.
+* evaluation <1>:                        Adding classes.
+* evaluation <2>:                        Symbolic functions.
+* evaluation:                            Automatic evaluation.
+* ex_is_equal (class):                   Information about expressions.
+* ex_is_less (class):                    Information about expressions.
+* ex_to<...>():                          Information about expressions.
+* exceptions:                            Error handling.
+* exhashmap (class):                     Hash maps.
+* exp():                                 Built-in functions.
+* expand() <1>:                          Polynomial arithmetic.
+* expand():                              Indexed objects.
+* expand_dummy_sum():                    Indexed objects.
+* expression (class ex):                 Expressions.
+* factorial():                           Built-in functions.
+* factorization:                         Polynomial arithmetic.
+* fibonacci():                           Numbers.
+* find():                                Pattern matching and advanced substitutions.
+* fraction:                              Numbers.
+* fsolve:                                What it can do for you.
+* FUNCP_1P:                              Input/output.
+* FUNCP_2P:                              Input/output.
+* FUNCP_CUBA:                            Input/output.
+* function (class):                      Mathematical functions.
+* G():                                   Built-in functions.
+* gamma function:                        Built-in functions.
+* Gamma function:                        Mathematical functions.
+* garbage collection:                    Expressions are reference counted.
+* GCD:                                   Polynomial arithmetic.
+* gcd():                                 Polynomial arithmetic.
+* get_dimension():                       Indexed objects.
+* get_free_indices():                    Indexed objects.
+* get_value():                           Indexed objects.
+* ginac-excompiler:                      Input/output.
+* ginsh <1>:                             What does not belong into GiNaC.
+* ginsh <2>:                             Fundamental containers.
+* ginsh:                                 What it can do for you.
+* GMP:                                   Numbers.
+* H():                                   Built-in functions.
+* harmonic polylogarithm:                Multiple polylogarithms.
+* has() <1>:                             Pattern matching and advanced substitutions.
+* has():                                 Expressions.
+* hash maps:                             Hash maps.
+* Hermite polynomial:                    How to use it from within C++.
+* hierarchy of classes <1>:              Adding classes.
+* hierarchy of classes:                  Symbols.
+* history of GiNaC:                      Introduction.
+* hold() <1>:                            Adding classes.
+* hold():                                Symbolic functions.
+* hyperbolic function:                   Mathematical functions.
+* I:                                     Numbers.
+* I/O:                                   Input/output.
+* idx (class):                           Indexed objects.
+* imag():                                Numbers.
+* imag_part():                           Built-in functions.
+* index_dimensions:                      Input/output.
+* indexed (class):                       Indexed objects.
+* info():                                Information about expressions.
+* input of expressions:                  Input/output.
+* installation:                          Installing GiNaC.
+* integral (class):                      Integrals.
+* inverse() (matrix):                    Matrices.
+* inverse() (numeric):                   Numbers.
+* iquo():                                Numbers.
+* irem():                                Numbers.
+* is_a<...>():                           Information about expressions.
+* is_equal():                            Information about expressions.
+* is_equal_same_type():                  Adding classes.
+* is_exactly_a<...>():                   Information about expressions.
+* is_polynomial():                       Polynomial arithmetic.
+* is_zero():                             Information about expressions.
+* is_zero_matrix():                      Matrices.
+* isqrt():                               Numbers.
+* iterators:                             Information about expressions.
+* latex:                                 Input/output.
+* Laurent expansion:                     Series expansion.
+* LCM:                                   Polynomial arithmetic.
+* lcm():                                 Polynomial arithmetic.
+* ldegree():                             Polynomial arithmetic.
+* let_op() <1>:                          Adding classes.
+* let_op():                              Structures.
+* lgamma():                              Built-in functions.
+* Li():                                  Built-in functions.
+* Li2():                                 Built-in functions.
+* link_ex:                               Input/output.
+* lists:                                 Lists.
+* log():                                 Built-in functions.
+* lorentz_eps():                         Indexed objects.
+* lorentz_g():                           Indexed objects.
+* lsolve():                              Solving linear systems of equations.
+* lst (class):                           Lists.
+* lst_to_clifford():                     Non-commutative objects.
+* lst_to_matrix():                       Matrices.
+* Machin's formula:                      Series expansion.
+* map():                                 Applying a function on subexpressions.
+* match():                               Pattern matching and advanced substitutions.
+* matrix (class):                        Matrices.
+* metric_tensor():                       Indexed objects.
+* mod():                                 Numbers.
+* Monte Carlo integration:               Input/output.
+* mul <1>:                               Internal representation of products and sums.
+* mul:                                   Fundamental containers.
+* multiple polylogarithm:                Multiple polylogarithms.
+* multiple zeta value:                   Multiple polylogarithms.
+* ncmul (class):                         Non-commutative objects.
+* Nielsen's generalized polylogarithm:   Multiple polylogarithms.
+* no_index_dimensions:                   Input/output.
+* nops() <1>:                            Information about expressions.
+* nops():                                Lists.
+* normal():                              Rational expressions.
+* numer():                               Rational expressions.
+* numer_denom():                         Rational expressions.
+* numerator:                             Rational expressions.
+* numeric (class):                       Numbers.
+* op() <1>:                              Information about expressions.
+* op():                                  Lists.
+* Order() <1>:                           Built-in functions.
+* Order():                               Series expansion.
+* output of expressions:                 Input/output.
+* pair-wise representation:              Internal representation of products and sums.
+* Pattern matching:                      Pattern matching and advanced substitutions.
+* Pi:                                    Constants.
+* pole_error (class):                    Error handling.
+* polylogarithm:                         Multiple polylogarithms.
+* polynomial <1>:                        Methods and functions.
+* polynomial:                            Fundamental containers.
+* polynomial division:                   Polynomial arithmetic.
+* possymbol():                           Symbols.
+* pow():                                 Fundamental containers.
+* power <1>:                             Internal representation of products and sums.
+* power:                                 Fundamental containers.
+* prem():                                Polynomial arithmetic.
+* prepend():                             Lists.
+* primpart():                            Polynomial arithmetic.
+* print():                               Printing.
+* print_context (class):                 Printing.
+* print_csrc (class):                    Printing.
+* print_dflt (class):                    Printing.
+* print_latex (class):                   Printing.
+* print_tree (class):                    Printing.
+* printing:                              Input/output.
+* product rule <1>:                      Symbolic functions.
+* product rule:                          Symbolic differentiation.
+* pseries (class):                       Series expansion.
+* pseudo-remainder:                      Polynomial arithmetic.
+* pseudo-vector:                         Non-commutative objects.
+* psi():                                 Built-in functions.
+* quo():                                 Polynomial arithmetic.
+* quotient:                              Polynomial arithmetic.
+* radical:                               Internal representation of products and sums.
+* rank():                                Matrices.
+* rational:                              Numbers.
+* real():                                Numbers.
+* real_part():                           Built-in functions.
+* realsymbol():                          Symbols.
+* reduced_matrix():                      Matrices.
+* reference counting:                    Expressions are reference counted.
+* REGISTER_FUNCTION:                     Symbolic functions.
+* relational (class) <1>:                Information about expressions.
+* relational (class):                    Relations.
+* rem():                                 Polynomial arithmetic.
+* remainder:                             Polynomial arithmetic.
+* remove_all():                          Lists.
+* remove_dirac_ONE():                    Non-commutative objects.
+* remove_first():                        Lists.
+* remove_last():                         Lists.
+* representation:                        Internal representation of products and sums.
+* resultant:                             Polynomial arithmetic.
+* resultant():                           Polynomial arithmetic.
+* return_type() <1>:                     Information about expressions.
+* return_type():                         Non-commutative objects.
+* return_type_tinfo() <1>:               Information about expressions.
+* return_type_tinfo():                   Non-commutative objects.
+* rounding:                              Numbers.
+* RTTI:                                  Adding classes.
+* S():                                   Built-in functions.
+* series():                              Series expansion.
+* simplification:                        Rational expressions.
+* simplify_indexed():                    Indexed objects.
+* sin():                                 Built-in functions.
+* sinh():                                Built-in functions.
+* smod():                                Numbers.
+* solve():                               Matrices.
+* spinidx (class):                       Indexed objects.
+* spinor_metric():                       Indexed objects.
+* sqrfree():                             Polynomial arithmetic.
+* sqrt():                                Built-in functions.
+* square-free decomposition:             Polynomial arithmetic.
+* step():                                Built-in functions.
+* STL:                                   Advantages.
+* sub_matrix():                          Matrices.
+* subs() <1>:                            Pattern matching and advanced substitutions.
+* subs() <2>:                            Substituting expressions.
+* subs() <3>:                            Methods and functions.
+* subs() <4>:                            Indexed objects.
+* subs() <5>:                            Mathematical functions.
+* subs():                                Symbols.
+* sy_anti():                             Indexed objects.
+* sy_cycl():                             Indexed objects.
+* sy_none():                             Indexed objects.
+* sy_symm():                             Indexed objects.
+* symbol (class):                        Symbols.
+* symbolic_matrix():                     Matrices.
+* symmetrize():                          Symmetrization.
+* symmetrize_cyclic():                   Symmetrization.
+* symmetry (class):                      Indexed objects.
+* tan():                                 Built-in functions.
+* tanh():                                Built-in functions.
+* Taylor expansion:                      Series expansion.
+* temporary replacement:                 Rational expressions.
+* tensor (class):                        Indexed objects.
+* tgamma():                              Built-in functions.
+* to_cl_N():                             Numbers.
+* to_double():                           Numbers.
+* to_int():                              Numbers.
+* to_long():                             Numbers.
+* to_polynomial():                       Rational expressions.
+* to_rational():                         Rational expressions.
+* trace():                               Matrices.
+* transpose():                           Matrices.
+* traverse():                            Visitors and tree traversal.
+* traverse_postorder():                  Visitors and tree traversal.
+* traverse_preorder():                   Visitors and tree traversal.
+* tree:                                  Input/output.
+* Tree traversal:                        Input/output.
+* tree traversal <1>:                    Visitors and tree traversal.
+* tree traversal:                        Applying a function on subexpressions.
+* trigonometric function:                Mathematical functions.
+* unit():                                Polynomial arithmetic.
+* unit_matrix():                         Matrices.
+* unitcontprim():                        Polynomial arithmetic.
+* unlink_ex:                             Input/output.
+* variance:                              Indexed objects.
+* varidx (class):                        Indexed objects.
+* viewgar:                               Input/output.
+* visit():                               Visitors and tree traversal.
+* visitor (class):                       Visitors and tree traversal.
+* wildcard (class):                      Pattern matching and advanced substitutions.
+* Zeta function:                         What it can do for you.
+* zeta():                                Built-in functions.
+
+
