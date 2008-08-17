@@ -1,2 +1,0 @@
-#!/bin/sh
-@CC@ -x c -fPIC -shared -o $1.so $1
