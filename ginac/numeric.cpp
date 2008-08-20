@@ -212,14 +212,15 @@ PyObject* s_gcd = PyString_FromString("gcd");  // todo: never freed
 PyObject* s_numerator = PyString_FromString("numerator");  // todo: never freed
 PyObject* s_denominator = PyString_FromString("denominator");  // todo: never freed
 
-  std::ostream& operator << (std::ostream& os, const Number_T& s) {
+std::ostream& operator << (std::ostream& os, const Number_T& s) {
+  PyObject* o;
     switch(s.t) {
     case LONG:
       return os << s.v._long;
     case DOUBLE:
       return os << s.v._double;
     case PYOBJECT:
-      PyObject* o = PyObject_Repr(s.v._pyobject);
+      o = PyObject_Repr(s.v._pyobject);
       if (!o) {
 	// TODO: get proper exception.
 	os << "(exception printing python object)";
@@ -593,13 +594,14 @@ PyObject* s_denominator = PyString_FromString("denominator");  // todo: never fr
 
   Number_T::operator long int() const { 
     verbose("operator long int");
+    long int a;
     switch(t) {
     case DOUBLE:
       return (long int) v._double; 
     case LONG:
       return (long int) v._long;
     case PYOBJECT:
-      long int a = PyInt_AsLong(v._pyobject);
+      a = PyInt_AsLong(v._pyobject);
       if (a == -1 && PyErr_Occurred()) {
 	PyErr_Print();
 	py_error("Overfloat converting to long int");
@@ -850,6 +852,10 @@ PyObject* s_denominator = PyString_FromString("denominator");  // todo: never fr
 
   bool Number_T::is_integer() const { 
     verbose2("is_integer", *this);
+
+    bool ans;
+    PyObject* o;
+
     switch(t) {
     case DOUBLE:
       return false;
@@ -857,8 +863,8 @@ PyObject* s_denominator = PyString_FromString("denominator");  // todo: never fr
       return true;
     case PYOBJECT:
       Py_INCREF(v._pyobject);  // is this right?
-      PyObject* o = PyObject_CallFunctionObjArgs(pyfunc_Integer, v._pyobject, NULL);
-      bool ans = o;
+      o = PyObject_CallFunctionObjArgs(pyfunc_Integer, v._pyobject, NULL);
+      ans = o;
       Py_DECREF(o);
       verbose2("is_integer; ans --> ", ans);
       return ans;
@@ -897,18 +903,22 @@ PyObject* s_denominator = PyString_FromString("denominator");  // todo: never fr
   
   bool Number_T::is_even() const { 
     verbose("is_even");
+
+    bool ans;
+    PyObject* o;
+
     switch(t) {
     case DOUBLE:
       return false;
     case LONG:
       return (v._long %2 == 0);
     case PYOBJECT:
-      PyObject* o = PyNumber_Remainder(v._pyobject, TWO);
+      o = PyNumber_Remainder(v._pyobject, TWO);
       if (!o) {
 	Py_DECREF(o);
 	return false;
       }
-      bool ans = (PyObject_Compare(o, ZERO) == 0);
+      ans = (PyObject_Compare(o, ZERO) == 0);
       Py_DECREF(o);
       return ans;
     default:
