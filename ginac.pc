@@ -1,0 +1,11 @@
+prefix=/home/was/sage-3.1/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: GiNaC
+Description: C++ library for symbolic calculations
+Version: 1.4.3
+Requires: cln >= 1.1.6
+Libs: -L${libdir} -lginac
+Cflags: -I${includedir}
