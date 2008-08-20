@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
-SUBDIRS = ginac check ginsh tools doc
-DIST_SUBDIRS = ginac check ginsh tools doc
+SUBDIRS = ginac 
+DIST_SUBDIRS = ginac
 
 # pkg-config metadata
 pkgconfigdir = $(libdir)/pkgconfig
