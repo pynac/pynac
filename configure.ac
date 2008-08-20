@@ -148,20 +148,6 @@ GiNaC.spec
 ginac.pc
 ginac/Makefile
 ginac/version.h
-check/Makefile
-ginsh/Makefile
-ginsh/ginsh.1
-tools/Makefile
-tools/viewgar.1
-tools/ginac-excompiler
-doc/Makefile
-doc/examples/Makefile
-doc/tutorial/Makefile
-doc/reference/Makefile
-doc/reference/DoxyfileHTML
-doc/reference/DoxyfileTEX
-doc/reference/DoxyfilePDF
-doc/reference/Doxyfooter
 ])
 AC_OUTPUT
 dnl Display a final warning if there has been a GINAC_ERROR or a GINAC_WARNING
