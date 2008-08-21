@@ -1,4 +1,4 @@
-prefix=/home/was/sage-3.1/local
+prefix=/home/was/s/local
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
