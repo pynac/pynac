@@ -12,13 +12,13 @@ dnl set ginac_binary_age and ginac_interface_age to 0.
 
 m4_define([ginac_major_version], [0])
 m4_define([ginac_minor_version], [1])
-m4_define([ginac_micro_version], [0])
+m4_define([ginac_micro_version], [1])
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 m4_define([ginac_interface_age], [0])
 m4_define([ginac_binary_age], [0])
 
-AC_INIT([pynac], ginac_version, [<ginac-list@ginac.de>])
+AC_INIT([pynac], ginac_version, [<sage-devel@googlegroups.com>])
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
@@ -144,8 +144,8 @@ AM_CONDITIONAL(CONFIG_FIG2DEV, [test ! -z "$FIG2DEV"])
 dnl Output makefiles etc.
 AC_CONFIG_FILES([
 Makefile
-GiNaC.spec
-ginac.pc
+pynac.spec
+pynac.pc
 ginac/Makefile
 ginac/version.h
 ])

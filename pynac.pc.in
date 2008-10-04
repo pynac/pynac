@@ -3,9 +3,9 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@,$SAGE_LOCAL/include
 
-Name: GiNaC
-Description: C++ library for symbolic calculations
+Name: pynac
+Description: C++/Python library for symbolic calculations
 Version: @VERSION@
-Requires: cln >= 1.1.6
-Libs: -L${libdir} -lginac
+Requires: python >= 2.5
+Libs: -L${libdir} -lpython
 Cflags: -I${includedir}

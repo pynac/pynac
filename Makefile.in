@@ -33,9 +33,9 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = .
-DIST_COMMON = README $(am__configure_deps) $(srcdir)/GiNaC.spec.in \
-	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/config.h.in $(srcdir)/ginac.pc.in \
+DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
+	$(srcdir)/pynac.pc.in $(srcdir)/pynac.spec.in \
 	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
 	config.guess config.sub depcomp install-sh ltmain.sh missing \
 	mkinstalldirs ylwrap
@@ -48,7 +48,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = GiNaC.spec ginac.pc
+CONFIG_CLEAN_FILES = pynac.spec pynac.pc
 SOURCES =
 DIST_SOURCES =
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
@@ -218,10 +218,10 @@ DIST_SUBDIRS = ginac
 
 # pkg-config metadata
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = ginac.pc
+pkgconfig_DATA = pynac.pc
 
 # All the rest of the distributed files
-EXTRA_DIST = ginac.pc GiNaC.spec
+EXTRA_DIST = pynac.pc pynac.spec
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -276,9 +276,9 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-GiNaC.spec: $(top_builddir)/config.status $(srcdir)/GiNaC.spec.in
+pynac.spec: $(top_builddir)/config.status $(srcdir)/pynac.spec.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
-ginac.pc: $(top_builddir)/config.status $(srcdir)/ginac.pc.in
+pynac.pc: $(top_builddir)/config.status $(srcdir)/pynac.pc.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 
 mostlyclean-libtool:
