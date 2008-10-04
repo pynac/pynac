@@ -4,11 +4,11 @@ DIST_SUBDIRS = ginac
 
 # pkg-config metadata
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = ginac.pc
+pkgconfig_DATA = pynac.pc
 $(pkgconfig_DATA): config.status
 
 # All the rest of the distributed files
-EXTRA_DIST = ginac.pc GiNaC.spec
+EXTRA_DIST = pynac.pc pynac.spec
 
 # Rule to build tar-bzipped distribution package
 $(PACKAGE)-$(VERSION).tar.gz: dist
