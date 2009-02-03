@@ -68,8 +68,6 @@ AC_PROG_CXX
 AC_PROG_CXXCPP
 AC_PROG_INSTALL
 AM_PROG_LIBTOOL
-AM_PROG_LEX
-AC_PROG_YACC
 
 dnl Check for data types which are needed by the hash function 
 dnl (golden_ratio_hash).
@@ -81,26 +79,6 @@ AC_CHECK_SIZEOF(void *)
 
 dnl Switch to C++ language mode for the following libraries and headers.
 AC_LANG([C++])
-
-dnl Check for stuff needed for building the GiNaC interactive shell (ginsh).
-AC_CHECK_HEADERS(unistd.h)
-GINAC_HAVE_RUSAGE
-AC_CHECK_HEADERS(readline/readline.h readline/history.h)
-if test "x${ac_cv_header_readline_readline_h}" != "xyes" -o "x${ac_cv_header_readline_history_h}" != "xyes"; then
-  GINAC_WARNING([I could not find the headers for libreadline (needed for building ginsh).])
-fi
-GINAC_TERMCAP
-save_LIBS=$LIBS
-LIBS="$LIBTERMCAP $LIBS"
-AC_CHECK_LIB(readline, readline)
-if test "x${ac_cv_lib_readline_readline}" = "xyes"; then
-  GINAC_LIB_READLINE_VERSION
-else
-  GINAC_WARNING([I could not find libreadline (needed by ginsh).])
-fi
-GINSH_LIBS=$LIBS
-LIBS=$save_LIBS
-AC_SUBST(GINSH_LIBS)
 
 dnl Make sure all the necessary standard headers are installed on the system.
 AC_CHECK_HEADER(iosfwd, , GINAC_ERROR([The standard <iosfwd> header file could not be found.]))
@@ -117,16 +95,6 @@ AC_CHECK_HEADER(limits, , GINAC_ERROR([The standard <limits> header file could n
 if test "x$CONFIG_RUSAGE" = "xno"; then
     AC_CHECK_HEADER(ctime, , GINAC_ERROR([The standard <ctime> header file could not be found.]))
 fi
-
-DL_LIBS=""
-dnl Check for dl library (needed for GiNaC::compile).
-AC_CHECK_LIB(dl, dlopen,
-	[
-		DL_LIBS="-ldl"
-		AC_DEFINE(HAVE_LIBDL, 1, [set to 1 if you have a working libdl installed.])
-	], 
-	GINAC_WARNING([libdl not found. GiNaC::compile will be disabled.]))
-AC_SUBST(DL_LIBS)
 
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
