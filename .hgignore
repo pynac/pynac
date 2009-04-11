@@ -4,6 +4,8 @@
 %*~
 %*.libs/
 Makefile
+config.guess
+config.sub
 stamp-h1
 version.h
 ylwrap
