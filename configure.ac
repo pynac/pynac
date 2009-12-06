@@ -25,6 +25,9 @@ AC_CONFIG_HEADERS(config.h)
 dnl This defines PACKAGE and VERSION.
 AM_INIT_AUTOMAKE([gnu 1.7 dist-bzip2])
 
+dnl keep the correct libtool macros in-tree
+AC_CONFIG_MACRO_DIR([m4])
+
 dnl Process GiNaC version information
 GINACLIB_MAJOR_VERSION=ginac_major_version
 GINACLIB_MINOR_VERSION=ginac_minor_version
@@ -99,15 +102,19 @@ fi
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
 dnl cannot find those helpers:
-AC_PATH_PROG(DOXYGEN, doxygen, "")
-AM_CONDITIONAL(CONFIG_DOXYGEN, [test ! -z "$DOXYGEN"])
-AC_PATH_PROG(LATEX, latex, "")
-AC_PATH_PROG(PDFLATEX, pdflatex, "")
-AC_PATH_PROG(MAKEINDEX, makeindex, "")
-AC_PATH_PROG(DVIPS, dvips, "")
-AM_CONDITIONAL(CONFIG_TEX, [test ! \( -z "$LATEX" -o -z $"PDFLATEX" -o -z "$MAKEINDEX" -o -z "$DVIPS" \)])
-AC_PATH_PROG(FIG2DEV, fig2dev, "")
-AM_CONDITIONAL(CONFIG_FIG2DEV, [test ! -z "$FIG2DEV"])
+#AC_PATH_PROG(DOXYGEN, doxygen, "")
+#AM_CONDITIONAL(CONFIG_DOXYGEN, [test ! -z "$DOXYGEN"])
+#AC_PATH_PROG(LATEX, latex, "")
+#AC_PATH_PROG(PDFLATEX, pdflatex, "")
+#AC_PATH_PROG(MAKEINDEX, makeindex, "")
+#AC_PATH_PROG(DVIPS, dvips, "")
+#AM_CONDITIONAL(CONFIG_TEX, [test ! \( -z "$LATEX" -o -z $"PDFLATEX" -o -z "$MAKEINDEX" -o -z "$DVIPS" \)])
+#AC_PATH_PROG(FIG2DEV, fig2dev, "")
+#AM_CONDITIONAL(CONFIG_FIG2DEV, [test ! -z "$FIG2DEV"])
+
+AC_PATH_PROG(RM, rm, $FALSE)
+RM="$RM -f"
+
 
 dnl Output makefiles etc.
 AC_CONFIG_FILES([
