@@ -8,4 +8,6 @@ config.guess
 config.sub
 stamp-h1
 version.h
-ylwrap
+pynac.pc
+pynac.spec
+m4
