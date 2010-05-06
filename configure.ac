@@ -25,6 +25,9 @@ AC_CONFIG_HEADERS(config.h)
 dnl This defines PACKAGE and VERSION.
 AM_INIT_AUTOMAKE([gnu 1.7 dist-bzip2])
 
+AM_CHECK_PYTHON_HEADERS
+AM_CHECK_PYTHON_LIB
+
 dnl keep the correct libtool macros in-tree
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -71,6 +74,7 @@ AC_PROG_CXX
 AC_PROG_CXXCPP
 AC_PROG_INSTALL
 AM_PROG_LIBTOOL
+AC_LIBTOOL_WIN32_DLL
 
 dnl Check for data types which are needed by the hash function 
 dnl (golden_ratio_hash).
