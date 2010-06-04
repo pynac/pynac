@@ -28,6 +28,18 @@ AM_INIT_AUTOMAKE([gnu 1.7 dist-bzip2])
 AM_CHECK_PYTHON_HEADERS
 AM_CHECK_PYTHON_LIB
 
+AC_CANONICAL_HOST
+AC_MSG_CHECKING([for Cygwin])
+case $host_os in
+     *cygwin*)
+        AM_CONDITIONAL(CYGWIN, true)
+        ;;
+     *)
+        AM_CONDITIONAL(CYGWIN, false)
+        ;;
+esac
+AC_MSG_RESULT([$CYGWIN])
+
 dnl keep the correct libtool macros in-tree
 AC_CONFIG_MACRO_DIR([m4])
 
