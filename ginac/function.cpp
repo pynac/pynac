@@ -812,7 +812,7 @@ ex function::eval(int level) const
 	return eval_result;
 }
 
-ex function::evalf(int level, PyObject* parent) const
+ex function::evalf(int level, PyObject* kwds) const
 {
 	GINAC_ASSERT(serial<registered_functions().size());
 	const function_options &opt = registered_functions()[serial];
@@ -828,7 +828,7 @@ ex function::evalf(int level, PyObject* parent) const
 		--level;
 		exvector::const_iterator it = seq.begin(), itend = seq.end();
 		while (it != itend) {
-			eseq.push_back(it->evalf(level, parent));
+			eseq.push_back(it->evalf(level, kwds));
 			++it;
 		}
 	}
@@ -840,14 +840,11 @@ ex function::evalf(int level, PyObject* parent) const
 	if (opt.python_func & function_options::evalf_python_f) { 
 		// convert seq to a PyTuple of Expressions
 		PyObject* args = py_funcs.exvector_to_PyTuple(eseq);
-		// create a dictionary {'prec':prec} for the precision argument
-		PyObject* kwds = Py_BuildValue("{s:O}","parent",parent);
 		// call opt.evalf_f with this list
 		PyObject* pyresult = PyEval_CallObjectWithKeywords(
 			PyObject_GetAttrString((PyObject*)opt.evalf_f,
 				"_evalf_"), args, kwds);
 		Py_DECREF(args);
-		Py_DECREF(kwds);
 		if (!pyresult) { 
 			throw(std::runtime_error("function::evalf(): python function raised exception"));
 		}
@@ -860,15 +857,15 @@ ex function::evalf(int level, PyObject* parent) const
 		return result;
 	}
 	if (opt.evalf_use_exvector_args)
-		return ((evalf_funcp_exvector)(opt.evalf_f))(seq, parent);
+		return ((evalf_funcp_exvector)(opt.evalf_f))(seq, kwds);
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		return ((evalf_funcp_1)(opt.evalf_f))(eseq[1-1], parent);
+		return ((evalf_funcp_1)(opt.evalf_f))(eseq[1-1], kwds);
 	case 2:
-		return ((evalf_funcp_2)(opt.evalf_f))(eseq[1-1], eseq[2-1], parent);
+		return ((evalf_funcp_2)(opt.evalf_f))(eseq[1-1], eseq[2-1], kwds);
 	case 3:
-		return ((evalf_funcp_3)(opt.evalf_f))(eseq[1-1], eseq[2-1], eseq[3-1], parent);
+		return ((evalf_funcp_3)(opt.evalf_f))(eseq[1-1], eseq[2-1], eseq[3-1], kwds);
 
 		// end of generated lines
 	}
