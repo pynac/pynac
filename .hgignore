@@ -1,0 +1,13 @@
+%*.la
+%*.lo
+%*.o
+%*~
+%*.libs/
+Makefile
+config.guess
+config.sub
+stamp-h1
+version.h
+pynac.pc
+pynac.spec
+m4
