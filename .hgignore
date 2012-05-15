@@ -3,6 +3,9 @@
 %*.o
 %*~
 %*.libs/
+%*.rej
+.*sw[p-z]$
+ginac/tags
 Makefile
 config.guess
 config.sub
@@ -11,3 +14,6 @@ version.h
 pynac.pc
 pynac.spec
 m4
+install-sh
+ltmain.sh
+missing
