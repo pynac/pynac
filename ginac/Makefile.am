@@ -14,9 +14,9 @@ libpynac_la_SOURCES = py_funcs.cpp add.cpp archive.cpp basic.cpp clifford.cpp co
 
 #The -no-undefined breaks Pynac on OS X 10.4.  See #9135
 if CYGWIN
-libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO) -release $(LT_RELEASE) -no-undefined
+libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO) -no-undefined
 else
-libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO) -release $(LT_RELEASE)
+libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 endif
 
 libpynac_la_LIBADD = $(PYTHON_LIBS)
