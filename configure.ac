@@ -75,10 +75,8 @@ m4_define([lt_revision], [ginac_interface_age])
 m4_define([lt_current], [m4_eval(ginac_micro_version - ginac_interface_age)])
 m4_define([lt_age], [m4_eval(ginac_binary_age - ginac_interface_age)])
 LT_VERSION_INFO="lt_current:lt_revision:lt_age"
-LT_RELEASE="ginac_release"
 
 AC_SUBST(LT_VERSION_INFO)
-AC_SUBST(LT_RELEASE)
 
 
 dnl Check for the compiler and all the utilities needed for the build.
