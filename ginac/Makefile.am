@@ -1,6 +1,5 @@
 ## Process this file with automake to produce Makefile.in
 
-INCLUDES = $(PYTHON_INCLUDES) -fPIC
 lib_LTLIBRARIES = libpynac.la
 libpynac_la_SOURCES = py_funcs.cpp add.cpp archive.cpp basic.cpp clifford.cpp color.cpp \
   constant.cpp ex.cpp expair.cpp expairseq.cpp exprseq.cpp \
@@ -18,8 +17,9 @@ libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO) -no-undefined
 else
 libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 endif
+libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS)
 
-libpynac_la_LIBADD = $(PYTHON_LIBS)
+libpynac_la_LIBADD = $(PYTHON_LDFLAGS)
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h class_info.h \
   clifford.h color.h constant.h infinity.h container.h ex.h expair.h expairseq.h \
