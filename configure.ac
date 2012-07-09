@@ -18,7 +18,7 @@ m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 m4_define([ginac_interface_age], [0])
 m4_define([ginac_binary_age], [0])
 
-AC_INIT([pynac], ginac_version, [<sage-devel@googlegroups.com>])
+AC_INIT([pynac], ginac_version, [<pynac-devel@googlegroups.com>])
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
@@ -38,6 +38,9 @@ case $host_os in
         ;;
 esac
 AC_MSG_RESULT([$CYGWIN])
+
+dnl use "make V=1" if you want to see the long awful lines
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
 dnl keep the correct libtool macros in-tree
 AC_CONFIG_MACRO_DIR([m4])
