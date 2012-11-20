@@ -12,7 +12,7 @@ dnl set ginac_binary_age and ginac_interface_age to 0.
 
 m4_define([ginac_major_version], [0])
 m4_define([ginac_minor_version], [2])
-m4_define([ginac_micro_version], [5])
+m4_define([ginac_micro_version], [6])
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 m4_define([ginac_interface_age], [1])
