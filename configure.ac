@@ -11,22 +11,21 @@ dnl if backwards compatibility has been broken,
 dnl set ginac_binary_age and ginac_interface_age to 0.
 
 m4_define([ginac_major_version], [0])
-m4_define([ginac_minor_version], [2])
-m4_define([ginac_micro_version], [3])
+m4_define([ginac_minor_version], [3])
+m4_define([ginac_micro_version], [0])
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 m4_define([ginac_interface_age], [0])
 m4_define([ginac_binary_age], [0])
 
-AC_INIT([pynac], ginac_version, [<sage-devel@googlegroups.com>])
+AC_INIT([pynac], ginac_version, [<pynac-devel@googlegroups.com>])
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
 dnl This defines PACKAGE and VERSION.
 AM_INIT_AUTOMAKE([gnu 1.7 dist-bzip2])
 
-AM_CHECK_PYTHON_HEADERS
-AM_CHECK_PYTHON_LIB
+AX_PYTHON_DEVEL
 
 AC_CANONICAL_HOST
 AC_MSG_CHECKING([for Cygwin])
@@ -39,6 +38,9 @@ case $host_os in
         ;;
 esac
 AC_MSG_RESULT([$CYGWIN])
+
+dnl use "make V=1" if you want to see the long awful lines
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
 dnl keep the correct libtool macros in-tree
 AC_CONFIG_MACRO_DIR([m4])
@@ -75,10 +77,8 @@ m4_define([lt_revision], [ginac_interface_age])
 m4_define([lt_current], [m4_eval(ginac_micro_version - ginac_interface_age)])
 m4_define([lt_age], [m4_eval(ginac_binary_age - ginac_interface_age)])
 LT_VERSION_INFO="lt_current:lt_revision:lt_age"
-LT_RELEASE="ginac_release"
 
 AC_SUBST(LT_VERSION_INFO)
-AC_SUBST(LT_RELEASE)
 
 
 dnl Check for the compiler and all the utilities needed for the build.
