@@ -2,21 +2,32 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl GiNaC library version information.
 dnl
-dnl Making releases:
-dnl   ginac_micro_version += 1;
-dnl   ginac_interface_age += 1;
-dnl   ginac_binary_age += 1;
-dnl if any functions have been added, set ginac_interface_age to 0.
-dnl if backwards compatibility has been broken,
-dnl set ginac_binary_age and ginac_interface_age to 0.
+dnl When making releases do whatever you want with the major,
+dnl minor and micro project version numbers ; but for the library
+dnl version, you must be more careful (the following lines are
+dnl to be read as an algorithm, don't stop at the first one!) :
+dnl 1. increment lt_revision
+dnl 2. if any interface has been added, removed or modified since the
+dnl    last release, then increment lt_current and set lt_revision to 0
+dnl 3. if any interface has been added, then increment lt_age
+dnl 4. if any interface has been removed, then set lt_age to zero
+dnl
+dnl In case you wonder why such instructions:
+dnl http://www.sourceware.org/autobook/autobook/autobook_91.html#SEC91
+dnl The following article is helpful too:
+dnl http://www.freesoftwaremagazine.com/articles/building_shared_libraries_once_using_autotools
 
 m4_define([ginac_major_version], [0])
 m4_define([ginac_minor_version], [3])
 m4_define([ginac_micro_version], [2])
+
+m4_define([lt_current], [0])
+m4_define([lt_revision], [0])
+m4_define([lt_age], [0])
+
+
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
-m4_define([ginac_interface_age], [0])
-m4_define([ginac_binary_age], [1])
 
 AC_INIT([pynac], ginac_version, [<pynac-devel@googlegroups.com>])
 AC_PREREQ(2.59)
@@ -73,11 +84,7 @@ AC_DEFINE_UNQUOTED(ARCHIVE_VERSION, $ARCHIVE_VERSION, [Current GiNaC archive fil
 AC_DEFINE_UNQUOTED(ARCHIVE_AGE, $ARCHIVE_AGE, [GiNaC archive file version age])
 
 dnl libtool versioning
-m4_define([lt_revision], [ginac_interface_age])
-m4_define([lt_current], [m4_eval(ginac_micro_version - ginac_interface_age)])
-m4_define([lt_age], [m4_eval(ginac_binary_age - ginac_interface_age)])
 LT_VERSION_INFO="lt_current:lt_revision:lt_age"
-
 AC_SUBST(LT_VERSION_INFO)
 
 
