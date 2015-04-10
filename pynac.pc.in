@@ -1,7 +1,7 @@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 libdir=@libdir@
-includedir=@includedir@,$SAGE_LOCAL/include
+includedir=@includedir@
 
 Name: pynac
 Description: C++/Python library for symbolic calculations
