@@ -18,8 +18,8 @@ dnl The following article is helpful too:
 dnl http://www.freesoftwaremagazine.com/articles/building_shared_libraries_once_using_autotools
 
 m4_define([ginac_major_version], [0])
-m4_define([ginac_minor_version], [3])
-m4_define([ginac_micro_version], [8])
+m4_define([ginac_minor_version], [4])
+m4_define([ginac_micro_version], [0])
 
 m4_define([lt_current], [0])
 m4_define([lt_revision], [0])
@@ -105,6 +105,7 @@ AC_CHECK_SIZEOF(void *)
 
 dnl Switch to C++ language mode for the following libraries and headers.
 AC_LANG([C++])
+AX_CXX_COMPILE_STDCXX_11
 
 dnl Make sure all the necessary standard headers are installed on the system.
 AC_CHECK_HEADER(iosfwd, , GINAC_ERROR([The standard <iosfwd> header file could not be found.]))
