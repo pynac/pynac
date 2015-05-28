@@ -91,7 +91,7 @@ ncmul::ncmul(const exvector & v, bool discardable) : inherited(v,discardable)
 	tinfo_key = &ncmul::tinfo_static;
 }
 
-ncmul::ncmul(std::auto_ptr<exvector> vp) : inherited(vp)
+ncmul::ncmul(std::unique_ptr<exvector> vp) : inherited(std::move(vp))
 {
 	tinfo_key = &ncmul::tinfo_static;
 }
@@ -129,7 +129,7 @@ typedef std::vector<int> intvector;
 ex ncmul::expand(unsigned options) const
 {
 	// First, expand the children
-	std::auto_ptr<exvector> vp = expandchildren(options);
+	std::unique_ptr<exvector> vp = expandchildren(options);
 	const exvector &expanded_seq = vp.get() ? *vp : this->seq;
 	
 	// Now, look for all the factors that are sums and remember their
@@ -141,8 +141,8 @@ ex ncmul::expand(unsigned options) const
 	size_t number_of_expanded_terms = 1;
 
 	size_t current_position = 0;
-	exvector::const_iterator last = expanded_seq.end();
-	for (exvector::const_iterator cit=expanded_seq.begin(); cit!=last; ++cit) {
+	auto last = expanded_seq.end();
+	for (auto cit=expanded_seq.begin(); cit!=last; ++cit) {
 		if (is_exactly_a<add>(*cit)) {
 			positions_of_adds[number_of_adds] = current_position;
 			size_t num_ops = cit->nops();
@@ -156,7 +156,7 @@ ex ncmul::expand(unsigned options) const
 	// If there are no sums, we are done
 	if (number_of_adds == 0) {
 		if (vp.get())
-			return (new ncmul(vp))->
+			return (new ncmul(std::move(vp)))->
 			        setflag(status_flags::dynallocated | (options == 0 ? status_flags::expanded : 0));
 		else
 			return *this;
@@ -213,7 +213,7 @@ int ncmul::degree(const ex & s) const
 
 	// Sum up degrees of factors
 	int deg_sum = 0;
-	exvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		deg_sum += i->degree(s);
 		++i;
@@ -228,7 +228,7 @@ int ncmul::ldegree(const ex & s) const
 
 	// Sum up degrees of factors
 	int deg_sum = 0;
-	exvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		deg_sum += i->degree(s);
 		++i;
@@ -247,7 +247,7 @@ ex ncmul::coeff(const ex & s, int n) const
 	if (n == 0) {
 		// product of individual coeffs
 		// if a non-zero power of s is found, the resulting product will be 0
-		exvector::const_iterator it=seq.begin();
+		auto it=seq.begin();
 		while (it!=seq.end()) {
 			coeffseq.push_back((*it).coeff(s,n));
 			++it;
@@ -255,7 +255,7 @@ ex ncmul::coeff(const ex & s, int n) const
 		return (new ncmul(coeffseq,1))->setflag(status_flags::dynallocated);
 	}
 		 
-	exvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	bool coeff_found = false;
 	while (i != end) {
 		ex c = i->coeff(s,n);
@@ -456,9 +456,9 @@ ex ncmul::eval(int level) const
 ex ncmul::evalm() const
 {
 	// Evaluate children first
-	std::auto_ptr<exvector> s(new exvector);
+	std::unique_ptr<exvector> s(new exvector);
 	s->reserve(seq.size());
-	exvector::const_iterator it = seq.begin(), itend = seq.end();
+	auto it = seq.begin(), itend = seq.end();
 	while (it != itend) {
 		s->push_back(it->evalm());
 		it++;
@@ -479,7 +479,7 @@ ex ncmul::evalm() const
 	}
 
 no_matrix:
-	return (new ncmul(s))->setflag(status_flags::dynallocated);
+	return (new ncmul(std::move(s)))->setflag(status_flags::dynallocated);
 }
 
 ex ncmul::thiscontainer(const exvector & v) const
@@ -487,9 +487,9 @@ ex ncmul::thiscontainer(const exvector & v) const
 	return (new ncmul(v))->setflag(status_flags::dynallocated);
 }
 
-ex ncmul::thiscontainer(std::auto_ptr<exvector> vp) const
+ex ncmul::thiscontainer(std::unique_ptr<exvector> vp) const
 {
-	return (new ncmul(vp))->setflag(status_flags::dynallocated);
+	return (new ncmul(std::move(vp)))->setflag(status_flags::dynallocated);
 }
 
 ex ncmul::conjugate() const
@@ -504,7 +504,7 @@ ex ncmul::conjugate() const
 
 	exvector ev;
 	ev.reserve(nops());
-	for (const_iterator i=end(); i!=begin();) {
+	for (auto i=end(); i!=begin();) {
 		--i;
 		ev.push_back(i->conjugate());
 	}
@@ -556,7 +556,7 @@ unsigned ncmul::return_type() const
 	bool all_commutative = true;
 	exvector::const_iterator noncommutative_element; // point to first found nc element
 
-	exvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		unsigned rt = i->return_type();
 		if (rt == return_types::noncommutative_composite)
@@ -584,7 +584,7 @@ tinfo_t ncmul::return_type_tinfo() const
 		return this;
 
 	// return type_info of first noncommutative element
-	exvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		if (i->return_type() == return_types::noncommutative)
 			return i->return_type_tinfo();
@@ -605,15 +605,15 @@ tinfo_t ncmul::return_type_tinfo() const
 // non-virtual functions in this class
 //////////
 
-std::auto_ptr<exvector> ncmul::expandchildren(unsigned options) const
+std::unique_ptr<exvector> ncmul::expandchildren(unsigned options) const
 {
-	const_iterator cit = this->seq.begin(), end = this->seq.end();
+	auto cit = this->seq.begin(), end = this->seq.end();
 	while (cit != end) {
 		const ex & expanded_ex = cit->expand(options);
 		if (!are_ex_trivially_equal(*cit, expanded_ex)) {
 
 			// copy first part of seq which hasn't changed
-			std::auto_ptr<exvector> s(new exvector(this->seq.begin(), cit));
+			std::unique_ptr<exvector> s(new exvector(this->seq.begin(), cit));
 			reserve(*s, this->seq.size());
 
 			// insert changed element
@@ -626,13 +626,13 @@ std::auto_ptr<exvector> ncmul::expandchildren(unsigned options) const
 				++cit;
 			}
 
-			return s;
+			return std::move(s);
 		}
 
 		++cit;
 	}
 
-	return std::auto_ptr<exvector>(0); // nothing has changed
+	return std::unique_ptr<exvector>(nullptr); // nothing has changed
 }
 
 const exvector & ncmul::get_factors() const

@@ -51,7 +51,7 @@ relational::relational() : basic(&relational::tinfo_static) {}
 
 // public
 
-relational::relational(const ex & lhs, const ex & rhs, operators oper) : basic(&relational::tinfo_static), lh(lhs), rh(rhs), o(oper) {}
+relational::relational(ex  lhs, ex  rhs, operators oper) : basic(&relational::tinfo_static), lh(std::move(lhs)), rh(std::move(rhs)), o(oper) {}
 
 //////////
 // archiving
@@ -373,7 +373,7 @@ relational::operators relational::the_operator() const
 
 relational::safe_bool relational::make_safe_bool(bool cond) const
 {
-	return cond? &safe_bool_helper::nonnull : 0;
+	return cond? &safe_bool_helper::nonnull : nullptr;
 }
 
 /** Cast the relational into a boolean, mainly for evaluation within an

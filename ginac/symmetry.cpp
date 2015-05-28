@@ -120,13 +120,13 @@ void symmetry::archive(archive_node &n) const
 	n.add_unsigned("type", type);
 
 	if (children.empty()) {
-		std::set<unsigned>::const_iterator i = indices.begin(), iend = indices.end();
+		auto i = indices.begin(), iend = indices.end();
 		while (i != iend) {
 			n.add_unsigned("index", *i);
 			i++;
 		}
 	} else {
-		exvector::const_iterator i = children.begin(), iend = children.end();
+		auto i = children.begin(), iend = children.end();
 		while (i != iend) {
 			n.add_ex("child", *i);
 			i++;
@@ -161,8 +161,8 @@ int symmetry::compare_same_type(const basic & other) const
 	if (this_size < that_size)
 		return -1;
 	typedef std::set<unsigned>::const_iterator set_it;
-	set_it end = indices.end();
-	for (set_it i=indices.begin(),j=othersymm.indices.begin(); i!=end; ++i,++j) {
+	auto end = indices.end();
+	for (auto i=indices.begin(),j=othersymm.indices.begin(); i!=end; ++i,++j) {
 		if(*i < *j)
 			return 1;
 		if(*i > *j)
@@ -193,10 +193,10 @@ unsigned symmetry::calchash() const
 		if (!indices.empty())
 			v ^= *(indices.begin());
 	} else {
-		for (exvector::const_iterator i=children.begin(); i!=children.end(); ++i)
+		for (const auto & elem : children)
 		{
 			v = rotate_left(v);
-			v ^= i->gethash();
+			v ^= elem.gethash();
 		}
 	}
 
@@ -250,7 +250,7 @@ void symmetry::do_print_tree(const print_tree & c, unsigned level) const
 
 	c.s << ", indices=(";
 	if (!indices.empty()) {
-		std::set<unsigned>::const_iterator i = indices.begin(), end = indices.end();
+		auto i = indices.begin(), end = indices.end();
 		--end;
 		while (i != end)
 			c.s << *i++ << ",";
@@ -258,7 +258,7 @@ void symmetry::do_print_tree(const print_tree & c, unsigned level) const
 	}
 	c.s << ")\n";
 
-	exvector::const_iterator i = children.begin(), end = children.end();
+	auto i = children.begin(), end = children.end();
 	while (i != end) {
 		i->print(c, level + c.delta_indent);
 		++i;
@@ -274,8 +274,8 @@ bool symmetry::has_nonsymmetric() const
 	if (type == antisymmetric || type == cyclic)
 		return true;
 
-	for (exvector::const_iterator i=children.begin(); i!=children.end(); ++i)
-		if (ex_to<symmetry>(*i).has_nonsymmetric())
+	for (const auto & elem : children)
+		if (ex_to<symmetry>(elem).has_nonsymmetric())
 			return true;
 
 	return false;
@@ -286,8 +286,8 @@ bool symmetry::has_cyclic() const
 	if (type == cyclic)
 		return true;
 
-	for (exvector::const_iterator i=children.begin(); i!=children.end(); ++i)
-		if (ex_to<symmetry>(*i).has_cyclic())
+	for (const auto & elem : children)
+		if (ex_to<symmetry>(elem).has_cyclic())
 			return true;
 
 	return false;
@@ -400,14 +400,14 @@ class sy_is_less : public std::binary_function<ex, ex, bool> {
 	exvector::iterator v;
 
 public:
-	sy_is_less(exvector::iterator v_) : v(v_) {}
+	sy_is_less(exvector::iterator v_) : v(std::move(v_)) {}
 
 	bool operator() (const ex &lh, const ex &rh) const
 	{
 		GINAC_ASSERT(is_exactly_a<symmetry>(lh));
 		GINAC_ASSERT(is_exactly_a<symmetry>(rh));
 		GINAC_ASSERT(ex_to<symmetry>(lh).indices.size() == ex_to<symmetry>(rh).indices.size());
-		std::set<unsigned>::const_iterator ait = ex_to<symmetry>(lh).indices.begin(), aitend = ex_to<symmetry>(lh).indices.end(), bit = ex_to<symmetry>(rh).indices.begin();
+		auto ait = ex_to<symmetry>(lh).indices.begin(), aitend = ex_to<symmetry>(lh).indices.end(), bit = ex_to<symmetry>(rh).indices.begin();
 		while (ait != aitend) {
 			int cmpval = v[*ait].compare(v[*bit]);
 			if (cmpval < 0)
@@ -426,14 +426,14 @@ class sy_swap : public std::binary_function<ex, ex, void> {
 public:
 	bool &swapped;
 
-	sy_swap(exvector::iterator v_, bool &s) : v(v_), swapped(s) {}
+	sy_swap(exvector::iterator v_, bool &s) : v(std::move(v_)), swapped(s) {}
 
 	void operator() (const ex &lh, const ex &rh)
 	{
 		GINAC_ASSERT(is_exactly_a<symmetry>(lh));
 		GINAC_ASSERT(is_exactly_a<symmetry>(rh));
 		GINAC_ASSERT(ex_to<symmetry>(lh).indices.size() == ex_to<symmetry>(rh).indices.size());
-		std::set<unsigned>::const_iterator ait = ex_to<symmetry>(lh).indices.begin(), aitend = ex_to<symmetry>(lh).indices.end(), bit = ex_to<symmetry>(rh).indices.begin();
+		auto ait = ex_to<symmetry>(lh).indices.begin(), aitend = ex_to<symmetry>(lh).indices.end(), bit = ex_to<symmetry>(rh).indices.begin();
 		while (ait != aitend) {
 			v[*ait].swap(v[*bit]);
 			++ait; ++bit;
@@ -451,7 +451,7 @@ int canonicalize(exvector::iterator v, const symmetry &symm)
 	// Canonicalize children first
 	bool something_changed = false;
 	int sign = 1;
-	exvector::const_iterator first = symm.children.begin(), last = symm.children.end();
+	auto first = symm.children.begin(), last = symm.children.end();
 	while (first != last) {
 		GINAC_ASSERT(is_exactly_a<symmetry>(*first));
 		int child_sign = canonicalize(v, ex_to<symmetry>(*first));
@@ -503,7 +503,7 @@ static ex symm(const ex & e, exvector::const_iterator first, exvector::const_ite
 	unsigned *iv = new unsigned[num], *iv2;
 	for (unsigned i=0; i<num; i++)
 		iv[i] = i;
-	iv2 = (asymmetric ? new unsigned[num] : NULL);
+	iv2 = (asymmetric ? new unsigned[num] : nullptr);
 
 	// Loop over all permutations (the first permutation, which is the
 	// identity, is unrolled)

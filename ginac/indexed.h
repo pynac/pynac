@@ -139,9 +139,9 @@ public:
 	indexed(const ex & b, const symmetry & symm, const exvector & iv);
 
 	// internal constructors
-	indexed(const symmetry & symm, const exprseq & es);
+	indexed(const symmetry & symm, exprseq  es);
 	indexed(const symmetry & symm, const exvector & v, bool discardable = false);
-	indexed(const symmetry & symm, std::auto_ptr<exvector> vp);
+	indexed(const symmetry & symm, std::unique_ptr<exvector> vp);
 
 	// functions overriding virtual functions from base classes
 public:
@@ -155,7 +155,7 @@ public:
 protected:
 	ex derivative(const symbol & s) const;
 	ex thiscontainer(const exvector & v) const;
-	ex thiscontainer(std::auto_ptr<exvector> vp) const;
+	ex thiscontainer(std::unique_ptr<exvector> vp) const;
 	unsigned return_type() const;
 	tinfo_t return_type_tinfo() const { return op(0).return_type_tinfo(); }
 	ex expand(unsigned options = 0) const;
@@ -204,7 +204,7 @@ protected:
 class spmapkey {
 public:
 	spmapkey() : dim(wild()) {}
-	spmapkey(const ex & v1, const ex & v2, const ex & dim = wild());
+	spmapkey(const ex & v1, const ex & v2, ex  dim = wild());
 
 	bool operator==(const spmapkey &other) const;
 	bool operator<(const spmapkey &other) const;

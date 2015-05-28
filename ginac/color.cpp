@@ -96,7 +96,7 @@ color::color(unsigned char rl, const exvector & v, bool discardable) : inherited
 	tinfo_key = &color::tinfo_static;
 }
 
-color::color(unsigned char rl, std::auto_ptr<exvector> vp) : inherited(not_symmetric(), vp), representation_label(rl)
+color::color(unsigned char rl, std::unique_ptr<exvector> vp) : inherited(not_symmetric(), std::move(vp)), representation_label(rl)
 {
 	tinfo_key = &color::tinfo_static;
 }
@@ -167,7 +167,7 @@ ex color::eval_ncmul(const exvector & v) const
 	s.reserve(v.size());
 
 	// Remove superfluous ONEs
-	exvector::const_iterator it = v.begin(), itend = v.end();
+	auto it = v.begin(), itend = v.end();
 	while (it != itend) {
 		if (!is_a<su3one>(it->op(0)))
 			s.push_back(*it);
@@ -185,9 +185,9 @@ ex color::thiscontainer(const exvector & v) const
 	return color(representation_label, v);
 }
 
-ex color::thiscontainer(std::auto_ptr<exvector> vp) const
+ex color::thiscontainer(std::unique_ptr<exvector> vp) const
 {
-	return color(representation_label, vp);
+	return color(representation_label, std::move(vp));
 }
 
 /** Given a vector iv3 of three indices and a vector iv2 of two indices that
@@ -335,7 +335,7 @@ bool su3t::contract_with(exvector::iterator self, exvector::iterator other, exve
 
 		// T.a S T.a = 1/2 Tr(S) - 1/6 S
 		} else {
-			exvector::iterator it = self + 1;
+			auto it = self + 1;
 			while (it != other) {
 				if (!is_a<color>(*it)) {
 					return false;
@@ -627,9 +627,9 @@ ex color_trace(const ex & e, const lst & rll)
 {
 	// Convert list to set
 	std::set<unsigned char> rls;
-	for (lst::const_iterator i = rll.begin(); i != rll.end(); ++i) {
-		if (i->info(info_flags::nonnegint))
-			rls.insert(ex_to<numeric>(*i).to_int());
+	for (const auto & elem : rll) {
+		if (elem.info(info_flags::nonnegint))
+			rls.insert(ex_to<numeric>(elem).to_int());
 	}
 
 	return color_trace(e, rls);

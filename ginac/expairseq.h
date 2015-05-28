@@ -73,8 +73,8 @@ class expairseq : public basic
 public:
 	expairseq(const ex & lh, const ex & rh);
 	expairseq(const exvector & v);
-	expairseq(const epvector & v, const ex & oc, bool do_index_renaming = false);
-	expairseq(std::auto_ptr<epvector>, const ex & oc, bool do_index_renaming = false);
+	expairseq(const epvector & v, ex  oc, bool do_index_renaming = false);
+	expairseq(std::unique_ptr<epvector>, ex  oc, bool do_index_renaming = false);
 	
 	// functions overriding virtual functions from base classes
 public:
@@ -101,7 +101,7 @@ protected:
 	// new virtual functions which can be overridden by derived classes
 protected:
 	virtual ex thisexpairseq(const epvector & v, const ex & oc, bool do_index_renaming = false) const;
-	virtual ex thisexpairseq(std::auto_ptr<epvector> vp, const ex & oc, bool do_index_renaming = false) const;
+	virtual ex thisexpairseq(std::unique_ptr<epvector> vp, const ex & oc, bool do_index_renaming = false) const;
 	virtual void printseq(const print_context & c, char delim,
 	                      unsigned this_precedence,
 	                      unsigned upper_precedence) const;
@@ -158,9 +158,9 @@ protected:
 	                             epvector::const_iterator last_non_zero);
 #endif // EXPAIRSEQ_USE_HASHTAB
 	bool is_canonical() const;
-	std::auto_ptr<epvector> expandchildren(unsigned options) const;
-	std::auto_ptr<epvector> evalchildren(int level) const;
-	std::auto_ptr<epvector> subschildren(const exmap & m, unsigned options = 0) const;
+	std::unique_ptr<epvector> expandchildren(unsigned options) const;
+	std::unique_ptr<epvector> evalchildren(int level) const;
+	std::unique_ptr<epvector> subschildren(const exmap & m, unsigned options = 0) const;
 	
 // member variables
 	
@@ -189,16 +189,16 @@ class make_flat_inserter
 		{
 			if (!do_renaming)
 				return;
-			for (epvector::const_iterator i=epv.begin(); i!=epv.end(); ++i)
-				if(are_ex_trivially_equal(i->coeff, 1))
-					combine_indices(i->rest.get_free_indices());
+			for (const auto & elem : epv)
+				if(are_ex_trivially_equal(elem.coeff, 1))
+					combine_indices(elem.rest.get_free_indices());
 		}
 		make_flat_inserter(const exvector &v, bool b): do_renaming(b)
 		{
 			if (!do_renaming)
 				return;
-			for (exvector::const_iterator i=v.begin(); i!=v.end(); ++i)
-				combine_indices(i->get_free_indices());
+			for (const auto & elem : v)
+				combine_indices(elem.get_free_indices());
 		}
 		ex handle_factor(const ex &x, const ex &coeff)
 		{

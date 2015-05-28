@@ -291,8 +291,8 @@ static void my_ios_callback(std::ios_base::event ev, std::ios_base & s, int i)
 	print_context *p = static_cast<print_context *>(s.pword(i));
 	if (ev == std::ios_base::erase_event) {
 		delete p;
-		s.pword(i) = 0;
-	} else if (ev == std::ios_base::copyfmt_event && p != 0)
+		s.pword(i) = nullptr;
+	} else if (ev == std::ios_base::copyfmt_event && p != nullptr)
 		s.pword(i) = p->duplicate();
 }
 
@@ -335,7 +335,7 @@ static inline unsigned get_print_options(std::ios_base & s)
 static void set_print_options(std::ostream & s, unsigned options)
 {
 	print_context *p = get_print_context(s);
-	if (p == 0)
+	if (p == nullptr)
 		set_print_context(s, print_dflt(s, options));
 	else
 		p->options = options;
@@ -344,7 +344,7 @@ static void set_print_options(std::ostream & s, unsigned options)
 std::ostream & operator<<(std::ostream & os, const ex & e)
 {
 	print_context *p = get_print_context(os);
-	if (p == 0)
+	if (p == nullptr)
 		e.print(print_dflt(os));
 	else
 		e.print(*p);
@@ -354,8 +354,8 @@ std::ostream & operator<<(std::ostream & os, const ex & e)
 std::ostream & operator<<(std::ostream & os, const exvector & e)
 {
 	print_context *p = get_print_context(os);
-	exvector::const_iterator i = e.begin();
-	exvector::const_iterator vend = e.end();
+	auto i = e.begin();
+	auto vend = e.end();
 
 	if (i==vend) {
 		os << "[]";
@@ -364,7 +364,7 @@ std::ostream & operator<<(std::ostream & os, const exvector & e)
 
 	os << "[";
 	while (true) {
-		if (p == 0)
+		if (p == nullptr)
 			i -> print(print_dflt(os));
 		else
 			i -> print(*p);
@@ -381,8 +381,8 @@ std::ostream & operator<<(std::ostream & os, const exvector & e)
 std::ostream & operator<<(std::ostream & os, const exset & e)
 {
 	print_context *p = get_print_context(os);
-	exset::const_iterator i = e.begin();
-	exset::const_iterator send = e.end();
+	auto i = e.begin();
+	auto send = e.end();
 
 	if (i==send) {
 		os << "<>";
@@ -391,7 +391,7 @@ std::ostream & operator<<(std::ostream & os, const exset & e)
 
 	os << "<";
 	while (true) {
-		if (p == 0)
+		if (p == nullptr)
 			i->print(print_dflt(os));
 		else
 			i->print(*p);
@@ -408,8 +408,8 @@ std::ostream & operator<<(std::ostream & os, const exset & e)
 std::ostream & operator<<(std::ostream & os, const exmap & e)
 {
 	print_context *p = get_print_context(os);
-	exmap::const_iterator i = e.begin();
-	exmap::const_iterator mend = e.end();
+	auto i = e.begin();
+	auto mend = e.end();
 
 	if (i==mend) {
 		os << "{}";
@@ -418,12 +418,12 @@ std::ostream & operator<<(std::ostream & os, const exmap & e)
 
 	os << "{";
 	while (true) {
-		if (p == 0)
+		if (p == nullptr)
 			i->first.print(print_dflt(os));
 		else
 			i->first.print(*p);
 		os << "==";
-		if (p == 0)
+		if (p == nullptr)
 			i->second.print(print_dflt(os));
 		else
 			i->second.print(*p);

@@ -54,12 +54,12 @@ fderivative::fderivative(unsigned ser, unsigned param, const exvector & args) : 
 	tinfo_key = &fderivative::tinfo_static;
 }
 
-fderivative::fderivative(unsigned ser, const paramset & params, const exvector & args) : function(ser, args), parameter_set(params)
+fderivative::fderivative(unsigned ser, paramset  params, const exvector & args) : function(ser, args), parameter_set(std::move(params))
 {
 	tinfo_key = &fderivative::tinfo_static;
 }
 
-fderivative::fderivative(unsigned ser, const paramset & params, std::auto_ptr<exvector> vp) : function(ser, vp), parameter_set(params)
+fderivative::fderivative(unsigned ser, paramset  params, std::unique_ptr<exvector> vp) : function(ser, std::move(vp)), parameter_set(std::move(params))
 {
 	tinfo_key = &fderivative::tinfo_static;
 }
@@ -84,7 +84,7 @@ fderivative::fderivative(const archive_node &n, lst &sym_lst) : inherited(n, sym
 void fderivative::archive(archive_node &n) const
 {
 	inherited::archive(n);
-	paramset::const_iterator i = parameter_set.begin(), end = parameter_set.end();
+	auto i = parameter_set.begin(), end = parameter_set.end();
 	while (i != end) {
 		n.add_unsigned("param", *i);
 		++i;
@@ -140,7 +140,7 @@ void fderivative::do_print(const print_context & c, unsigned level) const
 void fderivative::do_print_csrc(const print_csrc & c, unsigned level) const
 {
 	c.s << "D_";
-	paramset::const_iterator i = parameter_set.begin(), end = parameter_set.end();
+	auto i = parameter_set.begin(), end = parameter_set.end();
 	--end;
 	while (i != end)
 		c.s << *i++ << "_";
@@ -155,13 +155,13 @@ void fderivative::do_print_tree(const print_tree & c, unsigned level) const
 	    << std::hex << ", hash=0x" << hashvalue << ", flags=0x" << flags << std::dec
 	    << ", nops=" << nops()
 	    << ", params=";
-	paramset::const_iterator i = parameter_set.begin(), end = parameter_set.end();
+	auto i = parameter_set.begin(), end = parameter_set.end();
 	--end;
 	while (i != end)
 		c.s << *i++ << ",";
 	c.s << *i << std::endl;
-	for (size_t i=0; i<seq.size(); ++i)
-		seq[i].print(c, level + c.delta_indent);
+	for (auto & elem : seq)
+		elem.print(c, level + c.delta_indent);
 	c.s << std::string(level + c.delta_indent, ' ') << "=====" << std::endl;
 }
 
@@ -202,9 +202,9 @@ ex fderivative::thiscontainer(const exvector & v) const
 	return fderivative(serial, parameter_set, v);
 }
 
-ex fderivative::thiscontainer(std::auto_ptr<exvector> vp) const
+ex fderivative::thiscontainer(std::unique_ptr<exvector> vp) const
 {
-	return fderivative(serial, parameter_set, vp);
+	return fderivative(serial, parameter_set, std::move(vp));
 }
 
 /** Implementation of ex::diff() for derivatives. It applies the chain rule.
@@ -260,10 +260,9 @@ unsigned fderivative::calchash() const
 
 	// FNV hash with custom prime and initial value
 	unsigned h = 2166136285;
-	for (paramset::const_iterator i = parameter_set.begin(), 
-			end = parameter_set.end(); i != end; ++i) {
-		h = ( h * 2097287 ) ^ (*i-prev);
-		prev = *i;
+	for (const auto & elem : parameter_set) {
+		h = ( h * 2097287 ) ^ (elem-prev);
+		prev = elem;
 	}
 
 	res=h^res;

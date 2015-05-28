@@ -55,19 +55,19 @@ public:
 	 *  @param ser Serial number of function
 	 *  @param params Set of numbers of parameters with respect to which to take the derivative
 	 *  @param args Arguments of derivative function */
-	fderivative(unsigned ser, const paramset & params, const exvector & args);
+	fderivative(unsigned ser, paramset  params, const exvector & args);
 
 	// internal constructors
-	fderivative(unsigned ser, const paramset & params, std::auto_ptr<exvector> vp);
+	fderivative(unsigned ser, paramset  params, std::unique_ptr<exvector> vp);
 
 	// functions overriding virtual functions from base classes
 public:
 	void print(const print_context & c, unsigned level = 0) const;
 	ex eval(int level = 0) const;
-	ex evalf(int level = 0, PyObject* parent=NULL) const;
+	ex evalf(int level = 0, PyObject* parent=nullptr) const;
 	ex series(const relational & r, int order, unsigned options = 0) const;
 	ex thiscontainer(const exvector & v) const;
-	ex thiscontainer(std::auto_ptr<exvector> vp) const;
+	ex thiscontainer(std::unique_ptr<exvector> vp) const;
 	paramset get_parameter_set() const { return parameter_set; };
 	unsigned calchash() const;
 

@@ -105,18 +105,18 @@ clifford::clifford(const ex & b, unsigned char rl) : inherited(b), representatio
  *  use only. Use the clifford_unit() or dirac_gamma() functions instead.
  *  @see clifford_unit
  *  @see dirac_gamma */
-clifford::clifford(const ex & b, const ex & mu, const ex & metr, unsigned char rl, int comm_sign) : inherited(b, mu), representation_label(rl), metric(metr), commutator_sign(comm_sign)
+clifford::clifford(const ex & b, const ex & mu, ex  metr, unsigned char rl, int comm_sign) : inherited(b, mu), representation_label(rl), metric(std::move(metr)), commutator_sign(comm_sign)
 {
 	GINAC_ASSERT(is_a<varidx>(mu));
 	tinfo_key = &clifford::tinfo_static;
 }
 
-clifford::clifford(unsigned char rl, const ex & metr, int comm_sign, const exvector & v, bool discardable) : inherited(not_symmetric(), v, discardable), representation_label(rl), metric(metr), commutator_sign(comm_sign)
+clifford::clifford(unsigned char rl, ex  metr, int comm_sign, const exvector & v, bool discardable) : inherited(not_symmetric(), v, discardable), representation_label(rl), metric(std::move(metr)), commutator_sign(comm_sign)
 {
 	tinfo_key = &clifford::tinfo_static;
 }
 
-clifford::clifford(unsigned char rl, const ex & metr, int comm_sign, std::auto_ptr<exvector> vp) : inherited(not_symmetric(), vp), representation_label(rl), metric(metr), commutator_sign(comm_sign)
+clifford::clifford(unsigned char rl, ex  metr, int comm_sign, std::unique_ptr<exvector> vp) : inherited(not_symmetric(), std::move(vp)), representation_label(rl), metric(std::move(metr)), commutator_sign(comm_sign)
 {
 	tinfo_key = &clifford::tinfo_static;
 }
@@ -413,7 +413,7 @@ bool diracgamma::contract_with(exvector::iterator self, exvector::iterator other
 			if (std::find_if(self + 1, other, is_not_a_clifford()) != other)
 				return false;
 
-			exvector::iterator next_to_last = other - 1;
+			auto next_to_last = other - 1;
 			ex S = ncmul(exvector(self + 1, next_to_last), true);
 			ex SR = ncmul(exvector(std::reverse_iterator<exvector::const_iterator>(next_to_last), std::reverse_iterator<exvector::const_iterator>(self + 1)), true);
 
@@ -429,7 +429,7 @@ bool diracgamma::contract_with(exvector::iterator self, exvector::iterator other
 			if (std::find_if(self + 1, other, is_not_a_clifford()) != other)
 				return false;
 
-			exvector::iterator next_to_last = other - 1;
+			auto next_to_last = other - 1;
 			ex S = ncmul(exvector(self + 1, next_to_last), true);
 
 			*self = 2 * (*next_to_last) * S - (*self) * S * (*other) * (*next_to_last);
@@ -464,7 +464,7 @@ bool cliffordunit::contract_with(exvector::iterator self, exvector::iterator oth
 		    && unit.same_metric(*other))
 			return false;
 
-		exvector::iterator before_other = other - 1;
+		auto before_other = other - 1;
 		ex mu = self->op(1);
 		ex mu_toggle = other->op(1);
 		ex alpha = before_other->op(1);
@@ -522,7 +522,7 @@ ex clifford::eval_ncmul(const exvector & v) const
 	s.reserve(v.size());
 
 	// Remove superfluous ONEs
-	exvector::const_iterator cit = v.begin(), citend = v.end();
+	auto cit = v.begin(), citend = v.end();
 	while (cit != citend) {
 		if (!is_a<clifford>(*cit) || !is_a<diracone>(cit->op(0)))
 			s.push_back(*cit);
@@ -534,11 +534,11 @@ ex clifford::eval_ncmul(const exvector & v) const
 
 	// Anticommutate gamma5/L/R's to the front
 	if (s.size() >= 2) {
-		exvector::iterator first = s.begin(), next_to_last = s.end() - 2;
+		auto first = s.begin(), next_to_last = s.end() - 2;
 		while (true) {
-			exvector::iterator it = next_to_last;
+			auto it = next_to_last;
 			while (true) {
-				exvector::iterator it2 = it + 1;
+				auto it2 = it + 1;
 				if (is_a<clifford>(*it) && is_a<clifford>(*it2)) {
 					ex e1 = it->op(0), e2 = it2->op(0);
 
@@ -687,9 +687,9 @@ ex clifford::thiscontainer(const exvector & v) const
 	return clifford(representation_label, metric, commutator_sign, v);
 }
 
-ex clifford::thiscontainer(std::auto_ptr<exvector> vp) const
+ex clifford::thiscontainer(std::unique_ptr<exvector> vp) const
 {
-	return clifford(representation_label, metric, commutator_sign, vp);
+	return clifford(representation_label, metric, commutator_sign, std::move(vp));
 }
 
 ex diracgamma5::conjugate() const
@@ -924,7 +924,7 @@ ex dirac_trace(const ex & e, const std::set<unsigned char> & rls, const ex & trO
 			for (size_t i=1; i<num; i++)
 				base_and_index(e.op(i), bv[i-1], ix[i-1]);
 			num--;
-			int *iv = new int[num];
+			auto iv = new int[num];
 			ex result;
 			for (size_t i=0; i<num-3; i++) {
 				ex idx1 = ix[i];
@@ -988,9 +988,9 @@ ex dirac_trace(const ex & e, const lst & rll, const ex & trONE)
 {
 	// Convert list to set
 	std::set<unsigned char> rls;
-	for (lst::const_iterator i = rll.begin(); i != rll.end(); ++i) {
-		if (i->info(info_flags::nonnegint))
-			rls.insert(ex_to<numeric>(*i).to_int());
+	for (const auto & elem : rll) {
+		if (elem.info(info_flags::nonnegint))
+			rls.insert(ex_to<numeric>(elem).to_int());
 	}
 
 	return dirac_trace(e, rls, trONE);
@@ -1018,10 +1018,10 @@ ex canonicalize_clifford(const ex & e_)
 		// Scan for any ncmul objects
 		exmap srl;
 		ex aux = e.to_rational(srl);
-		for (exmap::iterator i = srl.begin(); i != srl.end(); ++i) {
+		for (auto & elem : srl) {
 
-			ex lhs = i->first;
-			ex rhs = i->second;
+			ex lhs = elem.first;
+			ex rhs = elem.second;
 
 			if (is_exactly_a<ncmul>(rhs)
 					&& rhs.return_type() == return_types::noncommutative
@@ -1030,7 +1030,7 @@ ex canonicalize_clifford(const ex & e_)
 				// Expand product, if necessary
 				ex rhs_expanded = rhs.expand();
 				if (!is_a<ncmul>(rhs_expanded)) {
-					i->second = canonicalize_clifford(rhs_expanded);
+					elem.second = canonicalize_clifford(rhs_expanded);
 					continue;
 
 				} else if (!is_a<clifford>(rhs.op(0)))
@@ -1042,7 +1042,7 @@ ex canonicalize_clifford(const ex & e_)
 					v.push_back(rhs.op(j));
 
 				// Stupid recursive bubble sort because we only want to swap adjacent gammas
-				exvector::iterator it = v.begin(), next_to_last = v.end() - 1;
+				auto it = v.begin(), next_to_last = v.end() - 1;
 				if (is_a<diracgamma5>(it->op(0)) || is_a<diracgammaL>(it->op(0)) || is_a<diracgammaR>(it->op(0)))
 					++it;
 
@@ -1060,7 +1060,7 @@ ex canonicalize_clifford(const ex & e_)
 						it[0] = save1;
 						it[1] = save0;
 						sum += ex_to<clifford>(save0).get_commutator_sign() * ncmul(v, true);
-						i->second = canonicalize_clifford(sum);
+						elem.second = canonicalize_clifford(sum);
 						goto next_sym;
 					}
 					++it;

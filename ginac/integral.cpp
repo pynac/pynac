@@ -58,8 +58,8 @@ integral::integral()
 
 // public
 
-integral::integral(const ex & x_, const ex & a_, const ex & b_, const ex & f_)
-		: inherited(&integral::tinfo_static), x(x_), a(a_), b(b_), f(f_)
+integral::integral(ex  x_, ex  a_, ex  b_, ex  f_)
+		: inherited(&integral::tinfo_static), x(std::move(x_)), a(std::move(a_)), b(std::move(b_)), f(std::move(f_))
 {
 	if (!is_a<symbol>(x)) {
 		throw(std::invalid_argument("first argument of integral must be of type symbol"));
@@ -215,8 +215,8 @@ ex subsvalue(const ex & var, const ex & value, const ex & fun)
 
 struct error_and_integral
 {
-	error_and_integral(const ex &err, const ex &integ)
-		:error(err), integral(integ){}
+	error_and_integral(ex err, ex integ)
+		:error(std::move(err)), integral(std::move(integ)){}
 	ex error;
 	ex integral;
 };
@@ -257,7 +257,7 @@ ex adaptivesimpson(const ex & x, const ex & a_in, const ex & b_in, const ex & f,
 	static lookup_map lookup;
 	static symbol ivar("ivar");
 	ex lookupex = integral(ivar,a,b,f.subs(x==ivar));
-	lookup_map::iterator emi = lookup.find(error_and_integral(error, lookupex));
+	auto emi = lookup.find(error_and_integral(error, lookupex));
 	if (emi!=lookup.end())
 		return emi->second;
 

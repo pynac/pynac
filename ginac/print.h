@@ -180,7 +180,7 @@ public:
 /** Check if obj is a T, including base classes. */
 template <class T>
 inline bool is_a(const print_context & obj)
-{ return dynamic_cast<const T *>(&obj) != 0; }
+{ return dynamic_cast<const T *>(&obj) != nullptr; }
 
 
 class basic;
@@ -239,9 +239,9 @@ private:
  *  implements the actual function call. */
 class print_functor {
 public:
-	print_functor() : impl(0) {}
-	print_functor(const print_functor & other) : impl(other.impl.get() ? other.impl->duplicate() : 0) {}
-	print_functor(std::auto_ptr<print_functor_impl> impl_) : impl(impl_) {}
+	print_functor() : impl(nullptr) {}
+	print_functor(const print_functor & other) : impl(other.impl.get() ? other.impl->duplicate() : nullptr) {}
+	print_functor(std::unique_ptr<print_functor_impl> impl_) : impl(std::move(impl_)) {}
 
 	template <class T, class C>
 	print_functor(void f(const T &, const C &, unsigned)) : impl(new print_ptrfun_handler<T, C>(f)) {}
@@ -253,7 +253,7 @@ public:
 	{
 		if (this != &other) {
 			print_functor_impl *p = other.impl.get();
-			impl.reset(p ? other.impl->duplicate() : 0);
+			impl.reset(p ? other.impl->duplicate() : nullptr);
 		}
 		return *this;
 	}
@@ -266,7 +266,7 @@ public:
 	bool is_valid() const { return impl.get(); }
 
 private:
-	std::auto_ptr<print_functor_impl> impl;
+	std::unique_ptr<print_functor_impl> impl;
 };
 
 

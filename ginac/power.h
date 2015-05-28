@@ -48,8 +48,8 @@ class power : public basic
 	
 	// other constructors
 public:
-	power(const ex & lh, const ex & rh) : inherited(&power::tinfo_static), basis(lh), exponent(rh) {}
-	template<typename T> power(const ex & lh, const T & rh) : inherited(&power::tinfo_static), basis(lh), exponent(rh) {}
+	power(ex  lh, ex  rh) : inherited(&power::tinfo_static), basis(std::move(lh)), exponent(std::move(rh)) {}
+	template<typename T> power(ex  lh, const T & rh) : inherited(&power::tinfo_static), basis(std::move(lh)), exponent(rh) {}
 	
 	// functions overriding virtual functions from base classes
 public:
@@ -63,7 +63,7 @@ public:
 	int ldegree(const ex & s) const;
 	ex coeff(const ex & s, int n = 1) const;
 	ex eval(int level=0) const;
-	ex evalf(int level=0, PyObject* parent=NULL) const;
+	ex evalf(int level=0, PyObject* parent=nullptr) const;
 	ex evalm() const;
 	ex series(const relational & s, int order, unsigned options = 0) const;
 	ex subs(const exmap & m, unsigned options = 0) const;

@@ -95,7 +95,7 @@ add::add(const epvector & v, const ex & oc)
 	GINAC_ASSERT(is_canonical());
 }
 
-add::add(std::auto_ptr<epvector> vp, const ex & oc)
+add::add(std::unique_ptr<epvector> vp, const ex & oc)
 {
 	tinfo_key = &add::tinfo_static;
 	GINAC_ASSERT(vp.get()!=0);
@@ -130,7 +130,7 @@ void add::print_add(const print_context & c, unsigned level, bool latex) const
 
 	const epvector & sorted_seq = get_sorted_seq();
 	// Then proceed with the remaining factors
-	epvector::const_iterator it = sorted_seq.begin(), itend = sorted_seq.end();
+	auto it = sorted_seq.begin(), itend = sorted_seq.end();
 	while (it != itend) {
 		std::stringstream tstream;
 		print_context *tcontext_p;
@@ -202,7 +202,7 @@ void add::do_print_csrc(const print_csrc & c, unsigned level) const
 		c.s << "(";
 	
 	// Print arguments, separated by "+" or "-"
-	epvector::const_iterator it = seq.begin(), itend = seq.end();
+	auto it = seq.begin(), itend = seq.end();
 	char separator = ' ';
 	while (it != itend) {
 		
@@ -270,7 +270,7 @@ bool add::info(unsigned inf) const
 		case info_flags::even:
 		case info_flags::crational_polynomial:
 		case info_flags::rational_function: {
-			epvector::const_iterator i = seq.begin(), end = seq.end();
+			auto i = seq.begin(), end = seq.end();
 			while (i != end) {
 				if (!(recombine_pair_to_ex(*i).info(inf)))
 					return false;
@@ -281,7 +281,7 @@ bool add::info(unsigned inf) const
 			return overall_coeff.info(inf);
 		}
 		case info_flags::algebraic: {
-			epvector::const_iterator i = seq.begin(), end = seq.end();
+			auto i = seq.begin(), end = seq.end();
 			while (i != end) {
 				if ((recombine_pair_to_ex(*i).info(inf)))
 					return true;
@@ -295,8 +295,8 @@ bool add::info(unsigned inf) const
 
 bool add::is_polynomial(const ex & var) const
 {
-	for (epvector::const_iterator i=seq.begin(); i!=seq.end(); ++i) {
-		if (!(i->rest).is_polynomial(var)) {
+	for (const auto & elem : seq) {
+		if (!(elem.rest).is_polynomial(var)) {
 			return false;
 		}
 	}
@@ -310,7 +310,7 @@ int add::degree(const ex & s) const
 		deg = 0;
 	
 	// Find maximum of degrees of individual terms
-	epvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		int cur_deg = i->rest.degree(s);
 		if (cur_deg > deg)
@@ -327,7 +327,7 @@ int add::ldegree(const ex & s) const
 		deg = 0;
 	
 	// Find minimum of degrees of individual terms
-	epvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		int cur_deg = i->rest.ldegree(s);
 		if (cur_deg < deg)
@@ -339,14 +339,14 @@ int add::ldegree(const ex & s) const
 
 ex add::coeff(const ex & s, int n) const
 {
-	std::auto_ptr<epvector> coeffseq(new epvector);
-	std::auto_ptr<epvector> coeffseq_cliff(new epvector);
+	std::unique_ptr<epvector> coeffseq(new epvector);
+	std::unique_ptr<epvector> coeffseq_cliff(new epvector);
 	int rl = clifford_max_label(s);
 	bool do_clifford = (rl != -1);
 	bool nonscalar = false;
 
 	// Calculate sum of coefficients in each term
-	epvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		ex restcoeff = i->rest.coeff(s, n);
  		if (!restcoeff.is_zero()) {
@@ -363,7 +363,7 @@ ex add::coeff(const ex & s, int n) const
 		++i;
 	}
 
-	return (new add(nonscalar ? coeffseq_cliff : coeffseq,
+	return (new add(std::move(nonscalar ? coeffseq_cliff : coeffseq),
 	                n==0 ? overall_coeff : _ex0))->setflag(status_flags::dynallocated);
 }
 
@@ -376,10 +376,10 @@ ex add::coeff(const ex & s, int n) const
  *  @param level cut-off in recursive evaluation */
 ex add::eval(int level) const
 {
-	std::auto_ptr<epvector> evaled_seqp = evalchildren(level);
+	std::unique_ptr<epvector> evaled_seqp = evalchildren(level);
 	if (evaled_seqp.get()) {
 		// do more evaluation later
-		return (new add(evaled_seqp, overall_coeff))->
+		return (new add(std::move(evaled_seqp), overall_coeff))->
 		       setflag(status_flags::dynallocated);
 	}
 	
@@ -401,7 +401,7 @@ ex add::eval(int level) const
 	}
 		
 	// handle infinity
-	for (epvector::const_iterator i = seq.begin(); i != seq.end(); i++)
+	for (auto i = seq.begin(); i != seq.end(); i++)
 		if (unlikely(is_exactly_a<infinity>(i->rest)))
 			return eval_infinity(i);
 
@@ -420,19 +420,19 @@ ex add::eval(int level) const
 	// if any terms in the sum still are purely numeric, then they are more
 	// appropriately collected into the overall coefficient
 	int terms_to_collect = 0;
-	for (epvector::const_iterator j = seq.begin(); j != seq.end(); j++)
+	for (auto j = seq.begin(); j != seq.end(); j++)
 		if (unlikely(is_a<numeric>(j->rest)))
 			++terms_to_collect;
 	if (terms_to_collect) {
-		std::auto_ptr<epvector> s(new epvector);
+		std::unique_ptr<epvector> s(new epvector);
 		s->reserve(seq_size - terms_to_collect);
 		numeric oc = *_num0_p;
-		for (epvector::const_iterator j = seq.begin(); j != seq.end(); j++)
+		for (auto j = seq.begin(); j != seq.end(); j++)
 			if (unlikely(is_a<numeric>(j->rest)))
 				oc = oc.add((ex_to<numeric>(j->rest)).mul(ex_to<numeric>(j->coeff)));
 			else
 				s->push_back(*j);
-		return (new add(s, ex_to<numeric>(overall_coeff).add_dyn(oc)))
+		return (new add(std::move(s), ex_to<numeric>(overall_coeff).add_dyn(oc)))
 		        ->setflag(status_flags::dynallocated);
 	}
 
@@ -458,7 +458,7 @@ ex add::eval_infinity(epvector::const_iterator infinity_iter) const
 	GINAC_ASSERT(is_exactly_a<infinity>(infinity_iter->rest));
 	infinity result = infinity_from_iter(infinity_iter);
 
-        for (epvector::const_iterator i = seq.begin(); i != seq.end(); i++) {
+        for (auto i = seq.begin(); i != seq.end(); i++) {
                 if (not is_exactly_a<infinity>(i->rest)) continue;
                 if (i == infinity_iter) continue;
 		infinity i_infty = infinity_from_iter(i);
@@ -472,14 +472,14 @@ ex add::evalm() const
 {
 	// Evaluate children first and add up all matrices. Stop if there's one
 	// term that is not a matrix.
-	std::auto_ptr<epvector> s(new epvector);
+	std::unique_ptr<epvector> s(new epvector);
 	s->reserve(seq.size());
 
 	bool all_matrices = true;
 	bool first_term = true;
 	matrix sum;
 
-	epvector::const_iterator it = seq.begin(), itend = seq.end();
+	auto it = seq.begin(), itend = seq.end();
 	while (it != itend) {
 		const ex &m = recombine_pair_to_ex(*it).evalm();
 		s->push_back(split_ex_to_pair(m));
@@ -497,12 +497,12 @@ ex add::evalm() const
 	if (all_matrices)
 		return sum + overall_coeff;
 	else
-		return (new add(s, overall_coeff))->setflag(status_flags::dynallocated);
+		return (new add(std::move(s), overall_coeff))->setflag(status_flags::dynallocated);
 }
 
 ex add::conjugate() const
 {
-	exvector *v = 0;
+	exvector *v = nullptr;
 	for (size_t i=0; i<nops(); ++i) {
 		if (v) {
 			v->push_back(op(i).conjugate());
@@ -530,13 +530,13 @@ ex add::real_part() const
 {
 	epvector v;
 	v.reserve(seq.size());
-	for (epvector::const_iterator i=seq.begin(); i!=seq.end(); ++i)
-		if ((i->coeff).info(info_flags::real)) {
-			ex rp = (i->rest).real_part();
+	for (const auto & elem : seq)
+		if ((elem.coeff).info(info_flags::real)) {
+			ex rp = (elem.rest).real_part();
 			if (!rp.is_zero())
-				v.push_back(expair(rp, i->coeff));
+				v.push_back(expair(rp, elem.coeff));
 		} else {
-			ex rp=recombine_pair_to_ex(*i).real_part();
+			ex rp=recombine_pair_to_ex(elem).real_part();
 			if (!rp.is_zero())
 				v.push_back(split_ex_to_pair(rp));
 		}
@@ -548,13 +548,13 @@ ex add::imag_part() const
 {
 	epvector v;
 	v.reserve(seq.size());
-	for (epvector::const_iterator i=seq.begin(); i!=seq.end(); ++i)
-		if ((i->coeff).info(info_flags::real)) {
-			ex ip = (i->rest).imag_part();
+	for (const auto & elem : seq)
+		if ((elem.coeff).info(info_flags::real)) {
+			ex ip = (elem.rest).imag_part();
 			if (!ip.is_zero())
-				v.push_back(expair(ip, i->coeff));
+				v.push_back(expair(ip, elem.coeff));
 		} else {
-			ex ip=recombine_pair_to_ex(*i).imag_part();
+			ex ip=recombine_pair_to_ex(elem).imag_part();
 			if (!ip.is_zero())
 				v.push_back(split_ex_to_pair(ip));
 		}
@@ -576,18 +576,18 @@ ex add::eval_ncmul(const exvector & v) const
  *  @see ex::diff */
 ex add::derivative(const symbol & y) const
 {
-	std::auto_ptr<epvector> s(new epvector);
+	std::unique_ptr<epvector> s(new epvector);
 	s->reserve(seq.size());
 	
 	// Only differentiate the "rest" parts of the expairs. This is faster
 	// than the default implementation in basic::derivative() although
 	// if performs the same function (differentiate each term).
-	epvector::const_iterator i = seq.begin(), end = seq.end();
+	auto i = seq.begin(), end = seq.end();
 	while (i != end) {
 		s->push_back(combine_ex_with_coeff_to_pair(i->rest.diff(y), i->coeff));
 		++i;
 	}
-	return (new add(s, _ex0))->setflag(status_flags::dynallocated);
+	return (new add(std::move(s), _ex0))->setflag(status_flags::dynallocated);
 }
 
 int add::compare_same_type(const basic & other) const
@@ -618,9 +618,9 @@ ex add::thisexpairseq(const epvector & v, const ex & oc, bool do_index_renaming)
 }
 
 // Note: do_index_renaming is ignored because it makes no sense for an add.
-ex add::thisexpairseq(std::auto_ptr<epvector> vp, const ex & oc, bool do_index_renaming) const
+ex add::thisexpairseq(std::unique_ptr<epvector> vp, const ex & oc, bool do_index_renaming) const
 {
-	return (new add(vp,oc))->setflag(status_flags::dynallocated);
+	return (new add(std::move(vp),oc))->setflag(status_flags::dynallocated);
 }
 
 expair add::split_ex_to_pair(const ex & e) const
@@ -628,7 +628,7 @@ expair add::split_ex_to_pair(const ex & e) const
 	if (is_exactly_a<mul>(e)) {
 		const mul &mulref(ex_to<mul>(e));
 		const ex &numfactor = mulref.overall_coeff;
-		mul *mulcopyp = new mul(mulref);
+		auto mulcopyp = new mul(mulref);
 		mulcopyp->overall_coeff = _ex1;
 		mulcopyp->clearflag(status_flags::evaluated);
 		mulcopyp->clearflag(status_flags::hash_calculated);
@@ -645,7 +645,7 @@ expair add::combine_ex_with_coeff_to_pair(const ex & e,
 	if (is_exactly_a<mul>(e)) {
 		const mul &mulref(ex_to<mul>(e));
 		const ex &numfactor = mulref.overall_coeff;
-		mul *mulcopyp = new mul(mulref);
+		auto mulcopyp = new mul(mulref);
 		mulcopyp->overall_coeff = _ex1;
 		mulcopyp->clearflag(status_flags::evaluated);
 		mulcopyp->clearflag(status_flags::hash_calculated);
@@ -688,13 +688,13 @@ ex add::recombine_pair_to_ex(const expair & p) const
 
 ex add::expand(unsigned options) const
 {
-	std::auto_ptr<epvector> vp = expandchildren(options);
-	if (vp.get() == 0) {
+	std::unique_ptr<epvector> vp = expandchildren(options);
+	if (vp.get() == nullptr) {
 		// the terms have not changed, so it is safe to declare this expanded
 		return (options == 0) ? setflag(status_flags::expanded) : *this;
 	}
 
-	return (new add(vp, overall_coeff))->setflag(status_flags::dynallocated | (options == 0 ? status_flags::expanded : 0));
+	return (new add(std::move(vp), overall_coeff))->setflag(status_flags::dynallocated | (options == 0 ? status_flags::expanded : 0));
 }
 
 const epvector & add::get_sorted_seq() const

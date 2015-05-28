@@ -77,26 +77,26 @@ possymbol::possymbol()
 
 // symbol
 
-symbol::symbol(const std::string & initname, unsigned domain)
- : inherited(&symbol::tinfo_static), serial(next_serial++), name(initname), TeX_name(default_TeX_name()), domain(domain), ret_type(return_types::commutative), ret_type_tinfo(&symbol::tinfo_static)
+symbol::symbol(std::string  initname, unsigned domain)
+ : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(default_TeX_name()), domain(domain), ret_type(return_types::commutative), ret_type_tinfo(&symbol::tinfo_static)
 {
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
-symbol::symbol(const std::string & initname, unsigned rt, tinfo_t rtt, unsigned domain)
- : inherited(&symbol::tinfo_static), serial(next_serial++), name(initname), TeX_name(default_TeX_name()), domain(domain), ret_type(rt), ret_type_tinfo(rtt)
+symbol::symbol(std::string  initname, unsigned rt, tinfo_t rtt, unsigned domain)
+ : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(default_TeX_name()), domain(domain), ret_type(rt), ret_type_tinfo(rtt)
 {
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
-symbol::symbol(const std::string & initname, const std::string & texname, unsigned domain)
- : inherited(&symbol::tinfo_static), serial(next_serial++), name(initname), TeX_name(texname), domain(domain), ret_type(return_types::commutative), ret_type_tinfo(&symbol::tinfo_static)
+symbol::symbol(std::string  initname, std::string  texname, unsigned domain)
+ : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(std::move(texname)), domain(domain), ret_type(return_types::commutative), ret_type_tinfo(&symbol::tinfo_static)
 {
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
-symbol::symbol(const std::string & initname, const std::string & texname, unsigned rt, tinfo_t rtt, unsigned domain)
- : inherited(&symbol::tinfo_static), serial(next_serial++), name(initname), TeX_name(texname), domain(domain), ret_type(rt), ret_type_tinfo(rtt)
+symbol::symbol(std::string  initname, std::string  texname, unsigned rt, tinfo_t rtt, unsigned domain)
+ : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(std::move(texname)), domain(domain), ret_type(rt), ret_type_tinfo(rtt)
 {
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
@@ -154,9 +154,9 @@ ex symbol::unarchive(const archive_node &n, lst &sym_lst)
 	ex s = (new symbol(n, sym_lst))->setflag(status_flags::dynallocated);
 
 	// If symbol is in sym_lst, return the existing symbol
-	for (lst::const_iterator it = sym_lst.begin(); it != sym_lst.end(); ++it) {
-		if (is_a<symbol>(*it) && (ex_to<symbol>(*it).name == ex_to<symbol>(s).name))
-			return *it;
+	for (const auto & elem : sym_lst) {
+		if (is_a<symbol>(elem) && (ex_to<symbol>(elem).name == ex_to<symbol>(s).name))
+			return elem;
 	}
 
 	// Otherwise add new symbol to list and return it
@@ -387,7 +387,7 @@ unsigned symbol::next_serial = 0;
 const symbol & get_symbol(const std::string & s)
 {
 	static std::map<std::string, symbol> directory;
-	std::map<std::string, symbol>::iterator i = directory.find(s);
+	auto i = directory.find(s);
 	if (i != directory.end()) {
 		return i->second;
 	}

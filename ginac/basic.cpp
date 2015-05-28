@@ -308,12 +308,12 @@ ex basic::map(map_function & f) const
 	if (num == 0)
 		return *this;
 
-	basic *copy = NULL;
+	basic *copy = nullptr;
 	for (size_t i=0; i<num; i++) {
 		const ex & o = op(i);
 		const ex & n = f(o);
 		if (!are_ex_trivially_equal(o, n)) {
-			if (copy == NULL)
+			if (copy == nullptr)
 				copy = duplicate();
 			copy->let_op(i) = n;
 		}
@@ -380,12 +380,12 @@ ex basic::collect(const ex & s, bool distributed) const
 			for (const_iterator xi=x.begin(); xi!=x.end(); ++xi) {
 				ex key = _ex1;
 				ex pre_coeff = *xi;
-				for (lst::const_iterator li=l.begin(); li!=l.end(); ++li) {
-					int cexp = pre_coeff.degree(*li);
-					pre_coeff = pre_coeff.coeff(*li, cexp);
-					key *= pow(*li, cexp);
+				for (const auto & elem : l) {
+					int cexp = pre_coeff.degree(elem);
+					pre_coeff = pre_coeff.coeff(elem, cexp);
+					key *= pow(elem, cexp);
 				}
-				exmap::iterator ci = cmap.find(key);
+				auto ci = cmap.find(key);
 				if (ci != cmap.end())
 					ci->second += pre_coeff;
 				else
@@ -560,9 +560,9 @@ bool basic::match(const ex & pattern, lst & repl_lst) const
 		// Wildcard matches anything, but check whether we already have found
 		// a match for that wildcard first (if so, the earlier match must be
 		// the same expression)
-		for (lst::const_iterator it = repl_lst.begin(); it != repl_lst.end(); ++it) {
-			if (it->op(0).is_equal(pattern))
-				return is_equal(ex_to<basic>(it->op(1)));
+		for (const auto & elem : repl_lst) {
+			if (elem.op(0).is_equal(pattern))
+				return is_equal(ex_to<basic>(elem.op(1)));
 		}
 		repl_lst.append(pattern == *this);
 		return true;

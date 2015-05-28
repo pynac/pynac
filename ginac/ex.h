@@ -127,7 +127,7 @@ public:
 
 	// evaluation
 	ex eval(int level = 0) const { return bp->eval(level); }
-	ex evalf(int level = 0, PyObject* parent=NULL) const 
+	ex evalf(int level = 0, PyObject* parent=nullptr) const 
 	{ return bp->evalf(level, parent); }
 	ex evalm() const { return bp->evalm(); }
 	ex eval_ncmul(const exvector & v) const { return bp->eval_ncmul(v); }
@@ -385,7 +385,7 @@ public:
 	const_iterator() throw() {}
 
 private:
-	const_iterator(const ex &e_, size_t i_) throw() : e(e_), i(i_) {}
+	const_iterator(ex e_, size_t i_) throw() : e(std::move(e_)), i(i_) {}
 
 public:
 	// This should return an ex&, but that would be a reference to a
@@ -397,9 +397,9 @@ public:
 
 	// This should return an ex*, but that would be a pointer to a
 	// temporary value
-	std::auto_ptr<ex> operator->() const
+	std::unique_ptr<ex> operator->() const
 	{
-		return std::auto_ptr<ex>(new ex(operator*()));
+		return std::unique_ptr<ex>(new ex(operator*()));
 	}
 
 	ex operator[](difference_type n) const
@@ -503,7 +503,7 @@ protected:
 namespace internal {
 
 struct _iter_rep {
-	_iter_rep(const ex &e_, size_t i_, size_t i_end_) : e(e_), i(i_), i_end(i_end_) {}
+	_iter_rep(ex e_, size_t i_, size_t i_end_) : e(std::move(e_)), i(i_), i_end(i_end_) {}
 
 	bool operator==(const _iter_rep &other) const throw()
 	{
@@ -782,7 +782,7 @@ inline ex collect(const ex & thisex, const ex & s, bool distributed = false)
 inline ex eval(const ex & thisex, int level = 0)
 { return thisex.eval(level); }
 
-inline ex evalf(const ex & thisex, int level = 0, PyObject* parent=NULL)
+inline ex evalf(const ex & thisex, int level = 0, PyObject* parent=nullptr)
 { return thisex.evalf(level, parent); }
 
 inline ex evalm(const ex & thisex)

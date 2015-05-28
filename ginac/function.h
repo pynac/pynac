@@ -219,7 +219,7 @@ public:
 	function_options & series_func(PyObject* e);
 	function_options & subs_func(PyObject* e);
 
-	function_options & set_return_type(unsigned rt, tinfo_t rtt=NULL);
+	function_options & set_return_type(unsigned rt, tinfo_t rtt=nullptr);
 	function_options & do_not_evalf_params();
 	function_options & do_not_apply_chain_rule();
 	function_options & remember(unsigned size, unsigned assoc_size=0,
@@ -248,8 +248,8 @@ public:
 	};
 
 protected:
-	bool has_derivative() const { return derivative_f != NULL; }
-	bool has_power() const { return power_f != NULL; }
+	bool has_derivative() const { return derivative_f != nullptr; }
+	bool has_power() const { return power_f != nullptr; }
 	void test_and_set_nparams(unsigned n);
 	void set_print_func(unsigned id, print_funcp f);
 
@@ -330,9 +330,9 @@ public:
     function(unsigned ser, const ex & param1, const ex & param2);
     function(unsigned ser, const ex & param1, const ex & param2, const ex & param3);
 	// end of generated lines
-	function(unsigned ser, const exprseq & es);
+	function(unsigned ser, exprseq  es);
 	function(unsigned ser, const exvector & v, bool discardable = false);
-	function(unsigned ser, std::auto_ptr<exvector> vp);
+	function(unsigned ser, std::unique_ptr<exvector> vp);
 
 	// functions overriding virtual functions from base classes
 public:
@@ -340,12 +340,12 @@ public:
 	unsigned precedence() const {return 70;}
 	ex expand(unsigned options=0) const;
 	ex eval(int level=0) const;
-	ex evalf(int level=0, PyObject* parent=NULL) const;
+	ex evalf(int level=0, PyObject* parent=nullptr) const;
 	unsigned calchash() const;
 	ex series(const relational & r, int order, unsigned options = 0) const;
         ex subs(const exmap & m, unsigned options = 0) const;
 	ex thiscontainer(const exvector & v) const;
-	ex thiscontainer(std::auto_ptr<exvector> vp) const;
+	ex thiscontainer(std::unique_ptr<exvector> vp) const;
 	ex conjugate() const;
 	ex real_part() const;
 	ex imag_part() const;

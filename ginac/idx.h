@@ -44,7 +44,7 @@ public:
 	 *  @param v Value of index (numeric or symbolic)
 	 *  @param dim Dimension of index space (numeric or symbolic)
 	 *  @return newly constructed index */
-	explicit idx(const ex & v, const ex & dim);
+	explicit idx(ex  v, ex  dim);
 
 	// functions overriding virtual functions from base classes
 public:
@@ -52,7 +52,7 @@ public:
 	size_t nops() const;
 	ex op(size_t i) const;
 	ex map(map_function & f) const;
-	ex evalf(int level = 0, PyObject* parent = NULL) const;
+	ex evalf(int level = 0, PyObject* parent = nullptr) const;
 	ex subs(const exmap & m, unsigned options = 0) const;
 
 protected:

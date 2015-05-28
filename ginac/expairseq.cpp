@@ -122,16 +122,16 @@ expairseq::expairseq(const exvector &v) : inherited(&expairseq::tinfo_static)
 	GINAC_ASSERT(is_canonical());
 }
 
-expairseq::expairseq(const epvector &v, const ex &oc, bool do_index_renaming)
-  : inherited(&expairseq::tinfo_static), overall_coeff(oc)
+expairseq::expairseq(const epvector &v, ex oc, bool do_index_renaming)
+  : inherited(&expairseq::tinfo_static), overall_coeff(std::move(oc))
 {
 	GINAC_ASSERT(is_a<numeric>(oc));
 	construct_from_epvector(v, do_index_renaming);
 	GINAC_ASSERT(is_canonical());
 }
 
-expairseq::expairseq(std::auto_ptr<epvector> vp, const ex &oc, bool do_index_renaming)
-  : inherited(&expairseq::tinfo_static), overall_coeff(oc)
+expairseq::expairseq(std::unique_ptr<epvector> vp, ex oc, bool do_index_renaming)
+  : inherited(&expairseq::tinfo_static), overall_coeff(std::move(oc))
 {
 	GINAC_ASSERT(vp.get()!=0);
 	GINAC_ASSERT(is_a<numeric>(oc));
@@ -148,12 +148,12 @@ expairseq::expairseq(const archive_node &n, lst &sym_lst) : inherited(n, sym_lst
 	, hashtabsize(0)
 #endif
 {
-	archive_node::archive_node_cit first = n.find_first("rest");
-	archive_node::archive_node_cit last = n.find_last("coeff");
+	auto first = n.find_first("rest");
+	auto last = n.find_last("coeff");
 	++last;
 	seq.reserve((last-first)/2);
 
-	for (archive_node::archive_node_cit loc = first; loc < last;) {
+	for (auto loc = first; loc < last;) {
 		ex rest;
 		ex coeff;
 		n.find_ex_by_loc(loc++, rest, sym_lst);
@@ -170,7 +170,7 @@ expairseq::expairseq(const archive_node &n, lst &sym_lst) : inherited(n, sym_lst
 void expairseq::archive(archive_node &n) const
 {
 	inherited::archive(n);
-	epvector::const_iterator i = seq.begin(), iend = seq.end();
+	auto i = seq.begin(), iend = seq.end();
 	while (i != iend) {
 		n.add_ex("rest", i->rest);
 		n.add_ex("coeff", i->coeff);
@@ -278,8 +278,8 @@ bool expairseq::info(unsigned inf) const
 				return true;
 			else if (flags & status_flags::has_no_indices)
 				return false;
-			for (epvector::const_iterator i = seq.begin(); i != seq.end(); ++i) {
-				if (i->rest.info(info_flags::has_indices)) {
+			for (const auto & elem : seq) {
+				if (elem.rest.info(info_flags::has_indices)) {
 					this->setflag(status_flags::has_indices);
 					this->clearflag(status_flags::has_no_indices);
 					return true;
@@ -320,24 +320,24 @@ ex expairseq::stable_op(size_t i) const
 
 ex expairseq::map(map_function &f) const
 {
-	std::auto_ptr<epvector> v(new epvector);
+	std::unique_ptr<epvector> v(new epvector);
 	v->reserve(seq.size()+1);
 
-	epvector::const_iterator cit = seq.begin(), last = seq.end();
+	auto cit = seq.begin(), last = seq.end();
 	while (cit != last) {
 		v->push_back(split_ex_to_pair(f(recombine_pair_to_ex(*cit))));
 		++cit;
 	}
 
 	if (overall_coeff_equals_default())
-		return thisexpairseq(v, default_overall_coeff(), true);
+		return thisexpairseq(std::move(v), default_overall_coeff(), true);
 	else {
 		ex newcoeff = f(overall_coeff);
 		if(is_a<numeric>(newcoeff))
-			return thisexpairseq(v, newcoeff, true);
+			return thisexpairseq(std::move(v), newcoeff, true);
 		else {
 			v->push_back(split_ex_to_pair(newcoeff));
-			return thisexpairseq(v, default_overall_coeff(), true);
+			return thisexpairseq(std::move(v), default_overall_coeff(), true);
 		}
 	}
 }
@@ -348,17 +348,17 @@ ex expairseq::eval(int level) const
 	if ((level==1) && (flags &status_flags::evaluated))
 		return *this;
 	
-	std::auto_ptr<epvector> vp = evalchildren(level);
-	if (vp.get() == 0)
+	std::unique_ptr<epvector> vp = evalchildren(level);
+	if (vp.get() == nullptr)
 		return this->hold();
 	
-	return (new expairseq(vp, overall_coeff))->setflag(status_flags::dynallocated | status_flags::evaluated);
+	return (new expairseq(std::move(vp), overall_coeff))->setflag(status_flags::dynallocated | status_flags::evaluated);
 }
 
 epvector* conjugateepvector(const epvector&epv)
 {
-	epvector *newepv = 0;
-	for (epvector::const_iterator i=epv.begin(); i!=epv.end(); ++i) {
+	epvector *newepv = nullptr;
+	for (auto i=epv.begin(); i!=epv.end(); ++i) {
 		if(newepv) {
 			newepv->push_back(i->conjugate());
 			continue;
@@ -369,7 +369,7 @@ epvector* conjugateepvector(const epvector&epv)
 		}
 		newepv = new epvector;
 		newepv->reserve(epv.size());
-		for (epvector::const_iterator j=epv.begin(); j!=i; ++j) {
+		for (auto j=epv.begin(); j!=i; ++j) {
 			newepv->push_back(*j);
 		}
 		newepv->push_back(x);
@@ -429,16 +429,16 @@ bool expairseq::match(const ex & pattern, lst & repl_lst) const
 			ex p = ex_to<expairseq>(pattern).stable_op(i);
 			if (has_global_wildcard && p.is_equal(global_wildcard))
 				continue;
-			exvector::iterator it = ops.begin(), itend = ops.end();
+			auto it = ops.begin(), itend = ops.end();
 			while (it != itend) {
-				lst::const_iterator last_el = repl_lst.end();
+				auto last_el = repl_lst.end();
 				--last_el;
 				if (it->match(p, tmp_repl)) {
 					ops.erase(it);
 					goto found;
 				}
 				while(true) {
-					lst::const_iterator next_el = last_el;
+					auto next_el = last_el;
 					++next_el;
 					if(next_el == repl_lst.end())
 						break;
@@ -457,12 +457,12 @@ found:		;
 			// it has already been matched before, in which case the matches
 			// must be equal)
 			size_t num = ops.size();
-			std::auto_ptr<epvector> vp(new epvector);
+			std::unique_ptr<epvector> vp(new epvector);
 			vp->reserve(num);
 			for (size_t i=0; i<num; i++)
 				vp->push_back(split_ex_to_pair(ops[i]));
-			ex rest = thisexpairseq(vp, default_overall_coeff());
-            for (lst::const_iterator it = tmp_repl.begin(); it != tmp_repl.end(); ++it) {
+			ex rest = thisexpairseq(std::move(vp), default_overall_coeff());
+            for (auto it = tmp_repl.begin(); it != tmp_repl.end(); ++it) {
                 if (it->op(0).is_equal(global_wildcard)) {
                     if (rest.is_equal(it->op(1))) {
                         repl_lst = tmp_repl;
@@ -491,9 +491,9 @@ found:		;
 
 ex expairseq::subs(const exmap & m, unsigned options) const
 {
-	std::auto_ptr<epvector> vp = subschildren(m, options);
+	std::unique_ptr<epvector> vp = subschildren(m, options);
 	if (vp.get())
-		return ex_to<basic>(thisexpairseq(vp, overall_coeff, (options & subs_options::no_index_renaming) == 0));
+		return ex_to<basic>(thisexpairseq(std::move(vp), overall_coeff, (options & subs_options::no_index_renaming) == 0));
 	else if ((options & subs_options::algebraic) && is_exactly_a<mul>(*this))
 		return static_cast<const mul *>(this)->algebraic_subs_mul(m, options);
 	else
@@ -504,8 +504,8 @@ ex expairseq::subs(const exmap & m, unsigned options) const
 numeric expairseq::calc_total_degree() const
 {
 	numeric deg = 0;
-	epvector::const_iterator cit = seq.begin();
-	epvector::const_iterator last = seq.end();
+	auto cit = seq.begin();
+	auto last = seq.end();
 	for (; (cit!=last); ++cit) {
 		deg = deg.add(ex_to<numeric>(cit->coeff));
 	}
@@ -534,10 +534,10 @@ int expairseq::compare_same_type(const basic &other) const
 	if (hashtabsize==0) {
 #endif // EXPAIRSEQ_USE_HASHTAB
 
-		epvector::const_iterator cit1 = seq.begin();
-		epvector::const_iterator cit2 = o.seq.begin();
-		epvector::const_iterator last1 = seq.end();
-		epvector::const_iterator last2 = o.seq.end();
+		auto cit1 = seq.begin();
+		auto cit2 = o.seq.begin();
+		auto last1 = seq.end();
+		auto last2 = o.seq.end();
 
 		for (; (cit1!=last1)&&(cit2!=last2); ++cit1, ++cit2) {
 			cmpval = (*cit1).compare(*cit2);
@@ -603,9 +603,9 @@ bool expairseq::is_equal_same_type(const basic &other) const
 	
 	if (hashtabsize==0) {
 #endif // EXPAIRSEQ_USE_HASHTAB
-		epvector::const_iterator cit1 = seq.begin();
-		epvector::const_iterator cit2 = o.seq.begin();
-		epvector::const_iterator last1 = seq.end();
+		auto cit1 = seq.begin();
+		auto cit2 = o.seq.begin();
+		auto last1 = seq.end();
 		
 		while (cit1!=last1) {
 			if (!(*cit1).is_equal(*cit2)) return false;
@@ -650,7 +650,7 @@ unsigned expairseq::return_type() const
 unsigned expairseq::calchash() const
 {
 	unsigned v = golden_ratio_hash((p_int)this->tinfo());
-	epvector::const_iterator i = seq.begin();
+	auto i = seq.begin();
 	const epvector::const_iterator end = seq.end();
 	while (i != end) {
 		v ^= i->rest.gethash();
@@ -675,9 +675,9 @@ unsigned expairseq::calchash() const
 
 ex expairseq::expand(unsigned options) const
 {
-	std::auto_ptr<epvector> vp = expandchildren(options);
+	std::unique_ptr<epvector> vp = expandchildren(options);
 	if (vp.get())
-		return thisexpairseq(vp, overall_coeff);
+		return thisexpairseq(std::move(vp), overall_coeff);
 	else {
 		// The terms have not changed, so it is safe to declare this expanded
 		return (options == 0) ? setflag(status_flags::expanded) : *this;
@@ -703,9 +703,9 @@ ex expairseq::thisexpairseq(const epvector &v, const ex &oc, bool do_index_renam
 	return expairseq(v, oc, do_index_renaming);
 }
 
-ex expairseq::thisexpairseq(std::auto_ptr<epvector> vp, const ex &oc, bool do_index_renaming) const
+ex expairseq::thisexpairseq(std::unique_ptr<epvector> vp, const ex &oc, bool do_index_renaming) const
 {
-	return expairseq(vp, oc, do_index_renaming);
+	return expairseq(std::move(vp), oc, do_index_renaming);
 }
 
 void expairseq::printpair(const print_context & c, const expair & p, unsigned upper_precedence) const
@@ -935,10 +935,10 @@ void expairseq::construct_from_2_expairseq(const expairseq &s1,
 	combine_overall_coeff(s1.overall_coeff);
 	combine_overall_coeff(s2.overall_coeff);
 
-	epvector::const_iterator first1 = s1.seq.begin();
-	epvector::const_iterator last1 = s1.seq.end();
-	epvector::const_iterator first2 = s2.seq.begin();
-	epvector::const_iterator last2 = s2.seq.end();
+	auto first1 = s1.seq.begin();
+	auto last1 = s1.seq.end();
+	auto first2 = s2.seq.begin();
+	auto last2 = s2.seq.end();
 
 	seq.reserve(s1.seq.size()+s2.seq.size());
 
@@ -1001,8 +1001,8 @@ void expairseq::construct_from_expairseq_ex(const expairseq &s,
 		return;
 	}
 	
-	epvector::const_iterator first = s.seq.begin();
-	epvector::const_iterator last = s.seq.end();
+	auto first = s.seq.begin();
+	auto last = s.seq.end();
 	expair p = split_ex_to_pair(e);
 	// infinity evaluation is handled in eval()
 	// do not let infinities cancel each other here
@@ -1132,7 +1132,7 @@ void expairseq::make_flat(const exvector &v, bool hold)
 			ex newfactor = mf.handle_factor(*cit, _ex1);
 			const expairseq &subseqref = ex_to<expairseq>(newfactor);
 			combine_overall_coeff(subseqref.overall_coeff);
-			epvector::const_iterator cit_s = subseqref.seq.begin();
+			auto cit_s = subseqref.seq.begin();
 			while (cit_s!=subseqref.seq.end()) {
 				seq.push_back(*cit_s);
 				++cit_s;
@@ -1187,7 +1187,7 @@ void expairseq::make_flat(const epvector &v, bool do_index_renaming)
 			const expairseq &subseqref = ex_to<expairseq>(newrest);
 			combine_overall_coeff(ex_to<numeric>(subseqref.overall_coeff),
 			                                    ex_to<numeric>(cit->coeff));
-			epvector::const_iterator cit_s = subseqref.seq.begin();
+			auto cit_s = subseqref.seq.begin();
 			while (cit_s!=subseqref.seq.end()) {
 				seq.push_back(expair(cit_s->rest,
 				                     ex_to<numeric>(cit_s->coeff).mul_dyn(ex_to<numeric>(cit->coeff))));
@@ -1228,10 +1228,10 @@ void expairseq::combine_same_terms_sorted_seq()
 
 	bool needs_further_processing = false;
 
-	epvector::iterator itin1 = seq.begin();
-	epvector::iterator itin2 = itin1+1;
-	epvector::iterator itout = itin1;
-	epvector::iterator last = seq.end();
+	auto itin1 = seq.begin();
+	auto itin2 = itin1+1;
+	auto itout = itin1;
+	auto last = seq.end();
 	// must_copy will be set to true the first time some combination is 
 	// possible from then on the sequence has changed and must be compacted
 	bool must_copy = false;
@@ -1585,8 +1585,8 @@ bool expairseq::is_canonical() const
 	if (hashtabsize > 0) return 1; // not canoncalized
 #endif // EXPAIRSEQ_USE_HASHTAB
 	
-	epvector::const_iterator it = seq.begin(), itend = seq.end();
-	epvector::const_iterator it_last = it;
+	auto it = seq.begin(), itend = seq.end();
+	auto it_last = it;
 	for (++it; it!=itend; it_last=it, ++it) {
 		if (!(it_last->is_less(*it) || it_last->is_equal(*it))) {
 			if (!is_exactly_a<numeric>(it_last->rest) ||
@@ -1618,20 +1618,20 @@ bool expairseq::is_canonical() const
  *  @see expairseq::expand()
  *  @return pointer to epvector containing expanded pairs or zero pointer,
  *  if no members were changed. */
-std::auto_ptr<epvector> expairseq::expandchildren(unsigned options) const
+std::unique_ptr<epvector> expairseq::expandchildren(unsigned options) const
 {
 	const epvector::const_iterator last = seq.end();
-	epvector::const_iterator cit = seq.begin();
+	auto cit = seq.begin();
 	while (cit!=last) {
 		const ex &expanded_ex = cit->rest.expand(options);
 		if (!are_ex_trivially_equal(cit->rest,expanded_ex)) {
 			
 			// something changed, copy seq, eval and return it
-			std::auto_ptr<epvector> s(new epvector);
+			std::unique_ptr<epvector> s(new epvector);
 			s->reserve(seq.size());
 			
 			// copy parts of seq which are known not to have changed
-			epvector::const_iterator cit2 = seq.begin();
+			auto cit2 = seq.begin();
 			while (cit2!=cit) {
 				s->push_back(*cit2);
 				++cit2;
@@ -1648,12 +1648,12 @@ std::auto_ptr<epvector> expairseq::expandchildren(unsigned options) const
 				                                           cit2->coeff));
 				++cit2;
 			}
-			return s;
+			return std::move(s);
 		}
 		++cit;
 	}
 	
-	return std::auto_ptr<epvector>(0); // signalling nothing has changed
+	return std::unique_ptr<epvector>(nullptr); // signalling nothing has changed
 }
 
 
@@ -1662,31 +1662,31 @@ std::auto_ptr<epvector> expairseq::expandchildren(unsigned options) const
  *  @see expairseq::eval()
  *  @return pointer to epvector containing evaluated pairs or zero pointer,
  *  if no members were changed. */
-std::auto_ptr<epvector> expairseq::evalchildren(int level) const
+std::unique_ptr<epvector> expairseq::evalchildren(int level) const
 {
 	// returns a NULL pointer if nothing had to be evaluated
 	// returns a pointer to a newly created epvector otherwise
 	// (which has to be deleted somewhere else)
 
 	if (level==1)
-		return std::auto_ptr<epvector>(0);
+		return std::unique_ptr<epvector>(nullptr);
 	
 	if (level == -max_recursion_level)
 		throw(std::runtime_error("max recursion level reached"));
 	
 	--level;
-	epvector::const_iterator last = seq.end();
-	epvector::const_iterator cit = seq.begin();
+	auto last = seq.end();
+	auto cit = seq.begin();
 	while (cit!=last) {
 		const ex &evaled_ex = cit->rest.eval(level);
 		if (!are_ex_trivially_equal(cit->rest,evaled_ex)) {
 			
 			// something changed, copy seq, eval and return it
-			std::auto_ptr<epvector> s(new epvector);
+			std::unique_ptr<epvector> s(new epvector);
 			s->reserve(seq.size());
 			
 			// copy parts of seq which are known not to have changed
-			epvector::const_iterator cit2=seq.begin();
+			auto cit2=seq.begin();
 			while (cit2!=cit) {
 				s->push_back(*cit2);
 				++cit2;
@@ -1703,12 +1703,12 @@ std::auto_ptr<epvector> expairseq::evalchildren(int level) const
 				                                           cit2->coeff));
 				++cit2;
 			}
-			return s;
+			return std::move(s);
 		}
 		++cit;
 	}
 	
-	return std::auto_ptr<epvector>(0); // signalling nothing has changed
+	return std::unique_ptr<epvector>(nullptr); // signalling nothing has changed
 }
 
 /** Member-wise substitute in this sequence.
@@ -1716,7 +1716,7 @@ std::auto_ptr<epvector> expairseq::evalchildren(int level) const
  *  @see expairseq::subs()
  *  @return pointer to epvector containing pairs after application of subs,
  *    or NULL pointer if no members were changed. */
-std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned options) const
+std::unique_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned options) const
 {
 	// When any of the objects to be substituted is a product or power
 	// we have to recombine the pairs because the numeric coefficients may
@@ -1724,8 +1724,8 @@ std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned option
 	if (!(options & (subs_options::pattern_is_product | subs_options::pattern_is_not_product))) {
 
 		// Search the list of substitutions and cache our findings
-		for (exmap::const_iterator it = m.begin(); it != m.end(); ++it) {
-			if (is_exactly_a<mul>(it->first) || is_exactly_a<power>(it->first)) {
+		for (const auto & elem : m) {
+			if (is_exactly_a<mul>(elem.first) || is_exactly_a<power>(elem.first)) {
 				options |= subs_options::pattern_is_product;
 				break;
 			}
@@ -1737,7 +1737,7 @@ std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned option
 	if (options & subs_options::pattern_is_product) {
 
 		// Substitute in the recombined pairs
-		epvector::const_iterator cit = seq.begin(), last = seq.end();
+		auto cit = seq.begin(), last = seq.end();
 		while (cit != last) {
 
 			const ex &orig_ex = recombine_pair_to_ex(*cit);
@@ -1745,7 +1745,7 @@ std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned option
 			if (!are_ex_trivially_equal(orig_ex, subsed_ex)) {
 
 				// Something changed, copy seq, subs and return it
-				std::auto_ptr<epvector> s(new epvector);
+				std::unique_ptr<epvector> s(new epvector);
 				s->reserve(seq.size());
 
 				// Copy parts of seq which are known not to have changed
@@ -1760,7 +1760,7 @@ std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned option
 					s->push_back(split_ex_to_pair(recombine_pair_to_ex(*cit).subs(m, options)));
 					++cit;
 				}
-				return s;
+				return std::move(s);
 			}
 
 			++cit;
@@ -1769,14 +1769,14 @@ std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned option
 	} else {
 
 		// Substitute only in the "rest" part of the pairs
-		epvector::const_iterator cit = seq.begin(), last = seq.end();
+		auto cit = seq.begin(), last = seq.end();
 		while (cit != last) {
 
 			const ex &subsed_ex = cit->rest.subs(m, options);
 			if (!are_ex_trivially_equal(cit->rest, subsed_ex)) {
 			
 				// Something changed, copy seq, subs and return it
-				std::auto_ptr<epvector> s(new epvector);
+				std::unique_ptr<epvector> s(new epvector);
 				s->reserve(seq.size());
 
 				// Copy parts of seq which are known not to have changed
@@ -1791,7 +1791,7 @@ std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned option
 					s->push_back(combine_ex_with_coeff_to_pair(cit->rest.subs(m, options), cit->coeff));
 					++cit;
 				}
-				return s;
+				return std::move(s);
 			}
 
 			++cit;
@@ -1799,7 +1799,7 @@ std::auto_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned option
 	}
 	
 	// Nothing has changed
-	return std::auto_ptr<epvector>(0);
+	return std::unique_ptr<epvector>(nullptr);
 }
 
 
