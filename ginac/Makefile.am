@@ -17,7 +17,7 @@ libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO) -no-undefined
 else
 libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 endif
-libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS)
+libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter
 
 libpynac_la_LIBADD = $(PYTHON_LDFLAGS)
 ginacincludedir = $(includedir)/pynac
