@@ -2123,7 +2123,7 @@ const numeric isqrt(const numeric &x) {
 
 /** Floating point evaluation of Sage's constants. */
 ex ConstantEvalf(unsigned serial, PyObject* parent) {
-        if (parent == nullptr)
+        if (parent == NULL)
                 parent = CC;
         PyObject* x = py_funcs.py_eval_constant(serial, parent);
         if (!x) py_error("error getting digits of constant");
