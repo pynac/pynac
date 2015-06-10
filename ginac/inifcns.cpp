@@ -192,10 +192,10 @@ static ex abs_eval(const ex & arg)
 	if (is_exactly_a<numeric>(arg))
 		return abs(ex_to<numeric>(arg));
 
-	if (arg.info(info_flags::nonnegative))
+	if (arg.info(info_flags::nonnegative) or arg.info(info_flags::positive))
 		return arg;
 
-	if (arg.info(info_flags::negative) || (-arg).info(info_flags::nonnegative))
+	if (arg.info(info_flags::negative) or (-arg).info(info_flags::nonnegative))
 		return -arg;
 
         if (is_exactly_a<function>(arg)) {                
@@ -207,34 +207,31 @@ static ex abs_eval(const ex & arg)
                         return abs(arg.op(0));
                 if (is_ex_the_function(arg, step))
                         return arg;
-                
-                if (not has_symbol(arg)) {
-                        const ex& value = arg.evalf();
-                        if (value.info(info_flags::real))
-                                return value > 0? arg : arg*_ex_1;
-                }
-                else
-                        return abs(arg).hold();
+                return abs(arg).hold();
         }
 
-	if (is_exactly_a<mul>(arg)) {
+        if (is_exactly_a<mul>(arg)) {
                 ex prod = _ex1;
                 ex prod_sy = _ex1;
+                bool is_prod_neg = false;
                 for (size_t i=0; i<arg.nops(); ++i) {
                         const ex& factor = arg.op(i);
                         if (has_symbol(factor))
                                 prod_sy *= factor;
-                        else if (is_exactly_a<function>(factor)) {
-                                const ex& value = factor.evalf(0, CC);
-                                if (value.info(info_flags::real))
-                                        prod *= value > 0? factor : factor*_ex_1;
+                        else if (factor.info(info_flags::real)) {
+                                if (factor.info(info_flags::negative)) {                                        
+                                        is_prod_neg = not is_prod_neg;
+                                        prod *= factor;
+                                }
+                                else if (factor.info(info_flags::positive))                                        
+                                        prod *= factor;
                                 else
-                                        prod_sy *= factor;
+                                        prod *= abs(factor).hold();
                         }
                         else
-                                prod *= factor.info(info_flags::real)? factor : abs(factor);
+                                prod *= abs(factor);
                 }
-                if (prod.evalf(0, RR) < 0)  // according info_flags prod is real
+                if (is_prod_neg)
                         prod *= _ex_1;
                 if (not prod_sy.is_integer_one())
                         prod *= abs(prod_sy).hold();
