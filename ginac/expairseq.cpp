@@ -1239,12 +1239,13 @@ void expairseq::combine_same_terms_sorted_seq()
 		if (itin1->rest.compare(itin2->rest)==0 &&
 				unlikely(!is_a<infinity>(itin1->rest))) {
 			itin1->coeff = ex_to<numeric>(itin1->coeff).
-			               add_dyn(ex_to<numeric>(itin2->coeff));
+                                add_dyn(ex_to<numeric>(itin2->coeff));
 			if (expair_needs_further_processing(itin1))
 				needs_further_processing = true;
 			must_copy = true;
 		} else {
-			if (!ex_to<numeric>(itin1->coeff).is_zero()) {
+			if (not ex_to<numeric>(itin1->coeff).is_zero()
+                                or ex_to<numeric>(itin1->coeff).is_parent_pos_char()) {
 				if (must_copy)
 					*itout = *itin1;
 				++itout;
@@ -1253,7 +1254,8 @@ void expairseq::combine_same_terms_sorted_seq()
 		}
 		++itin2;
 	}
-	if (!ex_to<numeric>(itin1->coeff).is_zero()) {
+	if (not ex_to<numeric>(itin1->coeff).is_zero()
+                or ex_to<numeric>(itin1->coeff).is_parent_pos_char()) {
 		if (must_copy)
 			*itout = *itin1;
 		++itout;

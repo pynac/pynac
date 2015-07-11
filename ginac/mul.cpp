@@ -741,10 +741,15 @@ ex mul::eval(int level) const
 			distrseq->push_back(addref.combine_pair_with_coeff_to_pair(*i, overall_coeff));
 			++i;
 		}
-		return (new add(distrseq,
+		const ex& x = (new add(distrseq,
 		                ex_to<numeric>(addref.overall_coeff).
 		                mul_dyn(ex_to<numeric>(overall_coeff)))
 		       )->setflag(status_flags::dynallocated | status_flags::evaluated);
+                const add & result = ex_to<add>(x);
+                if (result.seq.size()==0)
+                        return result.overall_coeff;
+                else
+                        return x;
 	} else if ((seq_size >= 2) && (! (flags & status_flags::expanded))) {
 		// Strip the content and the unit part from each term. Thus
 		// things like (-x+a)*(3*x-3*a) automagically turn into - 3*(x-a)2
