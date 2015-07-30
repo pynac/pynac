@@ -1201,7 +1201,9 @@ void expairseq::make_flat(const epvector &v, bool do_index_renaming)
 			else {
 				ex rest = cit->rest;
 				ex newrest = mf.handle_factor(rest, cit->coeff);
-				if (are_ex_trivially_equal(newrest, rest))
+                                if (newrest.is_zero())
+                                        combine_overall_coeff(newrest);
+				else if (are_ex_trivially_equal(newrest, rest))
 					seq.push_back(*cit);
 				else
 					seq.push_back(expair(newrest, cit->coeff));
