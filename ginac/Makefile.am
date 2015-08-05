@@ -9,7 +9,7 @@ libpynac_la_SOURCES = py_funcs.cpp add.cpp archive.cpp basic.cpp clifford.cpp \
   operators.cpp power.cpp registrar.cpp relational.cpp remember.cpp \
   pseries.cpp print.cpp symbol.cpp symmetry.cpp tensor.cpp \
   utils.cpp wildcard.cpp templates.cpp infoflagbase.cpp \
-  remember.h tostring.h utils.h compiler.h order.cpp
+  remember.h tostring.h utils.h compiler.h order.cpp assume.cpp
 
 #The -no-undefined breaks Pynac on OS X 10.4.  See #9135
 if CYGWIN
@@ -27,6 +27,6 @@ ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h cl
   inifcns.h integral.h lst.h matrix.h mul.h ncmul.h normal.h numeric.h operators.h \
   power.h print.h pseries.h ptr.h registrar.h relational.h extern_templates.h \
   symbol.h symmetry.h tensor.h version.h wildcard.h order.h templates.h \
-  infoflagbase.h
+  infoflagbase.h assume.h
 
 EXTRA_DIST = version.h.in
