@@ -421,14 +421,14 @@ ex add::eval(int level) const
 	// appropriately collected into the overall coefficient
 	int terms_to_collect = 0;
 	for (epvector::const_iterator j = seq.begin(); j != seq.end(); j++)
-		if (unlikely(is_a<numeric>(j->rest)))
+		if (unlikely(is_exactly_a<numeric>(j->rest)))
 			++terms_to_collect;
 	if (terms_to_collect) {
 		std::auto_ptr<epvector> s(new epvector);
 		s->reserve(seq_size - terms_to_collect);
 		numeric oc = *_num0_p;
 		for (epvector::const_iterator j = seq.begin(); j != seq.end(); j++)
-			if (unlikely(is_a<numeric>(j->rest)))
+			if (unlikely(is_exactly_a<numeric>(j->rest)))
 				oc = oc.add((ex_to<numeric>(j->rest)).mul(ex_to<numeric>(j->coeff)));
 			else
 				s->push_back(*j);
@@ -483,7 +483,7 @@ ex add::evalm() const
 	while (it != itend) {
 		const ex &m = recombine_pair_to_ex(*it).evalm();
 		s->push_back(split_ex_to_pair(m));
-		if (is_a<matrix>(m)) {
+		if (is_exactly_a<matrix>(m)) {
 			if (first_term) {
 				sum = ex_to<matrix>(m);
 				first_term = false;

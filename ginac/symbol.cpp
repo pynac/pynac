@@ -155,7 +155,7 @@ ex symbol::unarchive(const archive_node &n, lst &sym_lst)
 
 	// If symbol is in sym_lst, return the existing symbol
 	for (lst::const_iterator it = sym_lst.begin(); it != sym_lst.end(); ++it) {
-		if (is_a<symbol>(*it) && (ex_to<symbol>(*it).name == ex_to<symbol>(s).name))
+		if (is_exactly_a<symbol>(*it) && (ex_to<symbol>(*it).name == ex_to<symbol>(s).name))
 			return *it;
 	}
 
@@ -312,7 +312,7 @@ int symbol::compare(const basic& other) const
 
 int symbol::compare_same_type(const basic & other) const
 {
-	GINAC_ASSERT(is_a<symbol>(other));
+	GINAC_ASSERT(is_exactly_a<symbol>(other));
 	const symbol *o = static_cast<const symbol *>(&other);
 	if (serial==o->serial) return 0;
         return serial < o->serial ? -1 : 1;
@@ -320,7 +320,7 @@ int symbol::compare_same_type(const basic & other) const
 
 bool symbol::is_equal_same_type(const basic & other) const
 {
-	GINAC_ASSERT(is_a<symbol>(other));
+	GINAC_ASSERT(is_exactly_a<symbol>(other));
 	const symbol *o = static_cast<const symbol *>(&other);
 	return serial==o->serial;
 }
