@@ -123,6 +123,8 @@ if test "x$CONFIG_RUSAGE" = "xno"; then
     AC_CHECK_HEADER(ctime, , GINAC_ERROR([The standard <ctime> header file could not be found.]))
 fi
 
+AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs libgmp]))
+
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
 dnl cannot find those helpers:
