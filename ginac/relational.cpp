@@ -27,7 +27,6 @@
 #include "archive.h"
 #include "utils.h"
 #include "infinity.h"
-#include "symbol.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -372,6 +371,11 @@ relational::operators relational::the_operator() const
 // non-virtual functions in this class
 //////////
 
+relational::safe_bool relational::make_safe_bool(bool cond) const
+{
+	return cond? &safe_bool_helper::nonnull : 0;
+}
+
 static relational::operators flip(relational::operators op);
 
 static relational::operators flip(relational::operators op)
@@ -393,7 +397,12 @@ static relational::operators flip(relational::operators op)
         }
 }
 
-relational::result relational::decide() const
+/** Cast the relational into a boolean, mainly for evaluation within an
+ *  if-statement.  Note that (a<b) == false does not imply (a>=b) == true in
+ *  the general symbolic case.  A false result means the comparison is either
+ *  false or undecidable (except of course for !=, where true means either
+ *  unequal or undecidable). */
+relational::operator relational::safe_bool() const
 {
 	if (unlikely(is_exactly_a<infinity>(rh) and is_exactly_a<infinity>(lh))) {
 		const infinity & lh_inf = ex_to<infinity>(lh);
@@ -401,35 +410,24 @@ relational::result relational::decide() const
 		const ex df = lh_inf.get_direction() - rh_inf.get_direction();
 
                 if (!is_exactly_a<numeric>(df))
-                        return relational::notimplemented;
+                        // cannot decide on non-numerical results
+                        return o==not_equal ? make_safe_bool(true) : make_safe_bool(false);
 
 		switch (o) {
 		case equal:
-                        if (ex_to<numeric>(df).is_zero())
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(ex_to<numeric>(df).is_zero());
 		case not_equal:
-                        if (ex_to<numeric>(df).is_zero())
-                                return relational::False;
-                        else
-                                return relational::True;
+			return make_safe_bool(!ex_to<numeric>(df).is_zero());
 		case less:
 		case less_or_equal:
-			if (lh_inf.is_minus_infinity() and rh_inf.is_plus_infinity())
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(lh_inf.is_minus_infinity() and rh_inf.is_plus_infinity());
 		case greater:
 		case greater_or_equal:
-			if (lh_inf.is_plus_infinity() and rh_inf.is_minus_infinity())
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(lh_inf.is_plus_infinity() and rh_inf.is_minus_infinity());
 		default:
 			throw(std::logic_error("invalid relational operator"));
 		}
-		return relational::notimplemented;
+		return make_safe_bool(false);
 	}
 
         if (unlikely(is_exactly_a<infinity>(lh)) or unlikely(is_exactly_a<infinity>(rh))) {
@@ -444,89 +442,27 @@ relational::result relational::decide() const
                 else {
                         inf = ex_to<infinity>(lh);
                 }
-                if (inf.is_unsigned_infinity() and o!=equal and o!=not_equal)
-                        return relational::undecidable;
-                if (has_symbol(other))
-                        return relational::notimplemented;
-                if (inf.compare_other_type(other, oper))
-                        return relational::True;
-                else
-                        return relational::False;
+                return make_safe_bool(inf.compare_other_type(other, oper));
         }
 
 	const ex df = lh-rh;
-//        This will only work when Pynac knows about existing assumptions
-//        if ((not df.info(info_flags::real)) and o!=equal and o!=not_equal)
-//                return relational::undecidable;
-	if (!is_exactly_a<numeric>(df)) {
-                switch (o) {
-		case equal:
-                        if (df.info(info_flags::nonzero))
-                                return relational::False;
-                        else
-                                return relational::notimplemented;
-		case not_equal:
-                        if (df.info(info_flags::nonzero))
-                                return relational::True;
-                        else
-                                return relational::notimplemented;
-                case less:
-                        if (df.info(info_flags::nonzero) and (-df).info(info_flags::positive))
-                                return relational::True;
-                        else
-                                return relational::notimplemented;
-                case greater:
-                        if (df.info(info_flags::nonzero) and df.info(info_flags::positive))
-                                return relational::True;
-                        else
-                                return relational::notimplemented;
-		case less_or_equal:
-                        if ((-df).info(info_flags::positive))
-                                return relational::True;
-                        else
-                                return relational::notimplemented;
-		case greater_or_equal:
-                        if (df.info(info_flags::positive))
-                                return relational::True;
-                        else
-                                return relational::notimplemented;
-		default:
-                        throw(std::logic_error("invalid relational operator"));
-                }
-                return relational::notimplemented;
-        }
+	if (!is_exactly_a<numeric>(df))
+		// cannot decide on non-numerical results
+		return o==not_equal ? make_safe_bool(true) : make_safe_bool(false);
 
 	switch (o) {
 		case equal:
-			if (ex_to<numeric>(df).is_zero())
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(ex_to<numeric>(df).is_zero());
 		case not_equal:
-			if (!ex_to<numeric>(df).is_zero())
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(!ex_to<numeric>(df).is_zero());
 		case less:
-			if (ex_to<numeric>(df)<(*_num0_p))
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(ex_to<numeric>(df)<(*_num0_p));
 		case less_or_equal:
-			if (ex_to<numeric>(df)<=(*_num0_p))
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(ex_to<numeric>(df)<=(*_num0_p));
 		case greater:
-			if (ex_to<numeric>(df)>(*_num0_p))
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(ex_to<numeric>(df)>(*_num0_p));
 		case greater_or_equal:
-			if (ex_to<numeric>(df)>=(*_num0_p))
-                                return relational::True;
-                        else
-                                return relational::False;
+			return make_safe_bool(ex_to<numeric>(df)>=(*_num0_p));
 		default:
 			throw(std::logic_error("invalid relational operator"));
 	}
