@@ -309,8 +309,7 @@ bool ex::is_zero() const {
 #endif
         if (!is_exactly_a<numeric>(*this))
                 return is_equal(_ex0);
-        numeric num = ex_to<numeric>(*this);
-        return num.is_zero();
+        return ex_to<numeric>(*this).is_zero();
 }
 
 /** Check whether expression is zero or zero matrix. */
@@ -328,8 +327,8 @@ bool ex::is_integer_one() const
 {
     if (!is_exactly_a<numeric>(*this))
         return false;
-    numeric num = ex_to<numeric>(*this);
-    return num.is_integer() && num.is_equal(*_num1_p);
+    return ex_to<numeric>(*this).is_integer()
+        and ex_to<numeric>(*this).is_equal(*_num1_p);
 }
   
 bool ex::is_integer_pmone() const
@@ -337,8 +336,9 @@ bool ex::is_integer_pmone() const
     if (!is_exactly_a<numeric>(*this))
         return false;
     numeric num = ex_to<numeric>(*this);
-    return ((num.is_integer()) &&
-            (num.is_equal(*_num1_p) || num.is_equal(*_num_1_p)));
+    return ((ex_to<numeric>(*this).is_integer())
+        and (ex_to<numeric>(*this).is_equal(*_num1_p)
+            or ex_to<numeric>(*this).is_equal(*_num_1_p)));
 }
 
 size_t ex::nsymbols() const
