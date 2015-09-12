@@ -19,7 +19,7 @@ dnl http://www.freesoftwaremagazine.com/articles/building_shared_libraries_once_
 
 m4_define([ginac_major_version], [0])
 m4_define([ginac_minor_version], [3])
-m4_define([ginac_micro_version], [9.3])
+m4_define([ginac_micro_version], [9.4])
 
 m4_define([lt_current], [0])
 m4_define([lt_revision], [0])
