@@ -18,8 +18,8 @@ dnl The following article is helpful too:
 dnl http://www.freesoftwaremagazine.com/articles/building_shared_libraries_once_using_autotools
 
 m4_define([ginac_major_version], [0])
-m4_define([ginac_minor_version], [4])
-m4_define([ginac_micro_version], [3])
+m4_define([ginac_minor_version], [5])
+m4_define([ginac_micro_version], [0])
 
 m4_define([lt_current], [0])
 m4_define([lt_revision], [0])
