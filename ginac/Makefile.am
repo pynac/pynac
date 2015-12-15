@@ -19,7 +19,7 @@ libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 endif
 libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter
 
-libpynac_la_LIBADD = $(PYTHON_LDFLAGS)
+libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS)
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h class_info.h \
   clifford.h constant.h infinity.h container.h ex.h expair.h expairseq.h \

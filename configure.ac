@@ -95,6 +95,9 @@ AC_PROG_INSTALL
 AM_PROG_LIBTOOL
 AC_LIBTOOL_WIN32_DLL
 
+AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs gmp headers]))
+AC_SEARCH_LIBS([__gmpz_get_str], [gmp], [], [AC_MSG_ERROR([This package needs libgmp])])
+
 dnl Check for data types which are needed by the hash function 
 dnl (golden_ratio_hash).
 AC_CHECK_SIZEOF(int)
@@ -122,8 +125,6 @@ AC_CHECK_HEADER(limits, , GINAC_ERROR([The standard <limits> header file could n
 if test "x$CONFIG_RUSAGE" = "xno"; then
     AC_CHECK_HEADER(ctime, , GINAC_ERROR([The standard <ctime> header file could not be found.]))
 fi
-
-AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs libgmp]))
 
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
