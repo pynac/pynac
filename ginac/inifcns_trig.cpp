@@ -30,7 +30,7 @@
 #include "operators.h"
 #include "pseries.h"
 #include "utils.h"
-
+#include "add.h"
 
 namespace GiNaC {
 
@@ -62,8 +62,20 @@ static ex sin_eval(const ex & x)
 		throw (std::runtime_error("sin_eval(): sin(infinity) encountered"));
 	}
 
+	ex coef_pi = x.coeff(Pi).expand();
+	ex rem = _ex0;
+	if (is_exactly_a<add>(coef_pi)) {
+		for (size_t i=0; i < coef_pi.nops(); i++) {
+			if ((coef_pi.op(i) / _ex2).info(info_flags::integer))
+				rem += Pi * coef_pi.op(i);
+		}
+	}
+	else if ((coef_pi / _ex2).info(info_flags::integer))
+		rem = Pi * coef_pi;
+	ex const x_red = x - rem;
+
 	// sin(n/d*Pi) -> { all known radicals with nesting depth 2 }
-	const ex SixtyExOverPi = _ex60*x/Pi;
+	const ex SixtyExOverPi = _ex60*x_red/Pi;
 	ex sign = _ex1;
 	if (is_exactly_a<numeric>(SixtyExOverPi)
                 and SixtyExOverPi.info(info_flags::integer)) {
@@ -114,7 +126,7 @@ static ex sin_eval(const ex & x)
 			return sign;
 	}
 
-	const ex TwentyforExOverPi = _ex24*x/Pi;
+	const ex TwentyforExOverPi = _ex24*x_red/Pi;
         sign = _ex1;
 	if (is_exactly_a<numeric>(TwentyforExOverPi)
                 and TwentyforExOverPi.info(info_flags::integer)) {
@@ -142,31 +154,36 @@ static ex sin_eval(const ex & x)
 			return sign *(_ex1_4*sqrt(_ex8 + _ex2*sqrt(_ex6) + _ex2*sqrt(_ex2)));
 	}
 
-	if (is_exactly_a<function>(x)) {
-		const ex &t = x.op(0);
+	if (is_exactly_a<function>(x_red)) {
+		const ex &t = x_red.op(0);
 
 		// sin(asin(x)) -> x
-		if (is_ex_the_function(x, asin))
+		if (is_ex_the_function(x_red, asin))
 			return t;
 
 		// sin(acos(x)) -> sqrt(1-x^2)
-		if (is_ex_the_function(x, acos))
+		if (is_ex_the_function(x_red, acos))
 			return sqrt(_ex1-power(t,_ex2));
 
 		// sin(atan(x)) -> x/sqrt(1+x^2)
-		if (is_ex_the_function(x, atan))
+		if (is_ex_the_function(x_red, atan))
 			return t*power(_ex1+power(t,_ex2),_ex_1_2);
 	}
+
+	// evaluate sin(integer * pi) -> 0
+	const ex ExOverPi = x_red/Pi;
+	if (ExOverPi.info(info_flags::integer))
+		return _ex0;
 	
 	// sin(float) -> float
-        if (is_exactly_a<numeric>(x) && !x.info(info_flags::crational))
-		return sin(ex_to<numeric>(x));
+        if (is_exactly_a<numeric>(x_red) && !x_red.info(info_flags::crational))
+		return sin(ex_to<numeric>(x_red));
 
 	// sin() is odd
-	if (x.info(info_flags::negative))
-		return -sin(-x);
+	if (x_red.info(info_flags::negative))
+		return -sin(-x_red);
 	
-	return sin(x).hold();
+	return sin(x_red).hold();
 }
 
 static ex sin_deriv(const ex & x, unsigned deriv_param)
@@ -222,8 +239,20 @@ static ex cos_eval(const ex & x)
 		throw (std::runtime_error("cos_eval(): cos(infinity) encountered"));
 	}
 
+	ex coef_pi = x.coeff(Pi).expand();
+	ex rem = _ex0;
+	if (is_exactly_a<add>(coef_pi)) {
+		for (size_t i=0; i < coef_pi.nops(); i++) {
+			if ((coef_pi.op(i) / _ex2).info(info_flags::integer))
+				rem += Pi * coef_pi.op(i);
+		}
+	}
+	else if ((coef_pi / _ex2).info(info_flags::integer))
+		rem = Pi * coef_pi;
+	ex const x_red = x - rem;
+
 	// cos(n/d*Pi) -> { all known radicals with nesting depth 2 }
-	const ex SixtyExOverPi = _ex60*x/Pi;
+	const ex SixtyExOverPi = _ex60*x_red/Pi;
 	ex sign = _ex1;
 	if (is_exactly_a<numeric>(SixtyExOverPi)
                 and SixtyExOverPi.info(info_flags::integer)) {
@@ -269,7 +298,7 @@ static ex cos_eval(const ex & x)
 			return _ex0;
 	}
 
-	const ex TwentyforExOverPi = _ex24*x/Pi;
+	const ex TwentyforExOverPi = _ex24*x_red/Pi;
         sign = _ex1;
 	if (is_exactly_a<numeric>(TwentyforExOverPi)
                         and TwentyforExOverPi.info(info_flags::integer)) {
@@ -297,31 +326,36 @@ static ex cos_eval(const ex & x)
 			return sign*(_ex1_4*sqrt(_ex8 - _ex2*sqrt(_ex6) - _ex2*sqrt(_ex2)));
 	}
 
-	if (is_exactly_a<function>(x)) {
-		const ex &t = x.op(0);
+	if (is_exactly_a<function>(x_red)) {
+		const ex &t = x_red.op(0);
 
 		// cos(acos(x)) -> x
-		if (is_ex_the_function(x, acos))
+		if (is_ex_the_function(x_red, acos))
 			return t;
 
 		// cos(asin(x)) -> sqrt(1-x^2)
-		if (is_ex_the_function(x, asin))
+		if (is_ex_the_function(x_red, asin))
 			return sqrt(_ex1-power(t,_ex2));
 
 		// cos(atan(x)) -> 1/sqrt(1+x^2)
-		if (is_ex_the_function(x, atan))
+		if (is_ex_the_function(x_red, atan))
 			return power(_ex1+power(t,_ex2),_ex_1_2);
 	}
+
+	// cos(integer*pi) --> (-1)^integer
+	const ex ExOverPi = x_red/Pi;
+	if (ExOverPi.info(info_flags::integer))
+		return pow(_ex_1, ExOverPi);
 	
 	// cos(float) -> float
-	if (is_exactly_a<numeric>(x) && !x.info(info_flags::crational))
-		return cos(ex_to<numeric>(x));
+	if (is_exactly_a<numeric>(x_red) && !x_red.info(info_flags::crational))
+		return cos(ex_to<numeric>(x_red));
 	
 	// cos() is even
-	if (x.info(info_flags::negative))
-		return cos(-x);
+	if (x_red.info(info_flags::negative))
+		return cos(-x_red);
 	
-	return cos(x).hold();
+	return cos(x_red).hold();
 }
 
 static ex cos_deriv(const ex & x, unsigned deriv_param)
@@ -377,8 +411,21 @@ static ex tan_eval(const ex & x)
 		throw (std::runtime_error("tan_eval(): tan(infinity) encountered"));
 	}
 
+	ex coef_pi = x.coeff(Pi).expand();
+	ex rem = _ex0;
+	if (is_exactly_a<add>(coef_pi)) {
+		for (size_t i=0; i < coef_pi.nops(); i++) {
+			if (coef_pi.op(i).info(info_flags::integer))
+				rem += Pi * coef_pi.op(i);
+		}
+	}
+	else if (coef_pi.info(info_flags::integer))
+		rem = Pi * coef_pi;
+	ex const x_red = x - rem;
+
+
 	// tan(n/d*Pi) -> { all known non-nested radicals }
-	const ex SixtyExOverPi = _ex60*x/Pi;
+	const ex SixtyExOverPi = _ex60*x_red/Pi;
 	ex sign = _ex1;
 	if (is_exactly_a<numeric>(SixtyExOverPi)
                 and SixtyExOverPi.info(info_flags::integer)) {
@@ -425,7 +472,7 @@ static ex tan_eval(const ex & x)
 			return UnsignedInfinity;
 	}
 
-	const ex FortyeightExOverPi = _ex48*x/Pi;
+	const ex FortyeightExOverPi = _ex48*x_red/Pi;
         sign = _ex1;
 	if (is_exactly_a<numeric>(FortyeightExOverPi)
                         and FortyeightExOverPi.info(info_flags::integer)) {
@@ -461,32 +508,32 @@ static ex tan_eval(const ex & x)
 			return sign*(_ex2+sqrt(_ex6)+sqrt(_ex2)+sqrt(_ex3));
 	}
 
-	if (is_exactly_a<function>(x)) {
-		const ex &t = x.op(0);
+	if (is_exactly_a<function>(x_red)) {
+		const ex &t = x_red.op(0);
 
 		// tan(atan(x)) -> x
-		if (is_ex_the_function(x, atan))
+		if (is_ex_the_function(x_red, atan))
 			return t;
 
 		// tan(asin(x)) -> x/sqrt(1+x^2)
-		if (is_ex_the_function(x, asin))
+		if (is_ex_the_function(x_red, asin))
 			return t*power(_ex1-power(t,_ex2),_ex_1_2);
 
 		// tan(acos(x)) -> sqrt(1-x^2)/x
-		if (is_ex_the_function(x, acos))
+		if (is_ex_the_function(x_red, acos))
 			return power(t,_ex_1)*sqrt(_ex1-power(t,_ex2));
 	}
-	
+
 	// tan(float) -> float
-	if (is_exactly_a<numeric>(x) && !x.info(info_flags::crational)) {
-		return tan(ex_to<numeric>(x));
+	if (is_exactly_a<numeric>(x_red) && !x_red.info(info_flags::crational)) {
+		return tan(ex_to<numeric>(x_red));
 	}
 	
 	// tan() is odd
-	if (x.info(info_flags::negative))
-		return -tan(-x);
+	if (x_red.info(info_flags::negative))
+		return -tan(-x_red);
 	
-	return tan(x).hold();
+	return tan(x_red).hold();
 }
 
 static ex tan_deriv(const ex & x, unsigned deriv_param)
