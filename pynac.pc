@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: pynac
+Description: C++/Python library for symbolic calculations
+Version: 0.6.1
+Requires: python-2.7
+Libs: -L${libdir} -lpynac -lgmp
+Cflags: -I${includedir}
