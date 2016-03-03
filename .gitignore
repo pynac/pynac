@@ -17,6 +17,8 @@ ginac/Makefile.in
 ginac/*.la
 ginac/*.lo
 ginac/*.o
+ginac/*.orig
+ginac/*.rej
 ginac/version.h
 install-sh
 libtool
