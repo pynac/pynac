@@ -719,6 +719,10 @@ ex power::eval(int level) const
 					}
 				}
 			}
+			for (size_t i=0; i < mulref.nops(); i++) {
+				if (is_exactly_a<power>(mulref.op(i)) && mulref.op(i).info(info_flags::positive))
+					return power(mulref.op(i), eexponent) * power(mulref / mulref.op(i), eexponent);
+			}
 		}
 
 		// ^(nc,c1) -> ncmul(nc,nc,...) (c1 positive integer, unless nc is a matrix)
