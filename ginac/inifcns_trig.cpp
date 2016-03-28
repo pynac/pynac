@@ -408,7 +408,7 @@ static ex cos_eval(const ex & x)
                 
                 // Reflection at Pi/2
                 else {
-                        if (is_exactly_a<numeric>(coef_pi) && not is_exactly_a<add>(coef_pi)) {
+                        if (is_exactly_a<numeric>(coef_pi)) {
                                 const numeric c = ex_to<numeric>(coef_pi);
                                 if (c.is_rational()) {
                                         const numeric num = c.numer();
@@ -828,7 +828,7 @@ static ex cot_eval(const ex & x)
 	}
 
         ex res = tan_eval(x);
-	if (not is_ex_the_function(res, tan)) {
+	if (not is_ex_the_function(res, tan) && not is_ex_the_function(_ex_1*res, tan)) {
                 if (not res.is_zero()) {     
 			return tan_eval(Pi/2-x);
                 }
@@ -854,8 +854,7 @@ static ex cot_eval(const ex & x)
                                 return cot(rm*Pi/den).hold();                                               
 			} 
 		}       
-	}          
-                        
+	}                                  
 	return cot(x).hold();
 }
 
@@ -979,9 +978,8 @@ static ex sec_eval(const ex & x)
 		return cos(ex_to<numeric>(x)).inverse();
 	}
         ex res = cos_eval(x);
-	if (not is_ex_the_function(res, cos)) {
-                if (not res.is_zero()) {     
-			
+	if (not is_ex_the_function(res, cos) && not is_ex_the_function(_ex_1*res, cos)) {
+                if (not res.is_zero()) {
                         return power(res, _ex_1);
                 }
                 else
@@ -1006,10 +1004,7 @@ static ex sec_eval(const ex & x)
                                 return sec(rm*Pi/den).hold();
 	                }
 	        }       
-        }          
-                        
-
-        
+        }                               
         return sec(x).hold();
 }
 
