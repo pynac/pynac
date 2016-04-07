@@ -181,11 +181,16 @@ static ex sin_eval(const ex & x)
                                         const numeric num = c.numer();
                                         const numeric den = c.denom();
                                         const numeric rm = num.mod(den);
+                                        ex sign;
+                                        if (num > 0)
+                                                sign = _ex1;
+                                        else 
+                                                sign = _ex_1;
                                         
                                         if (rm.mul(2) > den) {
-                                                return sin(den.sub(rm)*Pi/den).hold();
+                                                return sign*sin(den.sub(rm)*Pi/den).hold();
                                         }
-                                        return sin(rm*Pi/den).hold();
+                                        return sign*sin(rm*Pi/den).hold();
                                 }
                         }
                 }
@@ -397,11 +402,16 @@ static ex cos_eval(const ex & x)
                                         const numeric num = c.numer();
                                         const numeric den = c.denom();
                                         const numeric rm = num.mod(den);
-                                        
+                                        ex sign;
+                                        if (num > 0)
+                                                sign = _ex1;
+                                        else 
+                                                sign = _ex_1;
+
                                         if (rm.mul(2) > den) {
-                                                return _ex_1*cos(den.sub(rm)*Pi/den).hold();
-                                        }
-                                        return cos(rm*Pi/den).hold();
+                                                return sign*_ex_1*cos(den.sub(rm)*Pi/den).hold();
+                                        } 
+                                        return sign*cos(rm*Pi/den).hold();
                                 }
                         }
                 }
@@ -803,7 +813,7 @@ static ex cot_eval(const ex & x)
 	                        const numeric num = c.numer();
 		                const numeric den = c.denom();
 		                const numeric rm = num.mod(den);
-			                
+			      
                                 if (rm.mul(2) == den) {
                                         return _ex0;
                                 }
@@ -942,14 +952,19 @@ static ex sec_eval(const ex & x)
 		                const numeric num = c.numer();
 		                const numeric den = c.denom();
 			        const numeric rm = num.mod(den);
-				                
-		                if (rm.mul(2) > den) {
-                                        return _ex_1*sec(den.sub(rm)*Pi/den).hold();
+                                ex sign;
+                                if (num > 0)
+                                        sign = _ex1;
+                                else 
+                                        sign = _ex_1;                
+		        
+                                if (rm.mul(2) > den) {
+                                        return sign*_ex_1*sec(den.sub(rm)*Pi/den).hold();
                                 }
 		                if (rm == 0) {
 	                                return (num.mod(2) == 0) ? _ex1: _ex_1;
         	                }
-                                return sec(rm*Pi/den).hold();
+                                return sign*sec(rm*Pi/den).hold();
 	                }
 	        }       
         }                               
@@ -1060,7 +1075,7 @@ static ex csc_eval(const ex & x)
 	}
 
         ex res = sin_eval(x);
-	if (not is_ex_the_function(res, sin)) {
+	if (not is_ex_the_function(res, sin) && not is_ex_the_function(_ex_1*res, sin)) {
                 if (not res.is_zero()) {
                         return power(res, _ex_1);
                 }
@@ -1077,14 +1092,19 @@ static ex csc_eval(const ex & x)
                                 const numeric num = c.numer();
                                 const numeric den = c.denom();
                                 const numeric rm = num.mod(den);
+                                ex sign;
+                                if (num > 0)
+                                        sign = _ex1;
+                                else 
+                                        sign = _ex_1;
+
                                 if (rm.mul(2) == den) {
                                         return (num.mod(4) == 1) ? _ex1: _ex_1;
                                 }
                                 if (rm.mul(2) > den) {
-                                        return csc(den.sub(rm)*Pi/den).hold();
-                                }
-                                                
-                                return csc(rm*Pi/den).hold();
+                                        return sign*csc(den.sub(rm)*Pi/den).hold();
+                                }                
+                                return sign*csc(rm*Pi/den).hold();
                         }
                 }       
         }
