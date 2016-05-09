@@ -19,6 +19,7 @@ ginac/*.lo
 ginac/*.o
 ginac/*.orig
 ginac/*.rej
+ginac/*.swp
 ginac/version.h
 install-sh
 libtool
