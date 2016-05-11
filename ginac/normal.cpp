@@ -37,7 +37,6 @@
 #include "power.h"
 #include "relational.h"
 #include "operators.h"
-#include "matrix.h"
 #include "pseries.h"
 #include "symbol.h"
 #include "utils.h"

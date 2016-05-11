@@ -281,6 +281,8 @@ ex multiply_lcm(const ex &e, const numeric &lcm)
  *  Polynomial quotients and remainders
  */
 
+static bool divide(const ex &a, const ex &b, ex &q, bool check_args=true);
+
 /** Quotient q(x) of polynomials a(x) and b(x) in Q[x].
  *  It satisfies a(x)=b(x)*q(x)+r(x).
  *
@@ -512,7 +514,7 @@ ex sprem(const ex &a, const ex &b, const ex &x, bool check_args=true)
  *         coefficients (defaults to "true")
  *  @return "true" when exact division succeeds (quotient returned in q),
  *          "false" otherwise (q left untouched) */
-bool divide(const ex &a, const ex &b, ex &q, bool check_args)
+static bool divide(const ex &a, const ex &b, ex &q, bool check_args)
 {
 	if (b.is_zero())
 		throw(std::overflow_error("divide: division by zero"));
