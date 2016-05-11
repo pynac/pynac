@@ -1,12 +1,13 @@
-/** @file normal.h
+/** @file mpoly.h
  *
- *  This file defines several functions that work on univariate and
+ *  This file declares several functions that work on univariate and
  *  multivariate polynomials and rational functions.
  *  These functions include polynomial quotient and remainder, GCD and LCM
  *  computation, square-free factorization and rational function normalization. */
 
 /*
  *  GiNaC Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+ *        Copyright (C) 2016 Ralf Stephan
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,8 +24,8 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __GINAC_NORMAL_H__
-#define __GINAC_NORMAL_H__
+#ifndef __PYNAC_MPOLY_H__
+#define __PYNAC_MPOLY_H__
 
 
 namespace GiNaC {
@@ -32,9 +33,12 @@ namespace GiNaC {
 class ex;
 class symbol;
 
-extern bool get_first_symbol(const ex &e, ex &x);
-extern ex collect_common_factors(const ex & e);
+extern bool divide(const ex &a, const ex &b, ex &q, bool check_args=true);
+extern numeric lcm_of_coefficients_denominators(const ex &e);
+extern ex find_common_factor(const ex & e, ex & factor, exmap & repl);
+extern ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true);
+extern ex multiply_lcm(const ex &e, const numeric &lcm);
 
 } // namespace GiNaC
 
-#endif // ndef __GINAC_NORMAL_H__
+#endif // __PYNAC_MPOLY_H__

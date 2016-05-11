@@ -29,6 +29,7 @@
 
 #include "ex.h"
 #include "normal.h"
+#include "mpoly.h"
 #include "archive.h"
 #include "print.h"
 

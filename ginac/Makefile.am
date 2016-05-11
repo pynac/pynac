@@ -6,7 +6,7 @@ libpynac_la_SOURCES = py_funcs.cpp add.cpp archive.cpp basic.cpp clifford.cpp \
   fail.cpp fderivative.cpp function.cpp idx.cpp indexed.cpp infinity.cpp \
   inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp inifcns_hyperb.cpp \
   inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
-  inifcns_orthopoly.cpp \
+  inifcns_orthopoly.cpp mpoly-ginac.cpp \
   integral.cpp lst.cpp matrix.cpp mul.cpp ncmul.cpp normal.cpp numeric.cpp \
   operators.cpp power.cpp registrar.cpp relational.cpp remember.cpp \
   pseries.cpp print.cpp symbol.cpp symmetry.cpp tensor.cpp \
@@ -25,7 +25,7 @@ libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS)
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h class_info.h \
   clifford.h constant.h infinity.h container.h ex.h expair.h expairseq.h \
-  exprseq.h fail.h fderivative.h flags.h function.h idx.h indexed.h \
+  exprseq.h fail.h fderivative.h flags.h function.h idx.h indexed.h mpoly.h \
   inifcns.h integral.h lst.h matrix.h mul.h ncmul.h normal.h numeric.h operators.h \
   power.h print.h pseries.h ptr.h registrar.h relational.h extern_templates.h \
   symbol.h symmetry.h tensor.h version.h wildcard.h order.h templates.h \

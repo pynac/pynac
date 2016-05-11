@@ -29,7 +29,7 @@
 #include "power.h"
 #include "symbol.h"
 #include "operators.h"
-#include "normal.h"
+#include "mpoly.h"
 #include "archive.h"
 #include "utils.h"
 
