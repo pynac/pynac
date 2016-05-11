@@ -26,7 +26,6 @@
 #include "mul.h"
 #include "ncmul.h"
 #include "numeric.h"
-#include "matrix.h"
 #include "power.h"
 #include "lst.h"
 #include "function.h"
@@ -312,17 +311,6 @@ bool ex::is_zero() const {
         if (!is_exactly_a<numeric>(*this))
                 return is_equal(_ex0);
         return ex_to<numeric>(*this).is_zero();
-}
-
-/** Check whether expression is zero or zero matrix. */
-bool ex::is_zero_matrix() const
-{
-	if (is_zero())
-		return  true;
-	else {
-		ex e = evalm();
-		return is_exactly_a<matrix>(e) && ex_to<matrix>(e).is_zero_matrix();
-	}
 }
 
 bool ex::is_integer_one() const
