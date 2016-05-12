@@ -6,7 +6,7 @@ libpynac_la_SOURCES = py_funcs.cpp add.cpp archive.cpp basic.cpp clifford.cpp \
   fail.cpp fderivative.cpp function.cpp idx.cpp indexed.cpp infinity.cpp \
   inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp inifcns_hyperb.cpp \
   inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
-  inifcns_orthopoly.cpp mpoly-ginac.cpp \
+  inifcns_orthopoly.cpp mpoly-ginac.cpp mpoly-giac.cpp \
   integral.cpp lst.cpp matrix.cpp mul.cpp ncmul.cpp normal.cpp numeric.cpp \
   operators.cpp power.cpp registrar.cpp relational.cpp remember.cpp \
   pseries.cpp print.cpp symbol.cpp symmetry.cpp tensor.cpp \
