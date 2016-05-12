@@ -42,22 +42,12 @@
 
 namespace GiNaC {
 
-numeric lcm_of_coefficients_denominators(const ex &e)
-{
-        return *_num0_p;
-}
-
 ex find_common_factor(const ex & e, ex & factor, exmap & repl)
 {
         return _ex0;
 }
 
 ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
-{
-        return _ex0;
-}
-
-ex multiply_lcm(const ex &e, const numeric &lcm)
 {
         return _ex0;
 }

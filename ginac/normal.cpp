@@ -259,6 +259,43 @@ ex numeric::normal(exmap & repl, exmap & rev_lookup, int level) const
 	return (new lst(numex, denom()))->setflag(status_flags::dynallocated);
 }
 
+/** Bring polynomial from Q[X] to Z[X] by multiplying in the previously
+ *  determined LCM of the coefficient's denominators.
+ *
+ *  @param e  multivariate polynomial (need not be expanded)
+ *  @param lcm  LCM to multiply in */
+ex multiply_lcm(const ex &e, const numeric &lcm)
+{
+	if (is_exactly_a<mul>(e)) {
+		size_t num = e.nops();
+		exvector v; v.reserve(num + 1);
+		numeric lcm_accum = *_num1_p;
+		for (size_t i=0; i<num; i++) {
+			numeric op_lcm = lcmcoeff(e.op(i), *_num1_p);
+			v.push_back(multiply_lcm(e.op(i), op_lcm));
+			lcm_accum *= op_lcm;
+		}
+		v.push_back(lcm / lcm_accum);
+		return (new mul(v))->setflag(status_flags::dynallocated);
+	} else if (is_exactly_a<add>(e)) {
+		size_t num = e.nops();
+		exvector v; v.reserve(num);
+		for (size_t i=0; i<num; i++)
+			v.push_back(multiply_lcm(e.op(i), lcm));
+		return (new add(v))->setflag(status_flags::dynallocated);
+	} else if (is_exactly_a<power>(e)) {
+		if (is_exactly_a<symbol>(e.op(0)))
+			return e * lcm;
+		else {
+			numeric root_of_lcm = lcm.power(ex_to<numeric>(e.op(1)).inverse());
+			if (root_of_lcm.is_rational())
+				return pow(multiply_lcm(e.op(0), root_of_lcm), e.op(1));
+			else
+				return e * lcm;
+		}
+	} else
+		return e * lcm;
+}
 
 /** Fraction cancellation.
  *  @param n  numerator
@@ -572,6 +609,48 @@ ex ex::numer_denom() const
 		return e.subs(repl, subs_options::no_pattern);
 }
 
+
+/*
+ *  Computation of LCM of denominators of coefficients of a polynomial
+ */
+
+// Compute LCM of denominators of coefficients by going through the
+// expression recursively (used by lcm_of_coefficients_denominators()
+// and multiply_lcm())
+numeric lcmcoeff(const ex &e, const numeric &l)
+{
+	if (e.info(info_flags::rational))
+		return lcm(ex_to<numeric>(e).denom(), l);
+	else if (is_exactly_a<add>(e)) {
+		numeric c = *_num1_p;
+		for (size_t i=0; i<e.nops(); i++)
+			c = lcmcoeff(e.op(i), c);
+		return lcm(c, l);
+	} else if (is_exactly_a<mul>(e)) {
+		numeric c = *_num1_p;
+		for (size_t i=0; i<e.nops(); i++)
+			c *= lcmcoeff(e.op(i), *_num1_p);
+		return lcm(c, l);
+	} else if (is_exactly_a<power>(e)) {
+		if (is_exactly_a<symbol>(e.op(0)))
+			return l;
+		else
+			return pow(lcmcoeff(e.op(0), l), ex_to<numeric>(e.op(1)));
+	}
+	return l;
+}
+
+/** Compute LCM of denominators of coefficients of a polynomial.
+ *  Given a polynomial with rational coefficients, this function computes
+ *  the LCM of the denominators of all coefficients. This can be used
+ *  to bring a polynomial from Q[X] to Z[X].
+ *
+ *  @param e  multivariate polynomial (need not be expanded)
+ *  @return LCM of denominators of coefficients */
+numeric lcm_of_coefficients_denominators(const ex &e)
+{
+	return lcmcoeff(e, *_num1_p);
+}
 
 
 } // namespace GiNaC

@@ -33,10 +33,8 @@ namespace GiNaC {
 class ex;
 class symbol;
 
-extern numeric lcm_of_coefficients_denominators(const ex &e);
 extern ex find_common_factor(const ex & e, ex & factor, exmap & repl);
 extern ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true);
-extern ex multiply_lcm(const ex &e, const numeric &lcm);
 
 } // namespace GiNaC
 
