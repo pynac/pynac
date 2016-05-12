@@ -23,7 +23,8 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef HAVE_GIAC
+#include "config.h"
+#ifndef HAVE_LIBGIAC
 
 #include "basic.h"
 #include "ex.h"
@@ -2098,4 +2099,4 @@ ex resultant(const ex & e1, const ex & e2, const ex & s)
 
 } // namespace GiNaC
 
-#endif // HAVE_GIAC
+#endif // HAVE_LIBGIAC

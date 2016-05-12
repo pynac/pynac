@@ -31,11 +31,19 @@
 // CINT needs <algorithm> to work properly with <vector>
 #include <algorithm>
 
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
 #include "flags.h"
 #include "ptr.h"
 #include "assertion.h"
 #include "registrar.h"
 
+#ifdef HAVE_LIBGIAC
+#include <giac/global.h>
+#include <giac/gausspol.h>
+using genexmap = std::map<giac::gen, GiNaC::ex>;
+#endif
 
 namespace GiNaC {
 
@@ -208,6 +216,9 @@ public:
 	virtual ex normal(exmap & repl, exmap & rev_lookup, int level = 0) const;
 	virtual ex to_rational(exmap & repl) const;
 	virtual ex to_polynomial(exmap & repl) const;
+#ifdef HAVE_LIBGIAC
+        virtual giac::polynome to_polynome(genexmap& map);
+#endif
 
 	// polynomial algorithms
 	virtual numeric integer_content() const;
