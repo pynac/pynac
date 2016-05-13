@@ -23,8 +23,11 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "config.h"
-#ifndef HAVE_LIBGIAC
+#ifdef HAVE_CONFIG_H
+#include "pynac-config.h"
+#endif
+
+#ifndef PYNAC_HAVE_LIBGIAC
 
 #include "basic.h"
 #include "ex.h"

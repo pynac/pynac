@@ -200,7 +200,7 @@ public:
 	ex to_rational(lst & repl_lst) const;
 	ex to_polynomial(exmap & repl) const;
 	ex to_polynomial(lst & repl_lst) const;
-#ifdef HAVE_LIBGIAC
+#ifdef PYNAC_HAVE_LIBGIAC
         giac::polynome to_polynome(genexmap& map) const;
 #endif
 	ex numer() const;
