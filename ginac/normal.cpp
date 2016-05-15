@@ -71,22 +71,6 @@ bool get_first_symbol(const ex &e, ex &x)
 }
 
 
-/** Collect common factors in sums. This converts expressions like
- *  'a*(b*x+b*y)' to 'a*b*(x+y)'. */
-ex collect_common_factors(const ex & e)
-{
-	if (is_exactly_a<add>(e) || is_exactly_a<mul>(e) || is_exactly_a<power>(e)) {
-
-		exmap repl;
-		ex factor = 1;
-		ex r = find_common_factor(e, factor, repl);
-		return factor.subs(repl, subs_options::no_pattern) * r.subs(repl, subs_options::no_pattern);
-
-	} else
-		return e;
-}
-
-
 /** Compute the integer content (= GCD of all numeric coefficients) of an
  *  expanded polynomial. For a polynomial with rational coefficients, this
  *  returns g/l where g is the GCD of the coefficients' numerators and l

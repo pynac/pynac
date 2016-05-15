@@ -1784,6 +1784,24 @@ ex sqrfree_parfrac(const ex & a, const symbol & x)
 	return red_poly + sum;
 }
 
+static ex find_common_factor(const ex & e, ex & factor, exmap & repl);
+
+/** Collect common factors in sums. This converts expressions like
+ *  'a*(b*x+b*y)' to 'a*b*(x+y)'. */
+ex collect_common_factors(const ex & e)
+{
+	if (is_exactly_a<add>(e) || is_exactly_a<mul>(e) || is_exactly_a<power>(e)) {
+
+		exmap repl;
+		ex factor = 1;
+		ex r = find_common_factor(e, factor, repl);
+		return factor.subs(repl, subs_options::no_pattern) * r.subs(repl, subs_options::no_pattern);
+
+	} else
+		return e;
+}
+
+
 
 /** Rationalization of non-rational functions.
  *  This function converts a general expression to a rational function
@@ -1980,7 +1998,7 @@ ex expairseq::to_polynomial(exmap & repl) const
 /** Remove the common factor in the terms of a sum 'e' by calculating the GCD,
  *  and multiply it into the expression 'factor' (which needs to be initialized
  *  to 1, unless you're accumulating factors). */
-ex find_common_factor(const ex & e, ex & factor, exmap & repl)
+static ex find_common_factor(const ex & e, ex & factor, exmap & repl)
 {
 	if (is_exactly_a<add>(e)) {
 

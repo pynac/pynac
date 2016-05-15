@@ -201,7 +201,7 @@ public:
 	ex to_polynomial(exmap & repl) const;
 	ex to_polynomial(lst & repl_lst) const;
 #ifdef PYNAC_HAVE_LIBGIAC
-        giac::polynome to_polynome(genexmap& map) const;
+        const giac::polynome&& to_polynome(ex_int_map& map, exvector& revmap) const;
 #endif
 	ex numer() const;
 	ex denom() const;
