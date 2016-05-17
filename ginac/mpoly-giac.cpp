@@ -1,12 +1,6 @@
-/** @file normal.cpp
- *
- *  This file implements several functions that work on univariate and
- *  multivariate polynomials and rational functions.
- *  These functions include polynomial quotient and remainder, GCD and LCM
- *  computation, square-free factorization and rational function normalization. */
-
-/*
- *  GiNaC Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+/** @file mpoly-giac.cpp
+ * 
+ *  Copyright (C) 2016  Ralf Stephan
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
