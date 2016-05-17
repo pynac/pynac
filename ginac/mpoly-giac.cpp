@@ -49,14 +49,15 @@
 #include "symbol.h"
 #include "function.h"
 #include "utils.h"
+#include "fail.h"
 
 #include <giac/global.h>
 #include <giac/gausspol.h>
 
 namespace GiNaC {
 
-inline giac::polynome&& gen2pol(const giac::gen& g) {
-        return std::move(giac::polynome(giac::monomial<giac::gen>(g, 1)));
+inline giac::polynome gen2pol(const giac::gen& g) {
+        return giac::polynome(giac::monomial<giac::gen>(g, 9));
 }
 
 inline giac::gen num2gen(const numeric& n) {
@@ -65,35 +66,41 @@ inline giac::gen num2gen(const numeric& n) {
         return giac::gen(std::string(ss.str()), giac::context0);
 }
 
+static giac::gen giac_zero = giac::gen(std::string("0"), giac::context0);
 static giac::gen giac_one = giac::gen(std::string("1"), giac::context0);
 
-static giac::polynome&& replace_with_symbol(const ex& e, ex_int_map& map, exvector& revmap)
+static giac::polynome replace_with_symbol(const ex& e, ex_int_map& map, exvector& revmap)
 {
         // Expression already replaced? Then return the assigned symbol
         auto it = map.find(e);
         if (it != map.end()) {
                 const int dim = it->second;
-                giac::monomial<giac::gen> mon(giac_one, dim, dim);
-                return std::move(giac::polynome(mon));
+                giac::monomial<giac::gen> mon(giac_one, dim, 9);
+                return giac::polynome(mon);
         }
 
         // Otherwise create new symbol and add to dict
         const int index = revmap.size() + 1;
         map.insert(std::make_pair(e, index));
         revmap.push_back(e);
-        giac::monomial<giac::gen> mon(giac_one, index, index);
-        return std::move(giac::polynome(mon));
+        giac::monomial<giac::gen> mon(giac_one, index, 9);
+        return giac::polynome(mon);
 }
 
-// Convert to giac polynomial over ZZ, filling replacement dicts
+const giac::polynome basic::to_polynome(ex_int_map& map, exvector& revmap)
+{
+        throw std::runtime_error("basic::to_polynome: can't happen");
+}
+
+// Convert to giac polynomial over QQ, filling replacement dicts
 // TODO: special case numeric mpz_t, int instead of string interface
 // TODO: is it faster to add/mul monomials instead of polynomes?
-const giac::polynome&& ex::to_polynome(ex_int_map& map, exvector& revmap) const
+const giac::polynome ex::to_polynome(ex_int_map& map, exvector& revmap) const
 {
         if (is_exactly_a<add>(*this))
         {
                 const add& a = ex_to<add>(*this);
-                giac::polynome&& p = gen2pol(giac::gen(std::string("0"), giac::context0));
+                giac::polynome p = gen2pol(giac_zero);
                 for (const auto& termex : a.seq) {
                         p = p + a.recombine_pair_to_ex(termex).to_polynome(map, revmap);
                 }
@@ -104,7 +111,7 @@ const giac::polynome&& ex::to_polynome(ex_int_map& map, exvector& revmap) const
         {
                 const numeric& num = ex_to<numeric>(*this);
                 if (num.is_real()) {
-                        if (num.is_integer())
+                        if (num.is_integer() or num.is_rational())
                                 return gen2pol(num2gen(num));
                         else
                                 return replace_with_symbol(num, map, revmap);
@@ -112,23 +119,27 @@ const giac::polynome&& ex::to_polynome(ex_int_map& map, exvector& revmap) const
                         numeric re = num.real();
                         numeric im = num.imag();
                         giac::polynome re_p, im_p;
-                        if (re.is_integer())
+                        if (re.is_integer() or re.is_rational())
                                 re_p = gen2pol(num2gen(re));
                         else
                                 re_p = replace_with_symbol(re, map, revmap);
-                        if (im.is_integer())
+                        if (im.is_integer() or im.is_rational())
                                 im_p = gen2pol(num2gen(im));
                         else
                                 im_p = replace_with_symbol(im, map, revmap);
-                        return std::move(re_p + im_p * replace_with_symbol(I, map, revmap));
+                        giac::polynome r = re_p + im_p * replace_with_symbol(I, map, revmap);
+                        return std::move(r);
                 }
         }
         else if (is_exactly_a<mul>(*this))
         {
                 const mul& m = ex_to<mul>(*this);
-                giac::polynome&& p = gen2pol(giac::gen(std::string("1"), giac::context0));
+                giac::polynome p = gen2pol(giac_one);
                 for (const auto& termex : m.seq) {
-                        p *= m.recombine_pair_to_ex(termex).to_polynome(map, revmap);
+                        const ex& t = m.recombine_pair_to_ex(termex);
+                        const giac::polynome& tt = t.to_polynome(map, revmap);
+                        p *= tt;
+//                        p *= m.recombine_pair_to_ex(termex).to_polynome(map, revmap);
                 }
                 p *= m.overall_coeff.to_polynome(map, revmap);
                 return std::move(p);
@@ -149,16 +160,64 @@ const giac::polynome&& ex::to_polynome(ex_int_map& map, exvector& revmap) const
         return replace_with_symbol(*this, map, revmap);
 }
 
-static ex polynome_to_ex(giac::polynome p, ex_int_map& map)
+static ex gen2ex(const giac::gen& gen)
+{
+        if (not gen.is_integer())
+                throw std::runtime_error("gen2ex: can't handle other type from giac");
+        // we need to handle giac types _INT_, _ZINT, and _CPLX
+        switch (gen.type) {
+                case giac::_INT_:
+                        return numeric(gen.val);
+                case giac::_ZINT:
+                        return numeric(*(gen.ref_ZINTptr()));
+                case giac::_CPLX:
+                        return gen2ex(gen.ref_CPLXptr()[0]) + I*gen2ex(gen.ref_CPLXptr()[1]);
+                case giac::_FRAC:
+                        return gen2ex(gen.ref_FRACptr()->num) /
+                                                gen2ex(gen.ref_FRACptr()->den);
+                default:
+                        throw std::runtime_error("gen2ex: can't happen");
+        }
+}
+
+static ex polynome_to_ex(const giac::polynome& p, const exvector& revmap)
 {
         ex e = _ex0;
-        /*
         for (const auto& mon : p.coord) {
                 ex prod = _ex1;
-                for (const auto& varno : mon.index)
-                        prod */
+                for (unsigned int varno=0; varno<mon.index.size(); ++varno) {
+                        if (mon.index[varno] != 0)
+                                prod *= power(revmap[varno], mon.index[varno]);
+                }
+                e += gen2ex(mon.value) * prod;
+        }
         return e;
 }
+
+ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true)
+{
+	if (b.is_zero())
+		throw(std::overflow_error("quo: division by zero"));
+	if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
+		return a / b;
+#if FAST_COMPARE
+	if (a.is_equal(b))
+		return _ex1;
+#endif
+
+        ex_int_map map;
+        exvector revmap;
+        giac::polynome p = a.to_polynome(map, revmap);
+        giac::polynome q = b.to_polynome(map, revmap);
+        giac::polynome r(p.dim);
+        bool res = giac::exactquotient(p, q, r);
+        if (not res)
+                return (new fail())->setflag(status_flags::dynallocated);
+
+        return polynome_to_ex(r, revmap);
+}
+
+ex collect_common_factors(const ex & e) {}
 
 ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
 {
@@ -169,7 +228,7 @@ ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args
         giac::polynome d(p.dim);
         giac::gcd(p, q, d);
 
-        return polynome_to_ex(d, map);
+        return polynome_to_ex(d, revmap);
 }
 
 } // namespace GiNaC

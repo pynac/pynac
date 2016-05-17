@@ -33,6 +33,7 @@ namespace GiNaC {
 class ex;
 class symbol;
 
+extern ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true);
 extern ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true);
 
 } // namespace GiNaC

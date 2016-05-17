@@ -225,7 +225,7 @@ public:
 	virtual ex to_rational(exmap & repl) const;
 	virtual ex to_polynomial(exmap & repl) const;
 #ifdef PYNAC_HAVE_LIBGIAC
-        virtual const giac::polynome&& to_polynome(ex_int_map& map, exvector& revmap);
+        virtual const giac::polynome to_polynome(ex_int_map& map, exvector& revmap);
 #endif
 
 	// polynomial algorithms
