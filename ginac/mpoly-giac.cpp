@@ -50,8 +50,10 @@
 
 namespace GiNaC {
 
+static unsigned int the_dimension = 7;
+
 inline giac::polynome gen2pol(const giac::gen& g) {
-        return giac::polynome(giac::monomial<giac::gen>(g, 9));
+        return giac::polynome(giac::monomial<giac::gen>(g, the_dimension));
 }
 
 inline giac::gen num2gen(const numeric& n) {
@@ -68,8 +70,8 @@ static giac::polynome replace_with_symbol(const ex& e, ex_int_map& map, exvector
         // Expression already replaced? Then return the assigned symbol
         auto it = map.find(e);
         if (it != map.end()) {
-                const int dim = it->second;
-                giac::monomial<giac::gen> mon(giac_one, dim, 9);
+                const int index = it->second;
+                giac::monomial<giac::gen> mon(giac_one, index, the_dimension);
                 return giac::polynome(mon);
         }
 
@@ -77,7 +79,7 @@ static giac::polynome replace_with_symbol(const ex& e, ex_int_map& map, exvector
         const int index = revmap.size() + 1;
         map.insert(std::make_pair(e, index));
         revmap.push_back(e);
-        giac::monomial<giac::gen> mon(giac_one, index, 9);
+        giac::monomial<giac::gen> mon(giac_one, index, the_dimension);
         return giac::polynome(mon);
 }
 
@@ -88,7 +90,6 @@ const giac::polynome basic::to_polynome(ex_int_map& map, exvector& revmap)
 
 // Convert to giac polynomial over QQ, filling replacement dicts
 // TODO: special case numeric mpz_t, int instead of string interface
-// TODO: is it faster to add/mul monomials instead of polynomes?
 const giac::polynome ex::to_polynome(ex_int_map& map, exvector& revmap) const
 {
         if (is_exactly_a<add>(*this))
@@ -130,10 +131,7 @@ const giac::polynome ex::to_polynome(ex_int_map& map, exvector& revmap) const
                 const mul& m = ex_to<mul>(*this);
                 giac::polynome p = gen2pol(giac_one);
                 for (const auto& termex : m.seq) {
-                        const ex& t = m.recombine_pair_to_ex(termex);
-                        const giac::polynome& tt = t.to_polynome(map, revmap);
-                        p *= tt;
-//                        p *= m.recombine_pair_to_ex(termex).to_polynome(map, revmap);
+                        p *= m.recombine_pair_to_ex(termex).to_polynome(map, revmap);
                 }
                 p *= m.overall_coeff.to_polynome(map, revmap);
                 return std::move(p);
@@ -199,30 +197,41 @@ ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true)
 		return _ex1;
 #endif
 
+        exmap repl;
+        ex poly_a = a.to_polynomial(repl);
+        ex poly_b = b.to_polynomial(repl);
+        the_dimension = poly_a.nsymbols() + poly_b.nsymbols() + repl.size();
+
         ex_int_map map;
         exvector revmap;
-        giac::polynome p = a.to_polynome(map, revmap);
-        giac::polynome q = b.to_polynome(map, revmap);
-        giac::polynome r(p.dim);
+        giac::polynome p = poly_a.to_polynome(map, revmap);
+        giac::polynome q = poly_b.to_polynome(map, revmap);
+        giac::polynome r(the_dimension);
         bool res = giac::exactquotient(p, q, r);
         if (not res)
                 return (new fail())->setflag(status_flags::dynallocated);
 
-        return polynome_to_ex(r, revmap);
+        return polynome_to_ex(r, revmap).subs(repl, subs_options::no_pattern);
 }
 
 ex collect_common_factors(const ex & e) {}
 
 ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
 {
+        if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
+                return gcd(ex_to<numeric>(a), ex_to<numeric>(b));
+        exmap repl;
+        ex poly_a = a.to_polynomial(repl);
+        ex poly_b = b.to_polynomial(repl);
+        the_dimension = poly_a.nsymbols() + poly_b.nsymbols() + repl.size();
+
         ex_int_map map;
         exvector revmap;
-        giac::polynome p = a.to_polynome(map, revmap);
-        giac::polynome q = b.to_polynome(map, revmap);
-        giac::polynome d(p.dim);
+        giac::polynome p = poly_a.to_polynome(map, revmap);
+        giac::polynome q = poly_b.to_polynome(map, revmap);
+        giac::polynome d(the_dimension);
         giac::gcd(p, q, d);
-
-        return polynome_to_ex(d, revmap);
+        return polynome_to_ex(d, revmap).subs(repl, subs_options::no_pattern);
 }
 
 } // namespace GiNaC
