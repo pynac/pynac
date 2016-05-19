@@ -1846,7 +1846,7 @@ long numeric::to_long() const {
 bool numeric::get_mpz(mpz_t intialized_mpz) const
 {
         if (t == MPZ) {
-                mpz_init_set(intialized_mpz, v._bigint);
+                mpz_set(intialized_mpz, v._bigint);
                 return true;
         }
         else

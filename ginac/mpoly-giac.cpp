@@ -56,6 +56,9 @@ inline giac::polynome gen2pol(const giac::gen& g) {
         return giac::polynome(giac::monomial<giac::gen>(g, the_dimension));
 }
 
+static giac::gen giac_zero = giac::gen(std::string("0"), giac::context0);
+static giac::gen giac_one = giac::gen(std::string("1"), giac::context0);
+
 inline giac::gen num2gen(const numeric& n) {
         if (n.is_integer()) {
                 mpz_t bigint;
@@ -63,7 +66,7 @@ inline giac::gen num2gen(const numeric& n) {
                 bool ret = n.get_mpz(bigint);
                 if (ret) {
                         giac::gen g(bigint);
-                        mpz_clear(bigint);
+                //        mpz_clear(bigint);
                         return g;
                 }
                 else
@@ -76,9 +79,6 @@ inline giac::gen num2gen(const numeric& n) {
                 return giac::gen(std::string(ss.str()), giac::context0);
         }
 }
-
-static giac::gen giac_zero = giac::gen(std::string("0"), giac::context0);
-static giac::gen giac_one = giac::gen(std::string("1"), giac::context0);
 
 static giac::polynome replace_with_symbol(const ex& e, ex_int_map& map, exvector& revmap)
 {
@@ -169,14 +169,14 @@ const giac::polynome ex::to_polynome(ex_int_map& map, exvector& revmap) const
 
 static ex gen2ex(const giac::gen& gen)
 {
-        if (not gen.is_integer())
-                throw std::runtime_error("gen2ex: can't handle other type from giac");
         // we need to handle giac types _INT_, _ZINT, and _CPLX
         switch (gen.type) {
                 case giac::_INT_:
                         return numeric(gen.val);
                 case giac::_ZINT:
-                        return numeric(*(gen.ref_ZINTptr()));
+                        mpz_t bigint;
+                        mpz_init_set(bigint, *(gen.ref_ZINTptr()));
+                        return numeric(bigint);
                 case giac::_CPLX:
                         return gen2ex(gen.ref_CPLXptr()[0]) + I*gen2ex(gen.ref_CPLXptr()[1]);
                 case giac::_FRAC:
@@ -201,6 +201,7 @@ static ex polynome_to_ex(const giac::polynome& p, const exvector& revmap)
         return e;
 }
 
+//TODO: special case univar and use Flint
 ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true)
 {
 	if (b.is_zero())
@@ -234,6 +235,7 @@ ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true)
 
 ex collect_common_factors(const ex & e) {}
 
+//TODO: special case univar and use Flint
 ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
 {
         if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
