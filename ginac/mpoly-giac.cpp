@@ -200,7 +200,10 @@ ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true)
         exmap repl;
         ex poly_a = a.to_polynomial(repl);
         ex poly_b = b.to_polynomial(repl);
-        the_dimension = poly_a.nsymbols() + poly_b.nsymbols() + repl.size();
+        symbolset s1 = poly_a.symbols();
+        const symbolset& s2 = poly_b.symbols();
+        s1.insert(s2.begin(), s2.end());
+        the_dimension = s1.size() + repl.size();
 
         ex_int_map map;
         exvector revmap;
@@ -223,7 +226,10 @@ ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args
         exmap repl;
         ex poly_a = a.to_polynomial(repl);
         ex poly_b = b.to_polynomial(repl);
-        the_dimension = poly_a.nsymbols() + poly_b.nsymbols() + repl.size();
+        symbolset s1 = poly_a.symbols();
+        const symbolset& s2 = poly_b.symbols();
+        s1.insert(s2.begin(), s2.end());
+        the_dimension = s1.size() + repl.size();
 
         ex_int_map map;
         exvector revmap;
