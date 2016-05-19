@@ -57,9 +57,24 @@ inline giac::polynome gen2pol(const giac::gen& g) {
 }
 
 inline giac::gen num2gen(const numeric& n) {
-        std::stringstream ss;
-        ss << n;
-        return giac::gen(std::string(ss.str()), giac::context0);
+        if (n.is_integer()) {
+                mpz_t bigint;
+                mpz_init(bigint);
+                bool ret = n.get_mpz(bigint);
+                if (ret) {
+                        giac::gen g(bigint);
+                        mpz_clear(bigint);
+                        return g;
+                }
+                else
+                        throw std::runtime_error("num2gen: can't happen");
+                mpz_clear(bigint);
+        }
+        else {
+                std::stringstream ss;
+                ss << n;
+                return giac::gen(std::string(ss.str()), giac::context0);
+        }
 }
 
 static giac::gen giac_zero = giac::gen(std::string("0"), giac::context0);
