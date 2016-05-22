@@ -1,12 +1,13 @@
-/** @file normal.cpp
+/** @file mpoly-ginac.cpp
  *
- *  This file implements several functions that work on univariate and
+ *  This file implements several functions that work on
  *  multivariate polynomials and rational functions.
  *  These functions include polynomial quotient and remainder, GCD and LCM
  *  computation, square-free factorization and rational function normalization. */
 
 /*
  *  GiNaC Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+ *                  (C) 2016 Ralf Stephan
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +33,7 @@
 #include "basic.h"
 #include "ex.h"
 #include "mpoly.h"
+#include "upoly.h"
 #include "add.h"
 #include "constant.h"
 #include "expairseq.h"
@@ -201,388 +203,6 @@ static void get_symbol_stats(const ex &a, const ex &b, sym_desc_vec &v)
 	}
 #endif
 }
-
-
-/*
- *  Polynomial quotients and remainders
- */
-
-static bool divide(const ex &a, const ex &b, ex &q, bool check_args=true);
-
-/** Quotient q(x) of polynomials a(x) and b(x) in Q[x].
- *  It satisfies a(x)=b(x)*q(x)+r(x).
- *
- *  @param a  first polynomial in x (dividend)
- *  @param b  second polynomial in x (divisor)
- *  @param x  a and b are polynomials in x
- *  @param check_args  check whether a and b are polynomials with rational
- *         coefficients (defaults to "true")
- *  @return quotient of a and b in Q[x] */
-ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true)
-{
-	if (b.is_zero())
-		throw(std::overflow_error("quo: division by zero"));
-	if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
-		return a / b;
-#if FAST_COMPARE
-	if (a.is_equal(b))
-		return _ex1;
-#endif
-	if (check_args && (!a.info(info_flags::rational_polynomial) || !b.info(info_flags::rational_polynomial)))
-		throw(std::invalid_argument("quo: arguments must be polynomials over the rationals"));
-
-	// Polynomial long division
-	ex r = a.expand();
-	if (r.is_zero())
-		return r;
-	int bdeg = b.degree(x);
-	int rdeg = r.degree(x);
-	ex blcoeff = b.expand().coeff(x, bdeg);
-	bool blcoeff_is_numeric = is_exactly_a<numeric>(blcoeff);
-	exvector v; v.reserve(std::max(rdeg - bdeg + 1, 0));
-	while (rdeg >= bdeg) {
-		ex term, rcoeff = r.coeff(x, rdeg);
-		if (blcoeff_is_numeric)
-			term = rcoeff / blcoeff;
-		else {
-			if (!divide(rcoeff, blcoeff, term, false))
-				return (new fail())->setflag(status_flags::dynallocated);
-		}
-		term *= power(x, rdeg - bdeg);
-		v.push_back(term);
-		r -= (term * b).expand();
-		if (r.is_zero())
-			break;
-		rdeg = r.degree(x);
-	}
-	return (new add(v))->setflag(status_flags::dynallocated);
-}
-
-
-/** Remainder r(x) of polynomials a(x) and b(x) in Q[x].
- *  It satisfies a(x)=b(x)*q(x)+r(x).
- *
- *  @param a  first polynomial in x (dividend)
- *  @param b  second polynomial in x (divisor)
- *  @param x  a and b are polynomials in x
- *  @param check_args  check whether a and b are polynomials with rational
- *         coefficients (defaults to "true")
- *  @return remainder of a(x) and b(x) in Q[x] */
-ex rem(const ex &a, const ex &b, const ex &x, bool check_args=true)
-{
-	if (b.is_zero())
-		throw(std::overflow_error("rem: division by zero"));
-	if (is_exactly_a<numeric>(a)) {
-		if  (is_exactly_a<numeric>(b))
-			return _ex0;
-		else
-			return a;
-	}
-#if FAST_COMPARE
-	if (a.is_equal(b))
-		return _ex0;
-#endif
-	if (check_args && (!a.info(info_flags::rational_polynomial) || !b.info(info_flags::rational_polynomial)))
-		throw(std::invalid_argument("rem: arguments must be polynomials over the rationals"));
-
-	// Polynomial long division
-	ex r = a.expand();
-	if (r.is_zero())
-		return r;
-	int bdeg = b.degree(x);
-	int rdeg = r.degree(x);
-	ex blcoeff = b.expand().coeff(x, bdeg);
-	bool blcoeff_is_numeric = is_exactly_a<numeric>(blcoeff);
-	while (rdeg >= bdeg) {
-		ex term, rcoeff = r.coeff(x, rdeg);
-		if (blcoeff_is_numeric)
-			term = rcoeff / blcoeff;
-		else {
-			if (!divide(rcoeff, blcoeff, term, false))
-				return (new fail())->setflag(status_flags::dynallocated);
-		}
-		term *= power(x, rdeg - bdeg);
-		r -= (term * b).expand();
-		if (r.is_zero())
-			break;
-		rdeg = r.degree(x);
-	}
-	return r;
-}
-
-
-/** Decompose rational function a(x)=N(x)/D(x) into P(x)+n(x)/D(x)
- *  with degree(n, x) < degree(D, x).
- *
- *  @param a rational function in x
- *  @param x a is a function of x
- *  @return decomposed function. */
-ex decomp_rational(const ex &a, const ex &x)
-{
-	ex nd = numer_denom(a);
-	ex numer = nd.op(0), denom = nd.op(1);
-	ex q = quo(numer, denom, x);
-	if (is_exactly_a<fail>(q))
-		return a;
-	else
-		return q + rem(numer, denom, x) / denom;
-}
-
-
-/** Pseudo-remainder of polynomials a(x) and b(x) in Q[x].
- *
- *  @param a  first polynomial in x (dividend)
- *  @param b  second polynomial in x (divisor)
- *  @param x  a and b are polynomials in x
- *  @param check_args  check whether a and b are polynomials with rational
- *         coefficients (defaults to "true")
- *  @return pseudo-remainder of a(x) and b(x) in Q[x] */
-ex prem(const ex &a, const ex &b, const ex &x, bool check_args=true)
-{
-	if (b.is_zero())
-		throw(std::overflow_error("prem: division by zero"));
-	if (is_exactly_a<numeric>(a)) {
-		if (is_exactly_a<numeric>(b))
-			return _ex0;
-		else
-			return b;
-	}
-	if (check_args && (!a.info(info_flags::rational_polynomial) || !b.info(info_flags::rational_polynomial)))
-		throw(std::invalid_argument("prem: arguments must be polynomials over the rationals"));
-
-	// Polynomial long division
-	ex r = a.expand();
-	ex eb = b.expand();
-	int rdeg = r.degree(x);
-	int bdeg = eb.degree(x);
-	ex blcoeff;
-	if (bdeg <= rdeg) {
-		blcoeff = eb.coeff(x, bdeg);
-		if (bdeg == 0)
-			eb = _ex0;
-		else
-			eb -= blcoeff * power(x, bdeg);
-	} else
-		blcoeff = _ex1;
-
-	int delta = rdeg - bdeg + 1, i = 0;
-	while (rdeg >= bdeg && !r.is_zero()) {
-		ex rlcoeff = r.coeff(x, rdeg);
-		ex term = (power(x, rdeg - bdeg) * eb * rlcoeff).expand();
-		if (rdeg == 0)
-			r = _ex0;
-		else
-			r -= rlcoeff * power(x, rdeg);
-		r = (blcoeff * r).expand() - term;
-		rdeg = r.degree(x);
-		i++;
-	}
-	return power(blcoeff, delta - i) * r;
-}
-
-
-/** Sparse pseudo-remainder of polynomials a(x) and b(x) in Q[x].
- *
- *  @param a  first polynomial in x (dividend)
- *  @param b  second polynomial in x (divisor)
- *  @param x  a and b are polynomials in x
- *  @param check_args  check whether a and b are polynomials with rational
- *         coefficients (defaults to "true")
- *  @return sparse pseudo-remainder of a(x) and b(x) in Q[x] */
-ex sprem(const ex &a, const ex &b, const ex &x, bool check_args=true)
-{
-	if (b.is_zero())
-		throw(std::overflow_error("prem: division by zero"));
-	if (is_exactly_a<numeric>(a)) {
-		if (is_exactly_a<numeric>(b))
-			return _ex0;
-		else
-			return b;
-	}
-	if (check_args && (!a.info(info_flags::rational_polynomial) || !b.info(info_flags::rational_polynomial)))
-		throw(std::invalid_argument("prem: arguments must be polynomials over the rationals"));
-
-	// Polynomial long division
-	ex r = a.expand();
-	ex eb = b.expand();
-	int rdeg = r.degree(x);
-	int bdeg = eb.degree(x);
-	ex blcoeff;
-	if (bdeg <= rdeg) {
-		blcoeff = eb.coeff(x, bdeg);
-		if (bdeg == 0)
-			eb = _ex0;
-		else
-			eb -= blcoeff * power(x, bdeg);
-	} else
-		blcoeff = _ex1;
-
-	while (rdeg >= bdeg && !r.is_zero()) {
-		ex rlcoeff = r.coeff(x, rdeg);
-		ex term = (power(x, rdeg - bdeg) * eb * rlcoeff).expand();
-		if (rdeg == 0)
-			r = _ex0;
-		else
-			r -= rlcoeff * power(x, rdeg);
-		r = (blcoeff * r).expand() - term;
-		rdeg = r.degree(x);
-	}
-	return r;
-}
-
-
-/** Exact polynomial division of a(X) by b(X) in Q[X].
- *  
- *  @param a  first multivariate polynomial (dividend)
- *  @param b  second multivariate polynomial (divisor)
- *  @param q  quotient (returned)
- *  @param check_args  check whether a and b are polynomials with rational
- *         coefficients (defaults to "true")
- *  @return "true" when exact division succeeds (quotient returned in q),
- *          "false" otherwise (q left untouched) */
-static bool divide(const ex &a, const ex &b, ex &q, bool check_args)
-{
-	if (b.is_zero())
-		throw(std::overflow_error("divide: division by zero"));
-	if (a.is_zero()) {
-		q = _ex0;
-		return true;
-	}
-	if (is_exactly_a<numeric>(b)) {
-		q = a / b;
-		return true;
-	} else if (is_exactly_a<numeric>(a))
-		return false;
-#if FAST_COMPARE
-	if (a.is_equal(b)) {
-		q = _ex1;
-		return true;
-	}
-#endif
-	if (check_args && (!a.info(info_flags::rational_polynomial) ||
-	                   !b.info(info_flags::rational_polynomial)))
-		throw(std::invalid_argument("divide: arguments must be polynomials over the rationals"));
-
-	// Find first symbol
-	ex x;
-	if (!get_first_symbol(a, x) && !get_first_symbol(b, x))
-		throw(std::invalid_argument("invalid expression in divide()"));
-
-	// Try to avoid expanding partially factored expressions.
-	if (is_exactly_a<mul>(b)) {
-	// Divide sequentially by each term
-		ex rem_new, rem_old = a;
-		for (size_t i=0; i < b.nops(); i++) {
-			if (! divide(rem_old, b.op(i), rem_new, false))
-				return false;
-			rem_old = rem_new;
-		}
-		q = rem_new;
-		return true;
-	} else if (is_exactly_a<power>(b)) {
-		const ex& bb(b.op(0));
-		int exp_b = ex_to<numeric>(b.op(1)).to_int();
-		ex rem_new, rem_old = a;
-		for (int i=exp_b; i>0; i--) {
-			if (! divide(rem_old, bb, rem_new, false))
-				return false;
-			rem_old = rem_new;
-		}
-		q = rem_new;
-		return true;
-	} 
-	
-	if (is_exactly_a<mul>(a)) {
-		// Divide sequentially each term. If some term in a is divisible 
-		// by b we are done... and if not, we can't really say anything.
-		size_t i;
-		ex rem_i;
-		bool divisible_p = false;
-		for (i=0; i < a.nops(); ++i) {
-			if (divide(a.op(i), b, rem_i, false)) {
-				divisible_p = true;
-				break;
-			}
-		}
-		if (divisible_p) {
-			exvector resv;
-			resv.reserve(a.nops());
-			for (size_t j=0; j < a.nops(); j++) {
-				if (j==i)
-					resv.push_back(rem_i);
-				else
-					resv.push_back(a.op(j));
-			}
-			q = (new mul(resv))->setflag(status_flags::dynallocated);
-			return true;
-		}
-	} else if (is_exactly_a<power>(a)) {
-		// The base itself might be divisible by b, in that case we don't
-		// need to expand a
-		const ex& ab(a.op(0));
-		int a_exp = ex_to<numeric>(a.op(1)).to_int();
-		ex rem_i;
-		if (divide(ab, b, rem_i, false)) {
-			q = rem_i*power(ab, a_exp - 1);
-			return true;
-		}
-		for (int i=2; i < a_exp; i++) {
-			if (divide(power(ab, i), b, rem_i, false)) {
-				q = rem_i*power(ab, a_exp - i);
-				return true;
-			}
-		} // ... so we *really* need to expand expression.
-	}
-	
-	// Polynomial long division (recursive)
-	ex r = a.expand();
-	if (r.is_zero()) {
-		q = _ex0;
-		return true;
-	}
-	int bdeg = b.degree(x);
-	int rdeg = r.degree(x);
-	ex blcoeff = b.expand().coeff(x, bdeg);
-	bool blcoeff_is_numeric = is_exactly_a<numeric>(blcoeff);
-	exvector v; v.reserve(std::max(rdeg - bdeg + 1, 0));
-	while (rdeg >= bdeg) {
-		ex term, rcoeff = r.coeff(x, rdeg);
-		if (blcoeff_is_numeric)
-			term = rcoeff / blcoeff;
-		else
-			if (!divide(rcoeff, blcoeff, term, false))
-				return false;
-		term *= power(x, rdeg - bdeg);
-		v.push_back(term);
-		r -= (term * b).expand();
-		if (r.is_zero()) {
-			q = (new add(v))->setflag(status_flags::dynallocated);
-			return true;
-		}
-		rdeg = r.degree(x);
-	}
-	return false;
-}
-
-
-#if USE_REMEMBER
-/*
- *  Remembering
- */
-
-typedef std::pair<ex, ex> ex2;
-typedef std::pair<ex, bool> exbool;
-
-struct ex2_less {
-	bool operator() (const ex2 &p, const ex2 &q) const 
-	{
-		int cmp = p.first.compare(q.first);
-		return ((cmp<0) || (!(cmp>0) && p.second.compare(q.second)<0));
-	}
-};
-
-typedef std::map<ex2, exbool, ex2_less> ex2_exbool_remember;
-#endif
 
 
 /** Exact polynomial division of a(X) by b(X) in Z[X].
@@ -797,7 +417,7 @@ static ex sr_gcd(const ex &a, const ex &b, sym_desc_vec::const_iterator var)
 	// Remove content from c and d, to be attached to GCD later
 	ex cont_c = c.content(x);
 	ex cont_d = d.content(x);
-	ex gamma = gcd(cont_c, cont_d, nullptr, nullptr, false);
+	ex gamma = gcdpoly(cont_c, cont_d, nullptr, nullptr, false);
 	if (ddeg == 0)
 		return gamma;
 	c = c.primpart(x, cont_c);
@@ -939,6 +559,16 @@ static ex heur_gcd(const ex &a, const ex &b, ex *ca, ex *cb, sym_desc_vec::const
 	return (new fail())->setflag(status_flags::dynallocated);
 }
 
+ex gcd(const ex &a, const ex &b)
+{
+        if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
+                return gcd(ex_to<numeric>(a), ex_to<numeric>(b));
+        exmap repl;
+        ex poly_a = a.to_polynomial(repl);
+        ex poly_b = b.to_polynomial(repl);
+        return gcdpoly(poly_a, poly_b).subs(repl, subs_options::no_pattern);
+}
+
 
 /** Compute GCD (Greatest Common Divisor) of multivariate polynomials a(X)
  *  and b(X) in Z[X]. Optionally also compute the cofactors of a and b,
@@ -951,7 +581,7 @@ static ex heur_gcd(const ex &a, const ex &b, ex *ca, ex *cb, sym_desc_vec::const
  *  @param check_args  check whether a and b are polynomials with rational
  *         coefficients (defaults to "true")
  *  @return the GCD as a new expression */
-ex gcd(const ex &a, const ex &b, ex *ca, ex *cb, bool check_args)
+ex gcdpoly(const ex &a, const ex &b, ex *ca, ex *cb, bool check_args)
 {
 #if STATISTICS
 	gcd_called++;
@@ -992,7 +622,7 @@ factored_a:
 		ex part_b = b;
 		for (size_t i=0; i<num; i++) {
 			ex part_ca, part_cb;
-			g.push_back(gcd(a.op(i), part_b, &part_ca, &part_cb, check_args));
+			g.push_back(gcdpoly(a.op(i), part_b, &part_ca, &part_cb, check_args));
 			acc_ca.push_back(part_ca);
 			part_b = part_cb;
 		}
@@ -1011,7 +641,7 @@ factored_b:
 		ex part_a = a;
 		for (size_t i=0; i<num; i++) {
 			ex part_ca, part_cb;
-			g.push_back(gcd(part_a, b.op(i), &part_ca, &part_cb, check_args));
+			g.push_back(gcdpoly(part_a, b.op(i), &part_ca, &part_cb, check_args));
 			acc_cb.push_back(part_cb);
 			part_a = part_ca;
 		}
@@ -1047,7 +677,7 @@ factored_b:
 				}
 			} else {
 				ex p_co, pb_co;
-				ex p_gcd = gcd(p, pb, &p_co, &pb_co, check_args);
+				ex p_gcd = gcdpoly(p, pb, &p_co, &pb_co, check_args);
 				if (p_gcd.is_equal(_ex1)) {
 					// a(x) = p(x)^n, b(x) = p_b(x)^m, gcd (p, p_b) = 1 ==>
 					// gcd(a,b) = 1
@@ -1063,10 +693,10 @@ factored_b:
 					// gcd(a, b) = g(x)^n gcd(A(x)^n, g(x)^(n-m) B(x)^m
 					if (exp_a < exp_b) {
 						return power(p_gcd, exp_a)*
-							gcd(power(p_co, exp_a), power(p_gcd, exp_b-exp_a)*power(pb_co, exp_b), ca, cb, false);
+							gcdpoly(power(p_co, exp_a), power(p_gcd, exp_b-exp_a)*power(pb_co, exp_b), ca, cb, false);
 					} else {
 						return power(p_gcd, exp_b)*
-							gcd(power(p_gcd, exp_a - exp_b)*power(p_co, exp_a), power(pb_co, exp_b), ca, cb, false);
+							gcdpoly(power(p_gcd, exp_a - exp_b)*power(p_co, exp_a), power(pb_co, exp_b), ca, cb, false);
 					}
 				} // p_gcd.is_equal(_ex1)
 			} // p.is_equal(pb)
@@ -1082,7 +712,7 @@ factored_b:
 			} 
 
 			ex p_co, bpart_co;
-			ex p_gcd = gcd(p, b, &p_co, &bpart_co, false);
+			ex p_gcd = gcdpoly(p, b, &p_co, &bpart_co, false);
 
 			if (p_gcd.is_equal(_ex1)) {
 				// a(x) = p(x)^n, gcd(p, b) = 1 ==> gcd(a, b) = 1
@@ -1093,7 +723,7 @@ factored_b:
 				return _ex1;
 			} else {
 				// a(x) = g(x)^n A(x)^n, b(x) = g(x) B(x) ==> gcd(a, b) = g(x) gcd(g(x)^(n-1) A(x)^n, B(x))
-				return p_gcd*gcd(power(p_gcd, exp_a-1)*power(p_co, exp_a), bpart_co, ca, cb, false);
+				return p_gcd*gcdpoly(power(p_gcd, exp_a-1)*power(p_co, exp_a), bpart_co, ca, cb, false);
 			}
 		} // is_exactly_a<power>(b)
 
@@ -1110,7 +740,7 @@ factored_b:
 
 		ex p_co, apart_co;
 		const ex& exp_b(b.op(1));
-		ex p_gcd = gcd(a, p, &apart_co, &p_co, false);
+		ex p_gcd = gcdpoly(a, p, &apart_co, &p_co, false);
 		if (p_gcd.is_equal(_ex1)) {
 			// b=p(x)^n, gcd(a, p) = 1 ==> gcd(a, b) == 1
 			if (ca != nullptr)
@@ -1122,7 +752,7 @@ factored_b:
 			// there are common factors:
 			// a(x) = g(x) A(x), b(x) = g(x)^n B(x)^n ==> gcd = g(x) gcd(g(x)^(n-1) A(x)^n, B(x))
 
-			return p_gcd*gcd(apart_co, power(p_gcd, exp_b-1)*power(p_co, exp_b), ca, cb, false);
+			return p_gcd*gcdpoly(apart_co, power(p_gcd, exp_b-1)*power(p_co, exp_b), ca, cb, false);
 		} // p_gcd.is_equal(_ex1)
 	}
 #endif
@@ -1234,21 +864,21 @@ factored_b:
 	int min_ldeg = std::min(ldeg_a,ldeg_b);
 	if (min_ldeg > 0) {
 		ex common = power(x, min_ldeg);
-		return gcd((aex / common).expand(), (bex / common).expand(), ca, cb, false) * common;
+		return gcdpoly((aex / common).expand(), (bex / common).expand(), ca, cb, false) * common;
 	}
 
 	// Try to eliminate variables
 	if (var->deg_a == 0 && var->deg_b != 0 ) {
 		ex bex_u, bex_c, bex_p;
 		bex.unitcontprim(x, bex_u, bex_c, bex_p);
-		ex g = gcd(aex, bex_c, ca, cb, false);
+		ex g = gcdpoly(aex, bex_c, ca, cb, false);
 		if (cb != nullptr)
 			*cb *= bex_u * bex_p;
 		return g;
 	} else if (var->deg_b == 0 && var->deg_a != 0) {
 		ex aex_u, aex_c, aex_p;
 		aex.unitcontprim(x, aex_u, aex_c, aex_p);
-		ex g = gcd(aex_c, bex, ca, cb, false);
+		ex g = gcdpoly(aex_c, bex, ca, cb, false);
 		if (ca != nullptr)
 			*ca *= aex_u * aex_p;
 		return g;
@@ -1307,7 +937,7 @@ ex lcm(const ex &a, const ex &b, bool check_args=true)
 		throw(std::invalid_argument("lcm: arguments must be polynomials over the rationals"));
 	
 	ex ca, cb;
-	ex g = gcd(a, b, &ca, &cb, false);
+	ex g = gcdpoly(a, b, &ca, &cb, false);
 	return ca * cb * g;
 }
 
@@ -1328,7 +958,7 @@ static exvector sqrfree_yun(const ex &a, const symbol &x)
 	exvector res;
 	ex w = a;
 	ex z = w.diff(x);
-	ex g = gcd(w, z);
+	ex g = gcdpoly(w, z);
 	if (g.is_zero()) {
 		return res;
 	}
@@ -1344,7 +974,7 @@ static exvector sqrfree_yun(const ex &a, const symbol &x)
 		}
 		y = quo(z, g, x);
 		z = y - w.diff(x);
-		g = gcd(w, z);
+		g = gcdpoly(w, z);
 		res.push_back(g);
 	} while (!z.is_zero());
 	return res;
@@ -1519,113 +1149,6 @@ ex sqrfree_parfrac(const ex & a, const symbol & x)
 		sum += sol(i, 0) / factor[i];
 
 	return red_poly + sum;
-}
-
-static ex find_common_factor(const ex & e, ex & factor, exmap & repl);
-
-/** Collect common factors in sums. This converts expressions like
- *  'a*(b*x+b*y)' to 'a*b*(x+y)'. */
-ex collect_common_factors(const ex & e)
-{
-	if (is_exactly_a<add>(e) || is_exactly_a<mul>(e) || is_exactly_a<power>(e)) {
-
-		exmap repl;
-		ex factor = 1;
-		ex r = find_common_factor(e, factor, repl);
-		return factor.subs(repl, subs_options::no_pattern) * r.subs(repl, subs_options::no_pattern);
-
-	} else
-		return e;
-}
-
-
-/** Remove the common factor in the terms of a sum 'e' by calculating the GCD,
- *  and multiply it into the expression 'factor' (which needs to be initialized
- *  to 1, unless you're accumulating factors). */
-static ex find_common_factor(const ex & e, ex & factor, exmap & repl)
-{
-	if (is_exactly_a<add>(e)) {
-
-		size_t num = e.nops();
-		exvector terms; terms.reserve(num);
-		ex gc;
-
-		// Find the common GCD
-		for (size_t i=0; i<num; i++) {
-			ex x = e.op(i).to_polynomial(repl);
-
-			if (is_exactly_a<add>(x) || is_exactly_a<mul>(x) || is_exactly_a<power>(x)) {
-				ex f = 1;
-				x = find_common_factor(x, f, repl);
-				x *= f;
-			}
-
-			if (i == 0)
-				gc = x;
-			else
-				gc = gcd(gc, x);
-
-			terms.push_back(x);
-		}
-
-		if (gc.is_equal(_ex1))
-			return e;
-
-		// The GCD is the factor we pull out
-		factor *= gc;
-
-		// Now divide all terms by the GCD
-		for (size_t i=0; i<num; i++) {
-			ex x;
-
-			// Try to avoid divide() because it expands the polynomial
-			ex &t = terms[i];
-			if (is_exactly_a<mul>(t)) {
-				for (size_t j=0; j<t.nops(); j++) {
-					if (t.op(j).is_equal(gc)) {
-						exvector v; v.reserve(t.nops());
-						for (size_t k=0; k<t.nops(); k++) {
-							if (k == j)
-								v.push_back(_ex1);
-							else
-								v.push_back(t.op(k));
-						}
-						t = (new mul(v))->setflag(status_flags::dynallocated);
-						goto term_done;
-					}
-				}
-			}
-
-			divide(t, gc, x);
-			t = x;
-term_done:	;
-		}
-		return (new add(terms))->setflag(status_flags::dynallocated);
-
-	} else if (is_exactly_a<mul>(e)) {
-
-		size_t num = e.nops();
-		exvector v; v.reserve(num);
-
-		for (size_t i=0; i<num; i++)
-			v.push_back(find_common_factor(e.op(i), factor, repl));
-
-		return (new mul(v))->setflag(status_flags::dynallocated);
-
-	} else if (is_exactly_a<power>(e)) {
-		const ex e_exp(e.op(1));
-		if (e_exp.info(info_flags::integer)) {
-			ex eb = e.op(0).to_polynomial(repl);
-			ex factor_local(_ex1);
-			ex pre_res = find_common_factor(eb, factor_local, repl);
-			factor *= power(factor_local, e_exp);
-			return power(pre_res, e_exp);
-			
-		} else
-			return e.to_polynomial(repl);
-
-	} else
-		return e;
 }
 
 

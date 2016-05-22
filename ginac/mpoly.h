@@ -1,6 +1,6 @@
 /** @file mpoly.h
  *
- *  This file declares several functions that work on univariate and
+ *  This file declares several functions that work on
  *  multivariate polynomials and rational functions.
  *  These functions include polynomial quotient and remainder, GCD and LCM
  *  computation, square-free factorization and rational function normalization. */
@@ -33,9 +33,8 @@ namespace GiNaC {
 class ex;
 class symbol;
 
-extern ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true);
-extern ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true);
-
+extern ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true);
+extern ex gcd(const ex &a, const ex &b);
 } // namespace GiNaC
 
 #endif // __PYNAC_MPOLY_H__

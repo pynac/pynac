@@ -41,6 +41,7 @@
 #include "symbol.h"
 #include "utils.h"
 #include "mpoly.h"
+#include "upoly.h"
 
 #include <algorithm>
 #include <map>
@@ -506,7 +507,7 @@ static ex frac_cancel(const ex &n, const ex &d)
 
 	// Cancel GCD from numerator and denominator
 	ex cnum, cden;
-	if (gcd(num, den, &cnum, &cden, false) != _ex1) {
+	if (gcdpoly(num, den, &cnum, &cden, false) != _ex1) {
 		num = cnum;
 		den = cden;
 	}
@@ -583,7 +584,7 @@ ex add::normal(exmap & repl, exmap & rev_lookup, int level) const
 		// Additiion of two fractions, taking advantage of the fact that
 		// the heuristic GCD algorithm computes the cofactors at no extra cost
 		ex co_den1, co_den2;
-		ex g = gcd(den, next_den, &co_den1, &co_den2, false);
+		ex g = gcdpoly(den, next_den, &co_den1, &co_den2, false);
 		num = ((num * co_den2) + (next_num * co_den1)).expand();
 		den *= co_den2;		// this is the lcm(den, next_den)
 	}
@@ -995,7 +996,7 @@ ex ex::content(const ex &x) const
 		return lcoef * c / lcoef.unit(x);
 	ex cont = _ex0;
 	for (int i=ldeg; i<=deg; i++)
-		cont = gcd(r.coeff(x, i), cont, nullptr, nullptr, false);
+		cont = gcdpoly(r.coeff(x, i), cont, nullptr, nullptr, false);
 	return cont * c;
 }
 
@@ -1093,7 +1094,112 @@ void ex::unitcontprim(const ex &x, ex &u, ex &c, ex &p) const
 		p = quo(e, c * u, x, false);
 }
 
+static ex find_common_factor(const ex & e, ex & factor, exmap & repl);
 
+/** Collect common factors in sums. This converts expressions like
+ *  'a*(b*x+b*y)' to 'a*b*(x+y)'. */
+ex collect_common_factors(const ex & e)
+{
+	if (is_exactly_a<add>(e) || is_exactly_a<mul>(e) || is_exactly_a<power>(e)) {
+
+		exmap repl;
+		ex factor = 1;
+		ex r = find_common_factor(e, factor, repl);
+		return factor.subs(repl, subs_options::no_pattern) * r.subs(repl, subs_options::no_pattern);
+
+	} else
+		return e;
+}
+
+
+/** Remove the common factor in the terms of a sum 'e' by calculating the GCD,
+ *  and multiply it into the expression 'factor' (which needs to be initialized
+ *  to 1, unless you're accumulating factors). */
+static ex find_common_factor(const ex & e, ex & factor, exmap & repl)
+{
+	if (is_exactly_a<add>(e)) {
+
+		size_t num = e.nops();
+		exvector terms; terms.reserve(num);
+		ex gc;
+
+		// Find the common GCD
+		for (size_t i=0; i<num; i++) {
+			ex x = e.op(i).to_polynomial(repl);
+
+			if (is_exactly_a<add>(x) || is_exactly_a<mul>(x) || is_exactly_a<power>(x)) {
+				ex f = 1;
+				x = find_common_factor(x, f, repl);
+				x *= f;
+			}
+
+			if (i == 0)
+				gc = x;
+			else
+				gc = gcdpoly(gc, x);
+
+			terms.push_back(x);
+		}
+
+		if (gc.is_equal(_ex1))
+			return e;
+
+		// The GCD is the factor we pull out
+		factor *= gc;
+
+		// Now divide all terms by the GCD
+		for (size_t i=0; i<num; i++) {
+			ex x;
+
+			// Try to avoid divide() because it expands the polynomial
+			ex &t = terms[i];
+			if (is_exactly_a<mul>(t)) {
+				for (size_t j=0; j<t.nops(); j++) {
+					if (t.op(j).is_equal(gc)) {
+						exvector v; v.reserve(t.nops());
+						for (size_t k=0; k<t.nops(); k++) {
+							if (k == j)
+								v.push_back(_ex1);
+							else
+								v.push_back(t.op(k));
+						}
+						t = (new mul(v))->setflag(status_flags::dynallocated);
+						goto term_done;
+					}
+				}
+			}
+
+			divide(t, gc, x);
+			t = x;
+term_done:	;
+		}
+		return (new add(terms))->setflag(status_flags::dynallocated);
+
+	} else if (is_exactly_a<mul>(e)) {
+
+		size_t num = e.nops();
+		exvector v; v.reserve(num);
+
+		for (size_t i=0; i<num; i++)
+			v.push_back(find_common_factor(e.op(i), factor, repl));
+
+		return (new mul(v))->setflag(status_flags::dynallocated);
+
+	} else if (is_exactly_a<power>(e)) {
+		const ex e_exp(e.op(1));
+		if (e_exp.info(info_flags::integer)) {
+			ex eb = e.op(0).to_polynomial(repl);
+			ex factor_local(_ex1);
+			ex pre_res = find_common_factor(eb, factor_local, repl);
+			factor *= power(factor_local, e_exp);
+			return power(pre_res, e_exp);
+			
+		} else
+			return e.to_polynomial(repl);
+
+	} else
+		return e;
+}
 
 
 } // namespace GiNaC

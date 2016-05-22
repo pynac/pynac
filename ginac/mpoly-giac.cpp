@@ -29,7 +29,7 @@
 #undef _POSIX_C_SOURCE
 #undef _XOPEN_SOURCE
 
-#include "normal.h"
+#include "upoly.h"
 #include "basic.h"
 #include "ex.h"
 #include "add.h"
@@ -66,7 +66,7 @@ inline giac::gen num2gen(const numeric& n) {
                 bool ret = n.get_mpz(bigint);
                 if (ret) {
                         giac::gen g(bigint);
-                //        mpz_clear(bigint);
+                        mpz_clear(bigint);
                         return g;
                 }
                 else
@@ -201,60 +201,31 @@ static ex polynome_to_ex(const giac::polynome& p, const exvector& revmap)
         return e;
 }
 
-//TODO: special case univar and use Flint
-ex quo(const ex &a, const ex &b, const ex &x, bool check_args=true)
+// GCD of two exes which are in polynomial form
+ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
 {
-	if (b.is_zero())
-		throw(std::overflow_error("quo: division by zero"));
-	if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
-		return a / b;
-#if FAST_COMPARE
-	if (a.is_equal(b))
-		return _ex1;
-#endif
-
-        exmap repl;
-        ex poly_a = a.to_polynomial(repl);
-        ex poly_b = b.to_polynomial(repl);
-        symbolset s1 = poly_a.symbols();
-        const symbolset& s2 = poly_b.symbols();
+        symbolset s1 = a.symbols();
+        const symbolset& s2 = b.symbols();
         s1.insert(s2.begin(), s2.end());
-        the_dimension = s1.size() + repl.size();
+        the_dimension = s1.size();
 
         ex_int_map map;
         exvector revmap;
-        giac::polynome p = poly_a.to_polynome(map, revmap);
-        giac::polynome q = poly_b.to_polynome(map, revmap);
-        giac::polynome r(the_dimension);
-        bool res = giac::exactquotient(p, q, r);
-        if (not res)
-                return (new fail())->setflag(status_flags::dynallocated);
-
-        return polynome_to_ex(r, revmap).subs(repl, subs_options::no_pattern);
+        giac::polynome p = a.to_polynome(map, revmap);
+        giac::polynome q = b.to_polynome(map, revmap);
+        giac::polynome d(the_dimension);
+        giac::gcd(p, q, d);
+        return polynome_to_ex(d, revmap);
 }
 
-ex collect_common_factors(const ex & e) {}
-
-//TODO: special case univar and use Flint
-ex gcd(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
+ex gcd(const ex &a, const ex &b)
 {
         if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
                 return gcd(ex_to<numeric>(a), ex_to<numeric>(b));
         exmap repl;
         ex poly_a = a.to_polynomial(repl);
         ex poly_b = b.to_polynomial(repl);
-        symbolset s1 = poly_a.symbols();
-        const symbolset& s2 = poly_b.symbols();
-        s1.insert(s2.begin(), s2.end());
-        the_dimension = s1.size() + repl.size();
-
-        ex_int_map map;
-        exvector revmap;
-        giac::polynome p = poly_a.to_polynome(map, revmap);
-        giac::polynome q = poly_b.to_polynome(map, revmap);
-        giac::polynome d(the_dimension);
-        giac::gcd(p, q, d);
-        return polynome_to_ex(d, revmap).subs(repl, subs_options::no_pattern);
+        return gcdpoly(poly_a, poly_b).subs(repl, subs_options::no_pattern);
 }
 
 } // namespace GiNaC
