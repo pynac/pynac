@@ -1114,9 +1114,11 @@ const numeric numeric::div(const numeric &other) const {
         }
 }
 
-/** Numerical exponentiation.  Raises *this to the integer power given as argument and
- *  returns result as numeric. */
-const numeric numeric::power(const numeric &exponent) const {
+/** Numerical exponentiation.
+ * Raises *this to the power given as argument and returns the result as ex,
+ * because it is possible that the result is converted to symbolic by Sage,
+ * and we don't want symbolic as PyObject inside numeric. */
+const ex numeric::power(const numeric &exponent) const {
         verbose("pow");
         numeric ex(exponent);
         if (exponent.t == PYOBJECT and PyInt_Check(exponent.v._pyobject)) {
@@ -1126,7 +1128,7 @@ const numeric numeric::power(const numeric &exponent) const {
         }
         if (ex.t == MPZ) {
                 if (not mpz_fits_sint_p(ex.v._bigint)) {
-                        throw std::runtime_error("numeric::power(): exponent doesn't fit in signed long");
+                        return (new GiNaC::power(*this, exponent))->setflag(status_flags::dynallocated | status_flags::evaluated);
                 }
                 signed long int exp_si = mpz_get_si(ex.v._bigint);
                 PyObject *o, *r;
@@ -1138,7 +1140,7 @@ const numeric numeric::power(const numeric &exponent) const {
                                         mpz_t bigint;
                                         mpz_init(bigint);
                                         mpz_pow_ui(bigint, v._bigint, exp_si);
-                                        return bigint;
+                                        return numeric(bigint);
                                 }
                                 else {
                                         mpz_t bigint;
@@ -1149,7 +1151,7 @@ const numeric numeric::power(const numeric &exponent) const {
                                         mpq_set_z(bigrat, bigint);
                                         mpq_inv(bigrat, bigrat);
                                         mpz_clear(bigint);
-                                        return bigrat;
+                                        return numeric(bigrat);
                                 }
                         case MPQ:
                                 mpz_t bigint;
@@ -1173,16 +1175,33 @@ const numeric numeric::power(const numeric &exponent) const {
                                 }
                                 mpz_clear(bigint);
                                 mpq_clear(obigrat);
-                                return bigrat;
+                                return numeric(bigrat);
                         case PYOBJECT:
                                 o = Integer(exp_si);
                                 r = PyNumber_Power(v._pyobject, o, Py_None);
                                 Py_DECREF(o);
-                                return r;
+                                return numeric(r);
                         default:
                                 stub("invalid type: pow numeric");
                 }
         }
+        if (exponent.t == MPQ) {
+                // can only handle exponents n/d with long n, long d
+                
+                long n = mpz_get_si(mpq_numref(exponent.v._bigrat));
+                unsigned long d = mpz_get_ui(mpq_denref(exponent.v._bigrat));
+                if (t == MPZ) {
+                        mpz_t bigint;
+                        mpz_init(bigint);
+                        mpz_pow_ui(bigint, v._bigint, n);
+                        int ret = mpz_root(bigint, bigint, d);
+                        if (ret)
+                                return numeric(bigint);
+                }
+                return (new GiNaC::power(*this, exponent))->setflag(status_flags::dynallocated | status_flags::evaluated);
+        }
+
+
         if (t != exponent.t) {
                 numeric a, b;
                 coerce(a, b, *this, exponent);
@@ -1271,6 +1290,7 @@ const numeric &numeric::div_dyn(const numeric &other) const {
  *  returns result as a numeric object on the heap.  Use internally only for
  *  direct wrapping into an ex object, where the result would end up on the
  *  heap anyways. */
+// NOTE: Use only if sure to return a non-expression (see power()).
 const numeric &numeric::power_dyn(const numeric &other) const {
         // Efficiency shortcut: trap the neutral exponent (first try by pointer, then
         // try harder, since calls to cln::expt() below may return amazing results for
@@ -1278,8 +1298,7 @@ const numeric &numeric::power_dyn(const numeric &other) const {
         if (&other == _num1_p || (other == *_num1_p))
                 return *this;
 
-        return static_cast<const numeric &> ((new numeric(pow(*this, other)))->
-                setflag(status_flags::dynallocated));
+        return static_cast<const numeric &> ((new numeric(ex_to<numeric>(pow(*this, other))))->setflag(status_flags::dynallocated));
 }
 
 const numeric &numeric::operator=(int i) {

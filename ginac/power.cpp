@@ -570,16 +570,22 @@ ex power::eval(int level) const
 			const bool exponent_is_crational = exponent_is_rational || num_exponent.is_crational();
 			if (!basis_is_crational || !exponent_is_crational) {
 				// return a plain float
-				return (new numeric(num_basis.power(num_exponent)))->setflag(status_flags::dynallocated |
+				ex e = num_basis.power(num_exponent);
+                                if (not is_exactly_a<numeric>(e))
+	                                return (new power(ebasis, eexponent))->setflag(status_flags::dynallocated |
+	                                               status_flags::evaluated);
+                                else
+        				return (new numeric(ex_to<numeric>(e)))->setflag(status_flags::dynallocated |
 				                                                               status_flags::evaluated |
 				                                                               status_flags::expanded);
 			}
 
 			if (exponent_is_rational) {
-				const numeric res = num_basis.power(num_exponent);
-				if (res.is_crational()) {
-					return res;
-				}
+                                ex e = num_basis.power(num_exponent);
+                                if (is_exactly_a<numeric>(e)
+                                                and ex_to<numeric>(e).is_crational()) {
+                                        return ex_to<numeric>(e);
+                                }
 			}
 			GINAC_ASSERT(!num_exponent->is_integer());  // has been handled by now
 
@@ -677,7 +683,7 @@ ex power::eval(int level) const
                                         for (auto & elem : addp->seq)
                                                 elem.coeff = ex_to<numeric>(elem.coeff).div_dyn(icont);
 
-                                        const numeric c = icont.power(num_exponent);
+                                        const numeric c = ex_to<numeric>(icont.power(num_exponent));
                                         if (likely(c != *_num1_p))
                                                 return (new mul(power(*addp, num_exponent), c))->setflag(status_flags::dynallocated);
                                         else

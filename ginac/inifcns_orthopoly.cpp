@@ -32,7 +32,7 @@ static ex hermite_evalf(const ex& n, const ex& x, PyObject* parent)
         std::vector<numeric> numveca, numvecb;
         numveca.push_back(numn / *_num_2_p);
         numveca.push_back(*_num1_2_p + (numn / *_num_2_p));
-        return pow(numx * (*_num2_p), numn) * hypergeometric_pFq(numveca, numvecb, -pow(numx, *_num2_p).inverse(), parent);
+        return pow(numx * (*_num2_p), numn) * hypergeometric_pFq(numveca, numvecb, -ex_to<numeric>(pow(numx, *_num2_p)).inverse(), parent);
 }
 
 static ex hermite_eval(const ex& n, const ex& x)
@@ -60,7 +60,7 @@ static ex hermite_eval(const ex& n, const ex& x)
         // T(n, k) = ((-1)^((n-k)/2))*(2^k)*n!/(k!*((n-k)/2)!) if n-k is even and >=0, else 0.
         // sequentially for all viable k. Effectively there is the recurrence
         // T(n, k) = -(k+2)*(k+1)/(2*(n-k)) * T(n, k+2), with T(n, n) = 2^n
-        numeric coeff = _num2_p->power(numn);
+        numeric coeff = ex_to<numeric>(_num2_p->power(numn));
         ex sum = _ex0;
         int fac = 1;
         while (numn >= 0) {
@@ -136,7 +136,7 @@ static ex gegenb_eval(const ex& n, const ex &a, const ex& x)
 	numeric numer = numa.numer();
 	numeric denom = numa.denom();
 	numeric t = numn.factorial();
-	numeric overall_denom = pow(denom, numn) * t;
+	numeric overall_denom = ex_to<numeric>(pow(denom, numn)) * t;
 
 	unsigned long nn = numn.to_long();
 	numeric p = t / (numeric(nn/2).factorial());
@@ -150,7 +150,7 @@ static ex gegenb_eval(const ex& n, const ex &a, const ex& x)
 		numer += denom;
 	}
 
-	p *= denom.power(nn/2);
+	p *= ex_to<numeric>(denom.power(nn/2));
         ex sum = _ex0;
 	if ((nn%2) != 0u)
 		sum += x*p;
