@@ -37,39 +37,33 @@
 #include "power.h"
 #include "relational.h"
 #include "operators.h"
+#include "matrix.h"
 #include "pseries.h"
 #include "symbol.h"
 #include "utils.h"
-#include "mpoly.h"
 #include "upoly.h"
+#include "mpoly.h"
 
 #include <algorithm>
 #include <map>
 
 namespace GiNaC {
 
-/** Return pointer to first symbol found in expression.  Due to GiNaC's
- *  internal ordering of terms, it may not be obvious which symbol this
- *  function returns for a given expression.
- *
- *  @param e  expression to search
- *  @param x  first symbol found (returned)
- *  @return "false" if no symbol was found, "true" otherwise */
-bool get_first_symbol(const ex &e, ex &x)
-{
-	if (is_exactly_a<symbol>(e)) {
-		x = e;
-		return true;
-	} else if (is_exactly_a<add>(e) || is_exactly_a<mul>(e)) {
-		for (size_t i=0; i<e.nops(); i++)
-			if (get_first_symbol(e.sorted_op(i), x))
-				return true;
-	} else if (is_exactly_a<power>(e)) {
-		if (get_first_symbol(e.op(0), x))
-			return true;
-	}
-	return false;
-}
+// If comparing expressions (ex::compare()) is fast, you can set this to 1.
+// Some routines like quo(), rem() and gcd() will then return a quick answer
+// when they are called with two identical arguments.
+#define FAST_COMPARE 1
+
+// Set this if you want divide_in_z() to use remembering
+#define USE_REMEMBER 0
+
+// Set this if you want divide_in_z() to use trial division followed by
+// polynomial interpolation (always slower except for completely dense
+// polynomials)
+#define USE_TRIAL_DIVISION 0
+
+// Set this to enable some statistical output for the GCD routines
+#define STATISTICS 0
 
 
 /** Compute the integer content (= GCD of all numeric coefficients) of an
@@ -126,196 +120,130 @@ numeric mul::integer_content() const
 }
 
 
-/** Rationalization of non-rational functions.
- *  This function converts a general expression to a rational function
- *  by replacing all non-rational subexpressions (like non-rational numbers,
- *  non-integer powers or functions like sin(), cos() etc.) to temporary
- *  symbols. This makes it possible to use functions like gcd() and divide()
- *  on non-rational functions by applying to_rational() on the arguments,
- *  calling the desired function and re-substituting the temporary symbols
- *  in the result. To make the last step possible, all temporary symbols and
- *  their associated expressions are collected in the map specified by the
- *  repl parameter, ready to be passed as an argument to ex::subs().
- *
- *  @param repl collects all temporary symbols and their replacements
- *  @return rationalized expression */
-ex ex::to_rational(exmap & repl) const
-{
-	return bp->to_rational(repl);
-}
+#if USE_REMEMBER
+/*
+ *  Remembering
+ */
 
-// GiNaC 1.1 compatibility function
-ex ex::to_rational(lst & repl_lst) const
-{
-	// Convert lst to exmap
-	exmap m;
-	for (const auto & elem : repl_lst)
-		m.insert(std::make_pair(elem.op(0), elem.op(1)));
+typedef std::pair<ex, ex> ex2;
+typedef std::pair<ex, bool> exbool;
 
-	ex ret = bp->to_rational(m);
-
-	// Convert exmap back to lst
-	repl_lst.remove_all();
-	for (const auto& elem : m)
-		repl_lst.append(elem.first == elem.second);
-
-	return ret;
-}
-
-ex ex::to_polynomial(exmap & repl) const
-{
-	return bp->to_polynomial(repl);
-}
-
-// GiNaC 1.1 compatibility function
-ex ex::to_polynomial(lst & repl_lst) const
-{
-	// Convert lst to exmap
-	exmap m;
-	for (const auto & elem : repl_lst)
-		m.insert(std::make_pair(elem.op(0), elem.op(1)));
-
-	ex ret = bp->to_polynomial(m);
-
-	// Convert exmap back to lst
-	repl_lst.remove_all();
-	for (const auto& elem : m)
-		repl_lst.append(elem.first == elem.second);
-
-	return ret;
-}
-
-/** Default implementation of ex::to_rational(). This replaces the object with
- *  a temporary symbol. */
-ex basic::to_rational(exmap & repl) const
-{
-	return replace_with_symbol(*this, repl);
-}
-
-ex basic::to_polynomial(exmap & repl) const
-{
-	return replace_with_symbol(*this, repl);
-}
-
-
-/** Implementation of ex::to_rational() for symbols. This returns the
- *  unmodified symbol. */
-ex symbol::to_rational(exmap & repl) const
-{
-	return *this;
-}
-
-/** Implementation of ex::to_polynomial() for symbols. This returns the
- *  unmodified symbol. */
-ex symbol::to_polynomial(exmap & repl) const
-{
-	return *this;
-}
-
-
-/** Implementation of ex::to_rational() for a numeric. It splits complex
- *  numbers into re+I*im and replaces I and non-rational real numbers with a
- *  temporary symbol. */
-ex numeric::to_rational(exmap & repl) const
-{
-	if (is_real()) {
-		if (!is_rational())
-			return replace_with_symbol(*this, repl);
-	} else { // complex
-		numeric re = real();
-		numeric im = imag();
-		ex re_ex = re.is_rational() ? re : replace_with_symbol(re, repl);
-		ex im_ex = im.is_rational() ? im : replace_with_symbol(im, repl);
-		return re_ex + im_ex * replace_with_symbol(I, repl);
-	}
-	return *this;
-}
-
-/** Implementation of ex::to_polynomial() for a numeric. It splits complex
- *  numbers into re+I*im and replaces I and non-integer real numbers with a
- *  temporary symbol. */
-ex numeric::to_polynomial(exmap & repl) const
-{
-	if (is_real()) {
-		if (!is_integer())
-			return replace_with_symbol(*this, repl);
-	} else { // complex
-		numeric re = real();
-		numeric im = imag();
-		ex re_ex = re.is_integer() ? re : replace_with_symbol(re, repl);
-		ex im_ex = im.is_integer() ? im : replace_with_symbol(im, repl);
-		return re_ex + im_ex * replace_with_symbol(I, repl);
-	}
-	return *this;
-}
-
-
-/** Implementation of ex::to_rational() for powers. It replaces non-integer
- *  powers by temporary symbols. */
-ex power::to_rational(exmap & repl) const
-{
-	if (exponent.info(info_flags::integer))
-		return power(basis.to_rational(repl), exponent);
-	else
-		return replace_with_symbol(*this, repl);
-}
-
-/** Implementation of ex::to_polynomial() for powers. It replaces non-posint
- *  powers by temporary symbols. */
-ex power::to_polynomial(exmap & repl) const
-{
-	if (exponent.info(info_flags::posint))
-		return power(basis.to_rational(repl), exponent);
-	else if (exponent.info(info_flags::negint))
+struct ex2_less {
+	bool operator() (const ex2 &p, const ex2 &q) const 
 	{
-		ex basis_pref = collect_common_factors(basis);
-		if (is_exactly_a<mul>(basis_pref) || is_exactly_a<power>(basis_pref)) {
-			// (A*B)^n will be automagically transformed to A^n*B^n
-			ex t = power(basis_pref, exponent);
-			return t.to_polynomial(repl);
-		}
-		else
-			return power(replace_with_symbol(power(basis, _ex_1), repl), -exponent);
-	} 
-	else
-		return replace_with_symbol(*this, repl);
+		int cmp = p.first.compare(q.first);
+		return ((cmp<0) || (!(cmp>0) && p.second.compare(q.second)<0));
+	}
+};
+
+typedef std::map<ex2, exbool, ex2_less> ex2_exbool_remember;
+#endif
+
+
+/** Return maximum (absolute value) coefficient of a polynomial.
+ *  This function is used internally by heur_gcd().
+ *
+ *  @return maximum coefficient
+ *  @see heur_gcd */
+numeric ex::max_coefficient() const
+{
+	return bp->max_coefficient();
+}
+
+/** Implementation ex::max_coefficient().
+ *  @see heur_gcd */
+numeric basic::max_coefficient() const
+{
+	return *_num1_p;
+}
+
+numeric numeric::max_coefficient() const
+{
+	return abs();
+}
+
+numeric add::max_coefficient() const
+{
+	auto it = seq.begin();
+	auto itend = seq.end();
+	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
+	numeric cur_max = abs(ex_to<numeric>(overall_coeff));
+	while (it != itend) {
+		numeric a;
+		GINAC_ASSERT(!is_exactly_a<numeric>(it->rest));
+		a = abs(ex_to<numeric>(it->coeff));
+		if (a > cur_max)
+			cur_max = a;
+		it++;
+	}
+	return cur_max;
+}
+
+numeric mul::max_coefficient() const
+{
+#ifdef DO_GINAC_ASSERT
+	epvector::const_iterator it = seq.begin();
+	epvector::const_iterator itend = seq.end();
+	while (it != itend) {
+		GINAC_ASSERT(!is_exactly_a<numeric>(recombine_pair_to_ex(*it)));
+		it++;
+	}
+#endif // def DO_GINAC_ASSERT
+	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
+	return abs(ex_to<numeric>(overall_coeff));
 }
 
 
-/** Implementation of ex::to_rational() for expairseqs. */
-ex expairseq::to_rational(exmap & repl) const
+/** Apply symmetric modular homomorphism to an expanded multivariate
+ *  polynomial.  This function is usually used internally by heur_gcd().
+ *
+ *  @param xi  modulus
+ *  @return mapped polynomial
+ *  @see heur_gcd */
+ex basic::smod(const numeric &xi) const
 {
-	epvector s;
-	s.reserve(seq.size());
-	auto i = seq.begin(), end = seq.end();
-	while (i != end) {
-		s.push_back(split_ex_to_pair(recombine_pair_to_ex(*i).to_rational(repl)));
-		++i;
-	}
-	ex oc = overall_coeff.to_rational(repl);
-	if (oc.info(info_flags::numeric))
-		return thisexpairseq(s, overall_coeff);
-	else
-		s.push_back(combine_ex_with_coeff_to_pair(oc, _ex1));
-	return thisexpairseq(s, default_overall_coeff());
+	return *this;
 }
 
-/** Implementation of ex::to_polynomial() for expairseqs. */
-ex expairseq::to_polynomial(exmap & repl) const
+ex numeric::smod(const numeric &xi) const
 {
-	epvector s;
-	s.reserve(seq.size());
-	auto i = seq.begin(), end = seq.end();
-	while (i != end) {
-		s.push_back(split_ex_to_pair(recombine_pair_to_ex(*i).to_polynomial(repl)));
-		++i;
+	return GiNaC::smod(*this, xi);
+}
+
+ex add::smod(const numeric &xi) const
+{
+	epvector newseq;
+	newseq.reserve(seq.size()+1);
+	auto it = seq.begin();
+	auto itend = seq.end();
+	while (it != itend) {
+		GINAC_ASSERT(!is_exactly_a<numeric>(it->rest));
+		numeric num_coeff = GiNaC::smod(ex_to<numeric>(it->coeff), xi);
+		if (!num_coeff.is_zero())
+			newseq.push_back(expair(it->rest, num_coeff));
+		it++;
 	}
-	ex oc = overall_coeff.to_polynomial(repl);
-	if (oc.info(info_flags::numeric))
-		return thisexpairseq(s, overall_coeff);
-	else
-		s.push_back(combine_ex_with_coeff_to_pair(oc, _ex1));
-	return thisexpairseq(s, default_overall_coeff());
+	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
+	numeric num_coeff = GiNaC::smod(ex_to<numeric>(overall_coeff), xi);
+	return (new add(newseq, num_coeff))->setflag(status_flags::dynallocated);
+}
+
+ex mul::smod(const numeric &xi) const
+{
+#ifdef DO_GINAC_ASSERT
+	epvector::const_iterator it = seq.begin();
+	epvector::const_iterator itend = seq.end();
+	while (it != itend) {
+		GINAC_ASSERT(!is_exactly_a<numeric>(recombine_pair_to_ex(*it)));
+		it++;
+	}
+#endif // def DO_GINAC_ASSERT
+	auto  mulcopyp = new mul(*this);
+	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
+	mulcopyp->overall_coeff = GiNaC::smod(ex_to<numeric>(overall_coeff),xi);
+	mulcopyp->clearflag(status_flags::evaluated);
+	mulcopyp->clearflag(status_flags::hash_calculated);
+	return mulcopyp->setflag(status_flags::dynallocated);
 }
 
 
@@ -360,7 +288,7 @@ static ex replace_with_symbol(const ex & e, exmap & repl, exmap & rev_lookup)
  *  symbol is returned.
  *  @see basic::to_rational
  *  @see basic::to_polynomial */
-ex replace_with_symbol(const ex & e, exmap & repl)
+static ex replace_with_symbol(const ex & e, exmap & repl)
 {
 	// Since the repl contains replaced expressions we should search for them
 	ex e_replaced = e.subs(repl, subs_options::no_pattern);
@@ -437,43 +365,6 @@ ex numeric::normal(exmap & repl, exmap & rev_lookup, int level) const
 	return (new lst(numex, denom()))->setflag(status_flags::dynallocated);
 }
 
-/** Bring polynomial from Q[X] to Z[X] by multiplying in the previously
- *  determined LCM of the coefficient's denominators.
- *
- *  @param e  multivariate polynomial (need not be expanded)
- *  @param lcm  LCM to multiply in */
-ex multiply_lcm(const ex &e, const numeric &lcm)
-{
-	if (is_exactly_a<mul>(e)) {
-		size_t num = e.nops();
-		exvector v; v.reserve(num + 1);
-		numeric lcm_accum = *_num1_p;
-		for (size_t i=0; i<num; i++) {
-			numeric op_lcm = lcmcoeff(e.op(i), *_num1_p);
-			v.push_back(multiply_lcm(e.op(i), op_lcm));
-			lcm_accum *= op_lcm;
-		}
-		v.push_back(lcm / lcm_accum);
-		return (new mul(v))->setflag(status_flags::dynallocated);
-	} else if (is_exactly_a<add>(e)) {
-		size_t num = e.nops();
-		exvector v; v.reserve(num);
-		for (size_t i=0; i<num; i++)
-			v.push_back(multiply_lcm(e.op(i), lcm));
-		return (new add(v))->setflag(status_flags::dynallocated);
-	} else if (is_exactly_a<power>(e)) {
-		if (is_exactly_a<symbol>(e.op(0)))
-			return e * lcm;
-		else {
-			numeric root_of_lcm = lcm.power(ex_to<numeric>(e.op(1)).inverse());
-			if (root_of_lcm.is_rational())
-				return pow(multiply_lcm(e.op(0), root_of_lcm), e.op(1));
-			else
-				return e * lcm;
-		}
-	} else
-		return e * lcm;
-}
 
 /** Fraction cancellation.
  *  @param n  numerator
@@ -521,7 +412,7 @@ static ex frac_cancel(const ex &n, const ex &d)
 		}
 	} else {
 		ex x;
-		if (get_first_symbol(den, x)) {
+		if (den.get_first_symbol(x)) {
 			GINAC_ASSERT(is_exactly_a<numeric>(den.unit(x)));
 			if (ex_to<numeric>(den.unit(x)).is_negative()) {
 				num *= _ex_1;
@@ -787,328 +678,197 @@ ex ex::numer_denom() const
 		return e.subs(repl, subs_options::no_pattern);
 }
 
-//////////////////////////////////////////////////////////////////////
-// The following ex member functions assume ex is a pölynomial.
-// They should be moved into mpoly-ginac.cpp and declared only ifndef GIAC
 
-/*
- *  Computation of LCM of denominators of coefficients of a polynomial
- */
-
-// Compute LCM of denominators of coefficients by going through the
-// expression recursively (used by lcm_of_coefficients_denominators()
-// and multiply_lcm())
-numeric lcmcoeff(const ex &e, const numeric &l)
-{
-	if (e.info(info_flags::rational))
-		return lcm(ex_to<numeric>(e).denom(), l);
-	else if (is_exactly_a<add>(e)) {
-		numeric c = *_num1_p;
-		for (size_t i=0; i<e.nops(); i++)
-			c = lcmcoeff(e.op(i), c);
-		return lcm(c, l);
-	} else if (is_exactly_a<mul>(e)) {
-		numeric c = *_num1_p;
-		for (size_t i=0; i<e.nops(); i++)
-			c *= lcmcoeff(e.op(i), *_num1_p);
-		return lcm(c, l);
-	} else if (is_exactly_a<power>(e)) {
-		if (is_exactly_a<symbol>(e.op(0)))
-			return l;
-		else
-			return pow(lcmcoeff(e.op(0), l), ex_to<numeric>(e.op(1)));
-	}
-	return l;
-}
-
-/** Compute LCM of denominators of coefficients of a polynomial.
- *  Given a polynomial with rational coefficients, this function computes
- *  the LCM of the denominators of all coefficients. This can be used
- *  to bring a polynomial from Q[X] to Z[X].
+/** Rationalization of non-rational functions.
+ *  This function converts a general expression to a rational function
+ *  by replacing all non-rational subexpressions (like non-rational numbers,
+ *  non-integer powers or functions like sin(), cos() etc.) to temporary
+ *  symbols. This makes it possible to use functions like gcd() and divide()
+ *  on non-rational functions by applying to_rational() on the arguments,
+ *  calling the desired function and re-substituting the temporary symbols
+ *  in the result. To make the last step possible, all temporary symbols and
+ *  their associated expressions are collected in the map specified by the
+ *  repl parameter, ready to be passed as an argument to ex::subs().
  *
- *  @param e  multivariate polynomial (need not be expanded)
- *  @return LCM of denominators of coefficients */
-numeric lcm_of_coefficients_denominators(const ex &e)
+ *  @param repl collects all temporary symbols and their replacements
+ *  @return rationalized expression */
+ex ex::to_rational(exmap & repl) const
 {
-	return lcmcoeff(e, *_num1_p);
+	return bp->to_rational(repl);
 }
 
-/** Return maximum (absolute value) coefficient of a polynomial.
- *  This function is used internally by heur_gcd().
- *
- *  @return maximum coefficient
- *  @see heur_gcd */
-numeric ex::max_coefficient() const
+// GiNaC 1.1 compatibility function
+ex ex::to_rational(lst & repl_lst) const
 {
-	return bp->max_coefficient();
+	// Convert lst to exmap
+	exmap m;
+	for (const auto & elem : repl_lst)
+		m.insert(std::make_pair(elem.op(0), elem.op(1)));
+
+	ex ret = bp->to_rational(m);
+
+	// Convert exmap back to lst
+	repl_lst.remove_all();
+	for (const auto& elem : m)
+		repl_lst.append(elem.first == elem.second);
+
+	return ret;
 }
 
-/** Implementation ex::max_coefficient().
- *  @see heur_gcd */
-numeric basic::max_coefficient() const
+ex ex::to_polynomial(exmap & repl) const
 {
-	return *_num1_p;
+	return bp->to_polynomial(repl);
 }
 
-numeric numeric::max_coefficient() const
+// GiNaC 1.1 compatibility function
+ex ex::to_polynomial(lst & repl_lst) const
 {
-	return abs();
+	// Convert lst to exmap
+	exmap m;
+	for (const auto & elem : repl_lst)
+		m.insert(std::make_pair(elem.op(0), elem.op(1)));
+
+	ex ret = bp->to_polynomial(m);
+
+	// Convert exmap back to lst
+	repl_lst.remove_all();
+	for (const auto& elem : m)
+		repl_lst.append(elem.first == elem.second);
+
+	return ret;
 }
 
-numeric add::max_coefficient() const
+/** Default implementation of ex::to_rational(). This replaces the object with
+ *  a temporary symbol. */
+ex basic::to_rational(exmap & repl) const
 {
-	auto it = seq.begin();
-	auto itend = seq.end();
-	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
-	numeric cur_max = abs(ex_to<numeric>(overall_coeff));
-	while (it != itend) {
-		numeric a;
-		GINAC_ASSERT(!is_exactly_a<numeric>(it->rest));
-		a = abs(ex_to<numeric>(it->coeff));
-		if (a > cur_max)
-			cur_max = a;
-		it++;
-	}
-	return cur_max;
+	return replace_with_symbol(*this, repl);
 }
 
-numeric mul::max_coefficient() const
+ex basic::to_polynomial(exmap & repl) const
 {
-#ifdef DO_GINAC_ASSERT
-	epvector::const_iterator it = seq.begin();
-	epvector::const_iterator itend = seq.end();
-	while (it != itend) {
-		GINAC_ASSERT(!is_exactly_a<numeric>(recombine_pair_to_ex(*it)));
-		it++;
-	}
-#endif // def DO_GINAC_ASSERT
-	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
-	return abs(ex_to<numeric>(overall_coeff));
+	return replace_with_symbol(*this, repl);
 }
 
 
-/** Apply symmetric modular homomorphism to an expanded multivariate
- *  polynomial.  This function is usually used internally by heur_gcd().
- *
- *  @param xi  modulus
- *  @return mapped polynomial
- *  @see heur_gcd */
-ex basic::smod(const numeric &xi) const
+/** Implementation of ex::to_rational() for symbols. This returns the
+ *  unmodified symbol. */
+ex symbol::to_rational(exmap & repl) const
 {
 	return *this;
 }
 
-ex numeric::smod(const numeric &xi) const
+/** Implementation of ex::to_polynomial() for symbols. This returns the
+ *  unmodified symbol. */
+ex symbol::to_polynomial(exmap & repl) const
 {
-	return GiNaC::smod(*this, xi);
+	return *this;
 }
 
-ex add::smod(const numeric &xi) const
+
+/** Implementation of ex::to_rational() for a numeric. It splits complex
+ *  numbers into re+I*im and replaces I and non-rational real numbers with a
+ *  temporary symbol. */
+ex numeric::to_rational(exmap & repl) const
 {
-	epvector newseq;
-	newseq.reserve(seq.size()+1);
-	auto it = seq.begin();
-	auto itend = seq.end();
-	while (it != itend) {
-		GINAC_ASSERT(!is_exactly_a<numeric>(it->rest));
-		numeric num_coeff = GiNaC::smod(ex_to<numeric>(it->coeff), xi);
-		if (!num_coeff.is_zero())
-			newseq.push_back(expair(it->rest, num_coeff));
-		it++;
+	if (is_real()) {
+		if (!is_rational())
+			return replace_with_symbol(*this, repl);
+	} else { // complex
+		numeric re = real();
+		numeric im = imag();
+		ex re_ex = re.is_rational() ? re : replace_with_symbol(re, repl);
+		ex im_ex = im.is_rational() ? im : replace_with_symbol(im, repl);
+		return re_ex + im_ex * replace_with_symbol(I, repl);
 	}
-	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
-	numeric num_coeff = GiNaC::smod(ex_to<numeric>(overall_coeff), xi);
-	return (new add(newseq, num_coeff))->setflag(status_flags::dynallocated);
+	return *this;
 }
 
-ex mul::smod(const numeric &xi) const
+/** Implementation of ex::to_polynomial() for a numeric. It splits complex
+ *  numbers into re+I*im and replaces I and non-integer real numbers with a
+ *  temporary symbol. */
+ex numeric::to_polynomial(exmap & repl) const
 {
-#ifdef DO_GINAC_ASSERT
-	epvector::const_iterator it = seq.begin();
-	epvector::const_iterator itend = seq.end();
-	while (it != itend) {
-		GINAC_ASSERT(!is_exactly_a<numeric>(recombine_pair_to_ex(*it)));
-		it++;
+	if (is_real()) {
+		if (!is_integer())
+			return replace_with_symbol(*this, repl);
+	} else { // complex
+		numeric re = real();
+		numeric im = imag();
+		ex re_ex = re.is_integer() ? re : replace_with_symbol(re, repl);
+		ex im_ex = im.is_integer() ? im : replace_with_symbol(im, repl);
+		return re_ex + im_ex * replace_with_symbol(I, repl);
 	}
-#endif // def DO_GINAC_ASSERT
-	auto  mulcopyp = new mul(*this);
-	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
-	mulcopyp->overall_coeff = GiNaC::smod(ex_to<numeric>(overall_coeff),xi);
-	mulcopyp->clearflag(status_flags::evaluated);
-	mulcopyp->clearflag(status_flags::hash_calculated);
-	return mulcopyp->setflag(status_flags::dynallocated);
-}
-
-/*
- *  Separation of unit part, content part and primitive part of polynomials
- */
-
-/** Compute unit part (= sign of leading coefficient) of a multivariate
- *  polynomial in Q[x]. The product of unit part, content part, and primitive
- *  part is the polynomial itself.
- *
- *  @param x  main variable
- *  @return unit part
- *  @see ex::content, ex::primpart, ex::unitcontprim */
-ex ex::unit(const ex &x) const
-{
-	ex c = expand().lcoeff(x);
-	if (is_exactly_a<numeric>(c))
-		return c.info(info_flags::negative) ?_ex_1 : _ex1;
-	else {
-		ex y;
-		if (get_first_symbol(c, y))
-			return c.unit(y);
-		else
-			throw(std::invalid_argument("invalid expression in unit()"));
-	}
+	return *this;
 }
 
 
-/** Compute content part (= unit normal GCD of all coefficients) of a
- *  multivariate polynomial in Q[x]. The product of unit part, content part,
- *  and primitive part is the polynomial itself.
- *
- *  @param x  main variable
- *  @return content part
- *  @see ex::unit, ex::primpart, ex::unitcontprim */
-ex ex::content(const ex &x) const
+/** Implementation of ex::to_rational() for powers. It replaces non-integer
+ *  powers by temporary symbols. */
+ex power::to_rational(exmap & repl) const
 {
-	if (is_exactly_a<numeric>(*this))
-		return info(info_flags::negative) ? -*this : *this;
-
-	ex e = expand();
-	if (e.is_zero())
-		return _ex0;
-
-	// First, divide out the integer content (which we can calculate very efficiently).
-	// If the leading coefficient of the quotient is an integer, we are done.
-	ex c = e.integer_content();
-	ex r = e / c;
-	int deg = r.degree(x);
-	ex lcoef = r.coeff(x, deg);
-	if (lcoef.info(info_flags::integer))
-		return c;
-
-	// GCD of all coefficients
-	int ldeg = r.ldegree(x);
-	if (deg == ldeg)
-		return lcoef * c / lcoef.unit(x);
-	ex cont = _ex0;
-	for (int i=ldeg; i<=deg; i++)
-		cont = gcdpoly(r.coeff(x, i), cont, nullptr, nullptr, false);
-	return cont * c;
-}
-
-
-/** Compute primitive part of a multivariate polynomial in Q[x]. The result
- *  will be a unit-normal polynomial with a content part of 1. The product
- *  of unit part, content part, and primitive part is the polynomial itself.
- *
- *  @param x  main variable
- *  @return primitive part
- *  @see ex::unit, ex::content, ex::unitcontprim */
-ex ex::primpart(const ex &x) const
-{
-	// We need to compute the unit and content anyway, so call unitcontprim()
-	ex u, c, p;
-	unitcontprim(x, u, c, p);
-	return p;
-}
-
-
-/** Compute primitive part of a multivariate polynomial in Q[x] when the
- *  content part is already known. This function is faster in computing the
- *  primitive part than the previous function.
- *
- *  @param x  main variable
- *  @param c  previously computed content part
- *  @return primitive part */
-ex ex::primpart(const ex &x, const ex &c) const
-{
-	if (is_zero() || c.is_zero())
-		return _ex0;
-	if (is_exactly_a<numeric>(*this))
-		return _ex1;
-
-	// Divide by unit and content to get primitive part
-	ex u = unit(x);
-	if (is_exactly_a<numeric>(c))
-		return *this / (c * u);
+	if (exponent.info(info_flags::integer))
+		return power(basis.to_rational(repl), exponent);
 	else
-		return quo(*this, c * u, x, false);
+		return replace_with_symbol(*this, repl);
 }
 
-
-/** Compute unit part, content part, and primitive part of a multivariate
- *  polynomial in Q[x]. The product of the three parts is the polynomial
- *  itself.
- *
- *  @param x  main variable
- *  @param u  unit part (returned)
- *  @param c  content part (returned)
- *  @param p  primitive part (returned)
- *  @see ex::unit, ex::content, ex::primpart */
-void ex::unitcontprim(const ex &x, ex &u, ex &c, ex &p) const
+/** Implementation of ex::to_polynomial() for powers. It replaces non-posint
+ *  powers by temporary symbols. */
+ex power::to_polynomial(exmap & repl) const
 {
-	// Quick check for zero (avoid expanding)
-	if (is_zero()) {
-		u = _ex1;
-		c = p = _ex0;
-		return;
-	}
-
-	// Special case: input is a number
-	if (is_exactly_a<numeric>(*this)) {
-		if (info(info_flags::negative)) {
-			u = _ex_1;
-			c = abs(ex_to<numeric>(*this));
-		} else {
-			u = _ex1;
-			c = *this;
+	if (exponent.info(info_flags::posint))
+		return power(basis.to_rational(repl), exponent);
+	else if (exponent.info(info_flags::negint))
+	{
+		ex basis_pref = collect_common_factors(basis);
+		if (is_exactly_a<mul>(basis_pref) || is_exactly_a<power>(basis_pref)) {
+			// (A*B)^n will be automagically transformed to A^n*B^n
+			ex t = power(basis_pref, exponent);
+			return t.to_polynomial(repl);
 		}
-		p = _ex1;
-		return;
-	}
-
-	// Expand input polynomial
-	ex e = expand();
-	if (e.is_zero()) {
-		u = _ex1;
-		c = p = _ex0;
-		return;
-	}
-
-	// Compute unit and content
-	u = unit(x);
-	c = content(x);
-
-	// Divide by unit and content to get primitive part
-	if (c.is_zero()) {
-		p = _ex0;
-		return;
-	}
-	if (is_exactly_a<numeric>(c))
-		p = *this / (c * u);
+		else
+			return power(replace_with_symbol(power(basis, _ex_1), repl), -exponent);
+	} 
 	else
-		p = quo(e, c * u, x, false);
+		return replace_with_symbol(*this, repl);
 }
 
-static ex find_common_factor(const ex & e, ex & factor, exmap & repl);
 
-/** Collect common factors in sums. This converts expressions like
- *  'a*(b*x+b*y)' to 'a*b*(x+y)'. */
-ex collect_common_factors(const ex & e)
+/** Implementation of ex::to_rational() for expairseqs. */
+ex expairseq::to_rational(exmap & repl) const
 {
-	if (is_exactly_a<add>(e) || is_exactly_a<mul>(e) || is_exactly_a<power>(e)) {
+	epvector s;
+	s.reserve(seq.size());
+	auto i = seq.begin(), end = seq.end();
+	while (i != end) {
+		s.push_back(split_ex_to_pair(recombine_pair_to_ex(*i).to_rational(repl)));
+		++i;
+	}
+	ex oc = overall_coeff.to_rational(repl);
+	if (oc.info(info_flags::numeric))
+		return thisexpairseq(s, overall_coeff);
+	else
+		s.push_back(combine_ex_with_coeff_to_pair(oc, _ex1));
+	return thisexpairseq(s, default_overall_coeff());
+}
 
-		exmap repl;
-		ex factor = 1;
-		ex r = find_common_factor(e, factor, repl);
-		return factor.subs(repl, subs_options::no_pattern) * r.subs(repl, subs_options::no_pattern);
-
-	} else
-		return e;
+/** Implementation of ex::to_polynomial() for expairseqs. */
+ex expairseq::to_polynomial(exmap & repl) const
+{
+	epvector s;
+	s.reserve(seq.size());
+	auto i = seq.begin(), end = seq.end();
+	while (i != end) {
+		s.push_back(split_ex_to_pair(recombine_pair_to_ex(*i).to_polynomial(repl)));
+		++i;
+	}
+	ex oc = overall_coeff.to_polynomial(repl);
+	if (oc.info(info_flags::numeric))
+		return thisexpairseq(s, overall_coeff);
+	else
+		s.push_back(combine_ex_with_coeff_to_pair(oc, _ex1));
+	return thisexpairseq(s, default_overall_coeff());
 }
 
 
@@ -1201,5 +961,30 @@ term_done:	;
 		return e;
 }
 
+
+/** Collect common factors in sums. This converts expressions like
+ *  'a*(b*x+b*y)' to 'a*b*(x+y)'. */
+ex collect_common_factors(const ex & e)
+{
+	if (is_exactly_a<add>(e) || is_exactly_a<mul>(e) || is_exactly_a<power>(e)) {
+
+		exmap repl;
+		ex factor = 1;
+		ex r = find_common_factor(e, factor, repl);
+		return factor.subs(repl, subs_options::no_pattern) * r.subs(repl, subs_options::no_pattern);
+
+	} else
+		return e;
+}
+
+ex gcd(const ex &a, const ex &b)
+{
+        if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
+                return gcd(ex_to<numeric>(a), ex_to<numeric>(b));
+        exmap repl;
+        ex poly_a = a.to_rational(repl);
+        ex poly_b = b.to_rational(repl);
+        return gcdpoly(poly_a, poly_b).subs(repl, subs_options::no_pattern);
+}
 
 } // namespace GiNaC

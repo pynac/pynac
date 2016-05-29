@@ -29,7 +29,6 @@
 
 #include "ex.h"
 #include "normal.h"
-#include "mpoly.h"
 #include "archive.h"
 #include "print.h"
 
@@ -51,6 +50,8 @@
 #include "expairseq.h"
 #include "add.h"
 #include "mul.h"
+#include "upoly.h"
+#include "mpoly.h"
 
 #include "exprseq.h"
 #include "function.h"

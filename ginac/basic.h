@@ -224,9 +224,6 @@ public:
 	virtual ex normal(exmap & repl, exmap & rev_lookup, int level = 0) const;
 	virtual ex to_rational(exmap & repl) const;
 	virtual ex to_polynomial(exmap & repl) const;
-#ifdef PYNAC_HAVE_LIBGIAC
-        virtual const giac::polynome to_polynome(ex_int_map& map, exvector& revmap);
-#endif
 
 	// polynomial algorithms
 	virtual numeric integer_content() const;
@@ -301,6 +298,9 @@ public:
 
 protected:
 	void ensure_if_modifiable() const;
+#ifdef PYNAC_HAVE_LIBGIAC
+        const giac::polynome to_polynome(ex_int_map& map, exvector& revmap);
+#endif
 
 	// member variables
 protected:

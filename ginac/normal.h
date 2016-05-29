@@ -26,19 +26,12 @@
 #ifndef __GINAC_NORMAL_H__
 #define __GINAC_NORMAL_H__
 
-#include "basic.h"
-
 namespace GiNaC {
-
 class ex;
-class symbol;
 
-extern bool get_first_symbol(const ex &e, ex &x);
+// Collect common factors in sums.
 extern ex collect_common_factors(const ex & e);
-extern ex replace_with_symbol(const ex & e, exmap & repl);
-extern numeric lcm_of_coefficients_denominators(const ex &e);
-extern numeric lcmcoeff(const ex &e, const numeric &l);
-extern ex multiply_lcm(const ex &e, const numeric &lcm);
+extern ex gcd(const ex & e1, const ex & e2);
 
 } // namespace GiNaC
 

@@ -1,13 +1,9 @@
 /** @file mpoly.h
  *
- *  This file declares several functions that work on
- *  multivariate polynomials and rational functions.
- *  These functions include polynomial quotient and remainder, GCD and LCM
- *  computation, square-free factorization and rational function normalization. */
+ *  This file defines several functions that work on multivariate polynomials.
 
-/*
  *  GiNaC Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
- *        Copyright (C) 2016 Ralf Stephan
+ *                  (C) 2016 Ralf Stephan
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,17 +20,37 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __PYNAC_MPOLY_H__
-#define __PYNAC_MPOLY_H__
+#ifndef __GINAC_MPOLY_H__
+#define __GINAC_MPOLY_H__
 
+#include "lst.h"
 
 namespace GiNaC {
 
 class ex;
 class symbol;
 
-extern ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true);
-extern ex gcd(const ex &a, const ex &b);
+// Polynomial GCD in Z[X], cofactors are returned in ca and cb, if desired
+extern ex gcdpoly(const ex &a, const ex &b, ex *ca = nullptr, ex *cb = nullptr, bool check_args = true);
+
+// Polynomial LCM in Z[X]
+extern ex lcm(const ex &a, const ex &b, bool check_args = true);
+
+extern numeric lcm_of_coefficients_denominators(const ex &e);
+extern ex multiply_lcm(const ex &e, const numeric &lcm);
+
+// Square-free factorization of a polynomial a(x)
+extern ex sqrfree(const ex &a, const lst &l = lst());
+
+// Square-free partial fraction decomposition of a rational function a(x)
+extern ex sqrfree_parfrac(const ex & a, const symbol & x);
+
+// Collect common factors in sums.
+extern ex collect_common_factors(const ex & e);
+
+// Resultant of two polynomials e1,e2 with respect to symbol s.
+extern ex resultant(const ex & e1, const ex & e2, const ex & s);
+
 } // namespace GiNaC
 
-#endif // __PYNAC_MPOLY_H__
+#endif // ndef __GINAC_MPOLY_H__

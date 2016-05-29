@@ -26,13 +26,13 @@
 #include "idx.h"
 #include "indexed.h"
 #include "add.h"
-#include "mul.h"
 #include "power.h"
 #include "symbol.h"
 #include "operators.h"
+#include "normal.h"
 #include "archive.h"
 #include "utils.h"
-#include "normal.h"
+#include "upoly.h"
 
 #include <string>
 #include <iostream>
@@ -1339,140 +1339,6 @@ int matrix::division_free_elimination(const bool det)
 	return sign;
 }
 
-/** Exact polynomial division of a(X) by b(X) in Q[X].
- *  
- *  @param a  first multivariate polynomial (dividend)
- *  @param b  second multivariate polynomial (divisor)
- *  @param q  quotient (returned)
- *  @param check_args  check whether a and b are polynomials with rational
- *         coefficients (defaults to "true")
- *  @return "true" when exact division succeeds (quotient returned in q),
- *          "false" otherwise (q left untouched) */
-bool divide_ex(const ex &a, const ex &b, ex &q, bool check_args)
-{
-	if (b.is_zero())
-		throw(std::overflow_error("divide: division by zero"));
-	if (a.is_zero()) {
-		q = _ex0;
-		return true;
-	}
-	if (is_exactly_a<numeric>(b)) {
-		q = a / b;
-		return true;
-	} else if (is_exactly_a<numeric>(a))
-		return false;
-#if FAST_COMPARE
-	if (a.is_equal(b)) {
-		q = _ex1;
-		return true;
-	}
-#endif
-	if (check_args && (!a.info(info_flags::rational_polynomial) ||
-	                   !b.info(info_flags::rational_polynomial)))
-		throw(std::invalid_argument("divide: arguments must be polynomials over the rationals"));
-
-	// Find first symbol
-	ex x;
-	if (!get_first_symbol(a, x) && !get_first_symbol(b, x))
-		throw(std::invalid_argument("invalid expression in divide()"));
-
-	// Try to avoid expanding partially factored expressions.
-	if (is_exactly_a<mul>(b)) {
-	// Divide sequentially by each term
-		ex rem_new, rem_old = a;
-		for (size_t i=0; i < b.nops(); i++) {
-			if (! divide_ex(rem_old, b.op(i), rem_new, false))
-				return false;
-			rem_old = rem_new;
-		}
-		q = rem_new;
-		return true;
-	} else if (is_exactly_a<power>(b)) {
-		const ex& bb(b.op(0));
-		int exp_b = ex_to<numeric>(b.op(1)).to_int();
-		ex rem_new, rem_old = a;
-		for (int i=exp_b; i>0; i--) {
-			if (! divide_ex(rem_old, bb, rem_new, false))
-				return false;
-			rem_old = rem_new;
-		}
-		q = rem_new;
-		return true;
-	} 
-	
-	if (is_exactly_a<mul>(a)) {
-		// Divide sequentially each term. If some term in a is divisible 
-		// by b we are done... and if not, we can't really say anything.
-		size_t i;
-		ex rem_i;
-		bool divisible_p = false;
-		for (i=0; i < a.nops(); ++i) {
-			if (divide_ex(a.op(i), b, rem_i, false)) {
-				divisible_p = true;
-				break;
-			}
-		}
-		if (divisible_p) {
-			exvector resv;
-			resv.reserve(a.nops());
-			for (size_t j=0; j < a.nops(); j++) {
-				if (j==i)
-					resv.push_back(rem_i);
-				else
-					resv.push_back(a.op(j));
-			}
-			q = (new mul(resv))->setflag(status_flags::dynallocated);
-			return true;
-		}
-	} else if (is_exactly_a<power>(a)) {
-		// The base itself might be divisible by b, in that case we don't
-		// need to expand a
-		const ex& ab(a.op(0));
-		int a_exp = ex_to<numeric>(a.op(1)).to_int();
-		ex rem_i;
-		if (divide_ex(ab, b, rem_i, false)) {
-			q = rem_i*power(ab, a_exp - 1);
-			return true;
-		}
-		for (int i=2; i < a_exp; i++) {
-			if (divide_ex(power(ab, i), b, rem_i, false)) {
-				q = rem_i*power(ab, a_exp - i);
-				return true;
-			}
-		} // ... so we *really* need to expand expression.
-	}
-	
-	// Polynomial long division (recursive)
-	ex r = a.expand();
-	if (r.is_zero()) {
-		q = _ex0;
-		return true;
-	}
-	int bdeg = b.degree(x);
-	int rdeg = r.degree(x);
-	ex blcoeff = b.expand().coeff(x, bdeg);
-	bool blcoeff_is_numeric = is_exactly_a<numeric>(blcoeff);
-	exvector v; v.reserve(std::max(rdeg - bdeg + 1, 0));
-	while (rdeg >= bdeg) {
-		ex term, rcoeff = r.coeff(x, rdeg);
-		if (blcoeff_is_numeric)
-			term = rcoeff / blcoeff;
-		else
-			if (!divide_ex(rcoeff, blcoeff, term, false))
-				return false;
-		term *= power(x, rdeg - bdeg);
-		v.push_back(term);
-		r -= (term * b).expand();
-		if (r.is_zero()) {
-			q = (new add(v))->setflag(status_flags::dynallocated);
-			return true;
-		}
-		rdeg = r.degree(x);
-	}
-	return false;
-}
-
-
 
 /** Perform the steps of Bareiss' one-step fraction free elimination to bring
  *  the matrix into an upper echelon form.  Fraction free elimination means
@@ -1525,7 +1391,7 @@ int matrix::fraction_free_elimination(const bool det)
 	// We populate temporary matrices to subsequently operate on.  There is
 	// one holding numerators and another holding denominators of entries.
 	// This is a must since the evaluator (or even earlier mul's constructor)
-	// might cancel some trivial element which causes divide_ex() to fail.  The
+	// might cancel some trivial element which causes divide() to fail.  The
 	// elements are normalized first (yes, even though this algorithm doesn't
 	// need GCDs) since the elements of *this might be unnormalized, which
 	// makes things more complicated than they need to be.
@@ -1573,9 +1439,9 @@ int matrix::fraction_free_elimination(const bool det)
 					              tmp_d.m[r0*n+c0]*tmp_d.m[r2*n+c]).expand();
 					dividend_d = (tmp_d.m[r2*n+c0]*tmp_d.m[r0*n+c]*
 					              tmp_d.m[r0*n+c0]*tmp_d.m[r2*n+c]).expand();
-					bool check = divide_ex(dividend_n, divisor_n,
+					bool check = divide(dividend_n, divisor_n,
 					                    tmp_n.m[r2*n+c], true);
-					check &= static_cast<int>(divide_ex(dividend_d, divisor_d,
+					check &= static_cast<int>(divide(dividend_d, divisor_d,
 					                tmp_d.m[r2*n+c], true));
 					GINAC_ASSERT(check);
 				}

@@ -52,36 +52,27 @@ namespace GiNaC {
 
 static unsigned int the_dimension = 7;
 
+static giac::context * context_ptr=nullptr;
+
 inline giac::polynome gen2pol(const giac::gen& g) {
         return giac::polynome(giac::monomial<giac::gen>(g, the_dimension));
 }
 
-static giac::gen giac_zero = giac::gen(std::string("0"), giac::context0);
-static giac::gen giac_one = giac::gen(std::string("1"), giac::context0);
-
 inline giac::gen num2gen(const numeric& n) {
-        if (n.is_integer()) {
-                mpz_t bigint;
-                mpz_init(bigint);
-                bool ret = n.get_mpz(bigint);
-                if (ret) {
-                        giac::gen g(bigint);
-                        mpz_clear(bigint);
-                        return g;
-                }
-                else
-                        throw std::runtime_error("num2gen: can't happen");
-                mpz_clear(bigint);
-        }
+        auto gp = n.to_giacgen(context_ptr);
+        if (gp != nullptr)
+                return std::move(*gp);
         else {
                 std::stringstream ss;
                 ss << n;
-                return giac::gen(std::string(ss.str()), giac::context0);
+                return giac::gen(std::string(ss.str()), context_ptr);
         }
 }
 
 static giac::polynome replace_with_symbol(const ex& e, ex_int_map& map, exvector& revmap)
 {
+        const giac::gen giac_one = giac::gen(std::string("1"), context_ptr);
+
         // Expression already replaced? Then return the assigned symbol
         auto it = map.find(e);
         if (it != map.end()) {
@@ -107,6 +98,9 @@ const giac::polynome basic::to_polynome(ex_int_map& map, exvector& revmap)
 // TODO: special case numeric mpz_t, int instead of string interface
 const giac::polynome ex::to_polynome(ex_int_map& map, exvector& revmap) const
 {
+        const giac::gen giac_zero = giac::gen(std::string("0"), context_ptr);
+        const giac::gen giac_one = giac::gen(std::string("1"), context_ptr);
+
         if (is_exactly_a<add>(*this))
         {
                 const add& a = ex_to<add>(*this);
@@ -204,6 +198,8 @@ static ex polynome_to_ex(const giac::polynome& p, const exvector& revmap)
 // GCD of two exes which are in polynomial form
 ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
 {
+        if (context_ptr == nullptr)
+                context_ptr=new giac::context();
         symbolset s1 = a.symbols();
         const symbolset& s2 = b.symbols();
         s1.insert(s2.begin(), s2.end());
@@ -218,15 +214,246 @@ ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_
         return polynome_to_ex(d, revmap);
 }
 
-ex gcd(const ex &a, const ex &b)
+/*
+ *  Separation of unit part, content part and primitive part of polynomials
+ */
+
+/** Compute unit part (= sign of leading coefficient) of a multivariate
+ *  polynomial in Q[x]. The product of unit part, content part, and primitive
+ *  part is the polynomial itself.
+ *
+ *  @param x  main variable
+ *  @return unit part
+ *  @see ex::content, ex::primpart, ex::unitcontprim */
+ex ex::unit(const ex &x) const
 {
-        if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
-                return gcd(ex_to<numeric>(a), ex_to<numeric>(b));
-        exmap repl;
-        ex poly_a = a.to_polynomial(repl);
-        ex poly_b = b.to_polynomial(repl);
-        return gcdpoly(poly_a, poly_b).subs(repl, subs_options::no_pattern);
+	ex c = expand().lcoeff(x);
+	if (is_exactly_a<numeric>(c))
+		return c.info(info_flags::negative) ?_ex_1 : _ex1;
+	else {
+		ex y;
+		if (c.get_first_symbol(y))
+			return c.unit(y);
+		else
+			throw(std::invalid_argument("invalid expression in unit()"));
+	}
 }
+
+
+/** Compute content part (= unit normal GCD of all coefficients) of a
+ *  multivariate polynomial in Q[x]. The product of unit part, content part,
+ *  and primitive part is the polynomial itself.
+ *
+ *  @param x  main variable
+ *  @return content part
+ *  @see ex::unit, ex::primpart, ex::unitcontprim */
+ex ex::content(const ex &x) const
+{
+	if (is_exactly_a<numeric>(*this))
+		return info(info_flags::negative) ? -*this : *this;
+
+	ex e = expand();
+	if (e.is_zero())
+		return _ex0;
+
+	// First, divide out the integer content (which we can calculate very efficiently).
+	// If the leading coefficient of the quotient is an integer, we are done.
+	ex c = e.integer_content();
+	ex r = e / c;
+	int deg = r.degree(x);
+	ex lcoef = r.coeff(x, deg);
+	if (lcoef.info(info_flags::integer))
+		return c;
+
+	// GCD of all coefficients
+	int ldeg = r.ldegree(x);
+	if (deg == ldeg)
+		return lcoef * c / lcoef.unit(x);
+	ex cont = _ex0;
+	for (int i=ldeg; i<=deg; i++)
+		cont = gcdpoly(r.coeff(x, i), cont, nullptr, nullptr, false);
+	return cont * c;
+}
+
+
+/** Compute primitive part of a multivariate polynomial in Q[x]. The result
+ *  will be a unit-normal polynomial with a content part of 1. The product
+ *  of unit part, content part, and primitive part is the polynomial itself.
+ *
+ *  @param x  main variable
+ *  @return primitive part
+ *  @see ex::unit, ex::content, ex::unitcontprim */
+ex ex::primpart(const ex &x) const
+{
+	// We need to compute the unit and content anyway, so call unitcontprim()
+	ex u, c, p;
+	unitcontprim(x, u, c, p);
+	return p;
+}
+
+
+/** Compute primitive part of a multivariate polynomial in Q[x] when the
+ *  content part is already known. This function is faster in computing the
+ *  primitive part than the previous function.
+ *
+ *  @param x  main variable
+ *  @param c  previously computed content part
+ *  @return primitive part */
+ex ex::primpart(const ex &x, const ex &c) const
+{
+	if (is_zero() || c.is_zero())
+		return _ex0;
+	if (is_exactly_a<numeric>(*this))
+		return _ex1;
+
+	// Divide by unit and content to get primitive part
+	ex u = unit(x);
+	if (is_exactly_a<numeric>(c))
+		return *this / (c * u);
+	else
+		return quo(*this, c * u, x, false);
+}
+
+
+/** Compute unit part, content part, and primitive part of a multivariate
+ *  polynomial in Q[x]. The product of the three parts is the polynomial
+ *  itself.
+ *
+ *  @param x  main variable
+ *  @param u  unit part (returned)
+ *  @param c  content part (returned)
+ *  @param p  primitive part (returned)
+ *  @see ex::unit, ex::content, ex::primpart */
+void ex::unitcontprim(const ex &x, ex &u, ex &c, ex &p) const
+{
+	// Quick check for zero (avoid expanding)
+	if (is_zero()) {
+		u = _ex1;
+		c = p = _ex0;
+		return;
+	}
+
+	// Special case: input is a number
+	if (is_exactly_a<numeric>(*this)) {
+		if (info(info_flags::negative)) {
+			u = _ex_1;
+			c = abs(ex_to<numeric>(*this));
+		} else {
+			u = _ex1;
+			c = *this;
+		}
+		p = _ex1;
+		return;
+	}
+
+	// Expand input polynomial
+	ex e = expand();
+	if (e.is_zero()) {
+		u = _ex1;
+		c = p = _ex0;
+		return;
+	}
+
+	// Compute unit and content
+	u = unit(x);
+	c = content(x);
+
+	// Divide by unit and content to get primitive part
+	if (c.is_zero()) {
+		p = _ex0;
+		return;
+	}
+	if (is_exactly_a<numeric>(c))
+		p = *this / (c * u);
+	else
+		p = quo(e, c * u, x, false);
+}
+
+/*
+ *  Computation of LCM of denominators of coefficients of a polynomial
+ */
+
+// Compute LCM of denominators of coefficients by going through the
+// expression recursively (used internally by lcm_of_coefficients_denominators())
+static numeric lcmcoeff(const ex &e, const numeric &l)
+{
+	if (e.info(info_flags::rational))
+		return lcm(ex_to<numeric>(e).denom(), l);
+	else if (is_exactly_a<add>(e)) {
+		numeric c = *_num1_p;
+		for (size_t i=0; i<e.nops(); i++)
+			c = lcmcoeff(e.op(i), c);
+		return lcm(c, l);
+	} else if (is_exactly_a<mul>(e)) {
+		numeric c = *_num1_p;
+		for (size_t i=0; i<e.nops(); i++)
+			c *= lcmcoeff(e.op(i), *_num1_p);
+		return lcm(c, l);
+	} else if (is_exactly_a<power>(e)) {
+		if (is_exactly_a<symbol>(e.op(0)))
+			return l;
+		else {
+			ex t = pow(lcmcoeff(e.op(0), l), ex_to<numeric>(e.op(1)));
+                        if (is_exactly_a<numeric>(t))
+                                return ex_to<numeric>(t);
+                        else
+                                return l;
+                }
+	}
+	return l;
+}
+
+/** Compute LCM of denominators of coefficients of a polynomial.
+ *  Given a polynomial with rational coefficients, this function computes
+ *  the LCM of the denominators of all coefficients. This can be used
+ *  to bring a polynomial from Q[X] to Z[X].
+ *
+ *  @param e  multivariate polynomial (need not be expanded)
+ *  @return LCM of denominators of coefficients */
+numeric lcm_of_coefficients_denominators(const ex &e)
+{
+	return lcmcoeff(e, *_num1_p);
+}
+
+/** Bring polynomial from Q[X] to Z[X] by multiplying in the previously
+ *  determined LCM of the coefficient's denominators.
+ *
+ *  @param e  multivariate polynomial (need not be expanded)
+ *  @param lcm  LCM to multiply in */
+ex multiply_lcm(const ex &e, const numeric &lcm)
+{
+	if (is_exactly_a<mul>(e)) {
+		size_t num = e.nops();
+		exvector v; v.reserve(num + 1);
+		numeric lcm_accum = *_num1_p;
+		for (size_t i=0; i<num; i++) {
+			numeric op_lcm = lcmcoeff(e.op(i), *_num1_p);
+			v.push_back(multiply_lcm(e.op(i), op_lcm));
+			lcm_accum *= op_lcm;
+		}
+		v.push_back(lcm / lcm_accum);
+		return (new mul(v))->setflag(status_flags::dynallocated);
+	} else if (is_exactly_a<add>(e)) {
+		size_t num = e.nops();
+		exvector v; v.reserve(num);
+		for (size_t i=0; i<num; i++)
+			v.push_back(multiply_lcm(e.op(i), lcm));
+		return (new add(v))->setflag(status_flags::dynallocated);
+	} else if (is_exactly_a<power>(e)) {
+		if (is_exactly_a<symbol>(e.op(0)))
+			return e * lcm;
+		else {
+			ex root_of_lcm = lcm.power(ex_to<numeric>(e.op(1)).inverse());
+			if (is_exactly_a<numeric>(root_of_lcm)
+                                        and ex_to<numeric>(root_of_lcm).is_rational())
+				return pow(multiply_lcm(e.op(0), ex_to<numeric>(root_of_lcm)), e.op(1));
+			else
+				return e * lcm;
+		}
+	} else
+		return e * lcm;
+}
+
 
 } // namespace GiNaC
 
