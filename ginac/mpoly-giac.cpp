@@ -53,6 +53,9 @@ namespace GiNaC {
 static unsigned int the_dimension = 7;
 
 static giac::context * context_ptr=nullptr;
+static giac::gen giac_zero;
+static giac::gen giac_one;
+
 
 inline giac::polynome gen2pol(const giac::gen& g) {
         return giac::polynome(giac::monomial<giac::gen>(g, the_dimension));
@@ -71,8 +74,6 @@ inline giac::gen num2gen(const numeric& n) {
 
 static giac::polynome replace_with_symbol(const ex& e, ex_int_map& map, exvector& revmap)
 {
-        const giac::gen giac_one = giac::gen(std::string("1"), context_ptr);
-
         // Expression already replaced? Then return the assigned symbol
         auto it = map.find(e);
         if (it != map.end()) {
@@ -98,9 +99,6 @@ const giac::polynome basic::to_polynome(ex_int_map& map, exvector& revmap)
 // TODO: special case numeric mpz_t, int instead of string interface
 const giac::polynome ex::to_polynome(ex_int_map& map, exvector& revmap) const
 {
-        const giac::gen giac_zero = giac::gen(std::string("0"), context_ptr);
-        const giac::gen giac_one = giac::gen(std::string("1"), context_ptr);
-
         if (is_exactly_a<add>(*this))
         {
                 const add& a = ex_to<add>(*this);
@@ -199,8 +197,12 @@ static ex polynome_to_ex(const giac::polynome& p, const exvector& revmap)
 ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
 {
 //        std::cerr << "gcd(" << a << "," << b << ") = ";
-        if (context_ptr == nullptr)
+        if (context_ptr == nullptr) {
                 context_ptr=new giac::context();
+                giac_zero = giac::gen(std::string("0"), context_ptr);
+                giac_one = giac::gen(std::string("1"), context_ptr);
+        }
+
         if (a.is_zero())
                 return b;
         if (b.is_zero())
