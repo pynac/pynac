@@ -198,8 +198,13 @@ static ex polynome_to_ex(const giac::polynome& p, const exvector& revmap)
 // GCD of two exes which are in polynomial form
 ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_args=true)
 {
+//        std::cerr << "gcd(" << a << "," << b << ") = ";
         if (context_ptr == nullptr)
                 context_ptr=new giac::context();
+        if (a.is_zero())
+                return b;
+        if (b.is_zero())
+                return a;
         symbolset s1 = a.symbols();
         const symbolset& s2 = b.symbols();
         s1.insert(s2.begin(), s2.end());
@@ -211,6 +216,21 @@ ex gcdpoly(const ex &a, const ex &b, ex *ca=nullptr, ex *cb=nullptr, bool check_
         giac::polynome q = b.to_polynome(map, revmap);
         giac::polynome d(the_dimension);
         giac::gcd(p, q, d);
+//        std::cerr << polynome_to_ex(d, revmap) << '\n';
+        if (ca != nullptr) {
+                giac::polynome quo;
+                if (giac::exactquotient(p, d, quo))
+                        *ca = polynome_to_ex(quo, revmap);
+                else
+                        throw(std::runtime_error("can't happen in gcdpoly"));
+        }
+        if (cb != nullptr) {
+                giac::polynome quo;
+                if (giac::exactquotient(q, d, quo))
+                        *cb = polynome_to_ex(quo, revmap);
+                else
+                        throw(std::runtime_error("can't happen in gcdpoly"));
+        }
         return polynome_to_ex(d, revmap);
 }
 
