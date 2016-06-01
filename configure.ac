@@ -109,7 +109,7 @@ AC_ARG_WITH([giac],
 
 LIBGIAC=
 AS_IF([test "x$with_giac" != xno],
-  [AC_CHECK_LIB([giac], [_ZN4giac7versionEv],
+  [AC_CHECK_LIB([giac], [ConvertUTF16toUTF8],
       [AC_SUBST([LIBGIAC], ["-lgiac"])
        AC_DEFINE([HAVE_LIBGIAC], [1],
                  [Define if you have libgiac])
