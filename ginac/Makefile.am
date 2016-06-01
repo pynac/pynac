@@ -7,7 +7,7 @@ libpynac_la_SOURCES = add.cpp archive.cpp assume.cpp basic.cpp clifford.cpp \
   inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp inifcns_hyperb.cpp \
   inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
   inifcns_orthopoly.cpp \
-  integral.cpp lst.cpp matrix.cpp mpoly-ginac.cpp \
+  integral.cpp lst.cpp matrix.cpp mpoly-giac.cpp mpoly-ginac.cpp \
   mul.cpp ncmul.cpp normal.cpp numeric.cpp \
   operators.cpp power.cpp py_funcs.cpp registrar.cpp relational.cpp remember.cpp \
   pseries.cpp print.cpp symbol.cpp symmetry.cpp tensor.cpp upoly-ginac.cpp \
@@ -22,7 +22,7 @@ libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 endif
 libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter
 
-libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS)
+libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) $(LIBGIAC)
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h class_info.h \
   clifford.h constant.h infinity.h container.h ex.h expair.h expairseq.h \

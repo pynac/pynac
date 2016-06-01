@@ -101,6 +101,25 @@ AC_LIBTOOL_WIN32_DLL
 AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs gmp headers]))
 AC_SEARCH_LIBS([__gmpz_get_str], [gmp], [], [AC_MSG_ERROR([This package needs libgmp])])
 
+AC_ARG_WITH([giac],
+  [AS_HELP_STRING([--with-giac],
+    [use giac for polynomial manipulations @<:@default=check@:>@])],
+  [],
+  [with_giac=check])
+
+LIBGIAC=
+AS_IF([test "x$with_giac" != xno],
+  [AC_CHECK_LIB([giac], [_ZN4giac7versionEv],
+      [AC_SUBST([LIBGIAC], ["-lgiac"])
+       AC_DEFINE([HAVE_LIBGIAC], [1],
+                 [Define if you have libgiac])
+      ],
+      [if test "x$with_giac" != xcheck; then
+         AC_MSG_FAILURE(
+           [--with-giac was given, but test for giac failed])
+       fi
+      ], -lgmp)])
+
 dnl Check for data types which are needed by the hash function 
 dnl (golden_ratio_hash).
 AC_CHECK_SIZEOF(int)
