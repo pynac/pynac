@@ -20,11 +20,11 @@ dnl http://www.freesoftwaremagazine.com/articles/building_shared_libraries_once_
 dnl if you change this YOU MUST also change the libtool version below
 m4_define([ginac_major_version], [0])
 m4_define([ginac_minor_version], [6])
-m4_define([ginac_micro_version], [7])
+m4_define([ginac_micro_version], [8])
 
-m4_define([lt_current], [4])
-m4_define([lt_revision], [2])
-m4_define([lt_age], [2])
+m4_define([lt_current], [5])
+m4_define([lt_revision], [0])
+m4_define([lt_age], [3])
 
 
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
