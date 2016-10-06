@@ -1,5 +1,8 @@
 This file records noteworthy changes.
 
+(for Pynac-specific changes please see
+https://github.com/pynac/pynac/wiki/Changelog)
+
 1.4.3 (04 April 2008)
 * Fixed bug in numerical evaluation of multiple polylogarithms and
   alternating multiple zeta values introduced in version 1.4.2.
@@ -93,7 +96,7 @@ Backporting bug-fix release from version 1.4.1.
 * Code clean-up and preparations for upcoming cln 1.2.
 
 1.3.3 (24 October 2005)
-* Fixed bug occuring in algebraic substitutions with expressions involving
+* Fixed bug occurring in algebraic substitutions with expressions involving
   indices.
 * Fixed bug that selected the wrong algorithm for determinants of purely
   numeric matrices with at least one floating point element.
@@ -533,7 +536,7 @@ Backporting bug-fix release from version 1.4.1.
   doesn't do anything.
   Limitations:
    - substituting numerics (subs(expr, 2==4)) will not replace then in all
-     occurences; in general, you shouldn't substitute numerics, though.
+     occurrences; in general, you shouldn't substitute numerics, though.
 * Added preliminary (re)implementations of color and clifford classes.
 * simplify_indexed(): contraction of symmetric and antisymmetric tensors
   is zero.
