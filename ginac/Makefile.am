@@ -31,6 +31,6 @@ ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h cl
   ncmul.h normal.h numeric.h operators.h \
   power.h print.h pseries.h ptr.h registrar.h relational.h extern_templates.h \
   symbol.h symmetry.h tensor.h version.h wildcard.h order.h templates.h \
-  infoflagbase.h assume.h upoly.h useries.h
+  infoflagbase.h assume.h upoly.h useries.h useries-flint.h
 
 EXTRA_DIST = version.h.in
