@@ -15,9 +15,9 @@
         "file": "/home/ralf/sage/pynac/ginac/add.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-lst.o /home/ralf/sage/pynac/ginac/lst.cpp", 
+        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-useries.o /home/ralf/sage/pynac/ginac/useries.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
-        "file": "/home/ralf/sage/pynac/ginac/lst.cpp"
+        "file": "/home/ralf/sage/pynac/ginac/useries.cpp"
     }, 
     {
         "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-clifford.o /home/ralf/sage/pynac/ginac/clifford.cpp", 
