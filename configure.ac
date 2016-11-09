@@ -101,6 +101,9 @@ AC_LIBTOOL_WIN32_DLL
 AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs gmp headers]))
 AC_SEARCH_LIBS([__gmpz_get_str], [gmp], [], [AC_MSG_ERROR([This package needs libgmp])])
 
+AC_CHECK_HEADERS([flint/fmpq_poly.h], , AC_MSG_ERROR([This package needs flint headers]))
+AC_SEARCH_LIBS([fmpq_get_mpz_frac], [flint], [], [AC_MSG_ERROR([This package needs libflint])])
+
 AC_ARG_WITH([giac],
   [AS_HELP_STRING([--with-giac],
     [use giac for polynomial manipulations @<:@default=check@:>@])],
