@@ -1009,4 +1009,26 @@ ex gcd(const ex &a, const ex &b)
         return gcdpoly(poly_a, poly_b).subs(repl, subs_options::no_pattern);
 }
 
+bool factor(const ex& the_ex, ex& res_ex)
+{
+#ifndef PYNAC_HAVE_LIBGIAC
+        return false;
+#else
+        extern bool factorpoly(const ex& the_ex, ex& res_prod);
+        if (is_exactly_a<numeric>(the_ex)) {
+                res_ex = the_ex;
+                return true;
+        }
+        exmap repl;
+        ex res_rat;
+        ex rat = the_ex.to_rational(repl);
+        bool res = factorpoly(rat, res_rat);
+        if (res)
+                res_ex = res_rat.subs(repl, subs_options::no_pattern);
+        else
+                res_ex = the_ex;
+        return true;
+#endif
+}
+
 } // namespace GiNaC
