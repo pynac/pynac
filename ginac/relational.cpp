@@ -461,7 +461,7 @@ relational::result relational::decide() const
                         return result::False;
         }
 
-	const ex df = lh-rh;
+	const ex df = (lh-rh).expand();
 //        This will only work when Pynac knows about existing assumptions
 //        if ((not df.info(info_flags::real)) and o!=equal and o!=not_equal)
 //                return result::undecidable;
