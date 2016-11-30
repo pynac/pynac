@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: pynac
 Description: C++/Python library for symbolic calculations
 Version: @VERSION@
-Requires: python-@PYTHON_VERSION@
-Libs: -L${libdir} -lpynac -lgmp
+Requires: python-@PYTHON_VERSION@ factory
+Libs: -L${libdir} -lpynac -flint -lgmp
 Cflags: -I${includedir}
