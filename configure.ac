@@ -151,8 +151,13 @@ if test "x$CONFIG_RUSAGE" = "xno"; then
     AC_CHECK_HEADER(ctime, , GINAC_ERROR([The standard <ctime> header file could not be found.]))
 fi
 
-AC_CHECK_HEADERS([factory/factory.h], , AC_MSG_ERROR([This package needs Singular-factory headers]))
-AC_SEARCH_LIBS([_Z17setCharacteristici], [factory], [], [AC_MSG_ERROR([This package needs libfactory])])
+PKG_PROG_PKG_CONFIG
+
+dnl Find Singular's factory header and library with pkg-config
+PKG_CHECK_MODULES([FACTORY], [factory],[
+    AC_SUBST(FACTORY_CFLAGS)
+    AC_SUBST(FACTORY_LIBS)],
+    [AC_MSG_ERROR([This package needs libfactory])])
 
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
