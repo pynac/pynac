@@ -157,7 +157,7 @@ dnl Find Singular's factory header and library with pkg-config
 PKG_CHECK_MODULES([FACTORY], [factory],[
     AC_SUBST(FACTORY_CFLAGS)
     AC_SUBST(FACTORY_LIBS)],
-    [AC_MSG_ERROR([This package needs libfactory]))
+    [AC_MSG_ERROR([This package needs libfactory])])
 
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
