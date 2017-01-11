@@ -2,10 +2,10 @@
 
 lib_LTLIBRARIES = libpynac.la
 libpynac_la_SOURCES = add.cpp archive.cpp assume.cpp basic.cpp clifford.cpp \
-  constant.cpp ex.cpp expair.cpp expairseq.cpp exprseq.cpp \
-  fail.cpp fderivative.cpp function.cpp idx.cpp indexed.cpp infinity.cpp \
-  inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp inifcns_hyperb.cpp \
-  inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
+  constant.cpp ex.cpp expair.cpp expairseq.cpp exprseq.cpp fail.cpp \
+  fderivative.cpp function.cpp function_info.cpp idx.cpp indexed.cpp \
+  infinity.cpp inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp \
+  inifcns_hyperb.cpp inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
   inifcns_orthopoly.cpp inifcns_hyperg.cpp inifcns_comb.cpp \
   integral.cpp lst.cpp matrix.cpp mpoly-giac.cpp mpoly-ginac.cpp \
   mpoly-singular.cpp mpoly.cpp mul.cpp ncmul.cpp normal.cpp numeric.cpp \
