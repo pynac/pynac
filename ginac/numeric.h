@@ -50,11 +50,13 @@
 #include "constant.h"
 #include "ex.h"
 #include "py_funcs.h"
+#include <factory/factory.h>
 
 #include <gmp.h>
 #include <stdexcept>
 #include <vector>
 #include <iostream>
+#include <set>
 
 void ginac_pyinit_Integer(PyObject*);
 void ginac_pyinit_Float(PyObject*);
@@ -187,6 +189,8 @@ public:
 	int csgn() const;
 	bool is_equal(const numeric &other) const;
 	bool is_zero() const;
+	bool is_one() const;
+	bool is_minus_one() const;
 	bool is_positive() const;
 	bool is_negative() const;
 	bool is_integer() const;
@@ -227,6 +231,7 @@ public:
 #ifdef PYNAC_HAVE_LIBGIAC
         giac::gen* to_giacgen(giac::context*) const;
 #endif
+        CanonicalForm to_canonical() const;
 
 	const numeric real() const;
 	const numeric imag() const;
@@ -275,6 +280,8 @@ public:
 	const numeric iquo(const numeric &b, numeric &r) const;
 	const numeric gcd(const numeric &b) const;
 	const numeric lcm(const numeric &b) const;
+        void factor(std::vector<std::pair<long, int>>& factors) const;
+        void divisors(std::set<int>& divs) const;
 	
 	int int_length() const;
 
@@ -325,8 +332,8 @@ const numeric tanh(const numeric &x);
 const numeric asinh(const numeric &x);
 const numeric acosh(const numeric &x);
 const numeric atanh(const numeric &x);
-const numeric Li2(const numeric &x);
-const numeric Li2(const numeric &x, const numeric &n, PyObject* parent);
+const numeric Li2(const numeric &x, PyObject* parent=nullptr);
+const numeric Li2(const numeric &x, const numeric &n, PyObject* parent=nullptr);
 const numeric stieltjes(const numeric &x);
 const numeric zeta(const numeric &x);
 const numeric lgamma(const numeric &x);
@@ -336,6 +343,7 @@ const numeric psi(const numeric &x);
 const numeric psi(const numeric &n, const numeric &x);
 const numeric factorial(const numeric &n);
 const numeric doublefactorial(const numeric &n);
+const numeric binomial(unsigned long n, unsigned long k);
 const numeric binomial(const numeric &n, const numeric &k);
 const numeric bernoulli(const numeric &n);
 const numeric hypergeometric_pFq(const std::vector<numeric>& a, const std::vector<numeric>& b, const numeric &z, PyObject* parent);

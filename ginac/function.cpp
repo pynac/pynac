@@ -82,7 +82,7 @@ void function_options::initialize()
 	set_name(s1, s2);
 	nparams = 0;
 	eval_f = real_part_f = imag_part_f = conjugate_f = derivative_f
-		= power_f = series_f = nullptr;
+		= expl_derivative_f = power_f = series_f = nullptr;
 	evalf_f = nullptr;
 	evalf_params_first = true;
 	apply_chain_rule = true;
@@ -93,6 +93,7 @@ void function_options::initialize()
 	real_part_use_exvector_args = false;
 	imag_part_use_exvector_args = false;
 	derivative_use_exvector_args = false;
+        expl_derivative_use_exvector_args = false;
 	power_use_exvector_args = false;
 	series_use_exvector_args = false;
 	print_use_exvector_args = false;
@@ -252,6 +253,25 @@ function_options & function_options::derivative_func(derivative_funcp_6 d)
 {
 	test_and_set_nparams(6);
 	derivative_f = derivative_funcp(d);
+	return *this;
+}
+
+function_options & function_options::expl_derivative_func(expl_derivative_funcp_1 d)
+{
+	test_and_set_nparams(1);
+	expl_derivative_f = expl_derivative_funcp(d);
+	return *this;
+}
+function_options & function_options::expl_derivative_func(expl_derivative_funcp_2 d)
+{
+	test_and_set_nparams(2);
+	expl_derivative_f = expl_derivative_funcp(d);
+	return *this;
+}
+function_options & function_options::expl_derivative_func(expl_derivative_funcp_3 d)
+{
+	test_and_set_nparams(3);
+	expl_derivative_f = expl_derivative_funcp(d);
 	return *this;
 }
 
@@ -1230,6 +1250,11 @@ ex function::derivative(const symbol & s) const
 	GINAC_ASSERT(serial<registered_functions().size());
 	const function_options &opt = registered_functions()[serial];
 
+        try {
+                // Explicit derivation
+                return expl_derivative(s);
+        } catch (...) {}
+
 	// Check if we need to apply chain rule
 	if (!opt.apply_chain_rule) {
 		if (opt.derivative_f == nullptr)
@@ -1435,6 +1460,30 @@ ex function::pderivative(unsigned diff_param) const // partial differentiation
 	throw(std::logic_error("function::pderivative(): no diff function defined"));
 }
 
+ex function::expl_derivative(const symbol & s) const // explicit differentiation
+{
+	GINAC_ASSERT(serial<registered_functions().size());
+	const function_options &opt = registered_functions()[serial];
+
+        if (opt.expl_derivative_f) {
+		// Invoke the defined explicit derivative function.
+		current_serial = serial;
+		if (opt.expl_derivative_use_exvector_args)
+			return ((expl_derivative_funcp_exvector)(opt.expl_derivative_f))(seq, s);
+		switch (opt.nparams) {
+			// the following lines have been generated for max. 14 parameters
+			case 1:
+				return ((expl_derivative_funcp_1)(opt.expl_derivative_f))(seq[0], s);
+			case 2:
+				return ((expl_derivative_funcp_2)(opt.expl_derivative_f))(seq[0], seq[1], s);
+			case 3:
+				return ((expl_derivative_funcp_3)(opt.expl_derivative_f))(seq[0], seq[1], seq[2], s);
+		}
+	}
+	// There is no fallback for explicit derivative.
+	throw(std::logic_error("function::expl_derivative(): explicit derivation is called, but no such function defined"));
+}
+
 ex function::power(const ex & power_param) const // power of function
 {
 	GINAC_ASSERT(serial<registered_functions().size());
@@ -1576,91 +1625,6 @@ void function::set_domain(unsigned d)
                         iflags.set(info_flags::integer, true);
                         break;
         }
-}
-
-bool function::info(unsigned inf) const
-{
-        if (serial == exp_SERIAL::serial)
-        {
-                const ex& arg = op(0);
-                switch (inf) {
-                case info_flags::nonzero:
-                        return true;
-                case info_flags::real:
-                case info_flags::positive:
-                        return arg.info(info_flags::real);
-                }
-                return false;
-        }
-        else if (serial == log_SERIAL::serial) {
-                const ex& arg = op(0);
-                switch (inf) {
-                case info_flags::real:
-                        return arg.info(info_flags::positive);
-                case info_flags::positive:
-                        return arg.info(info_flags::real) and
-                                is_exactly_a<numeric>(arg) and
-                                ex_to<numeric>(arg) > *_num1_p;
-                case info_flags::negative:
-                        return arg.info(info_flags::real) and
-                                is_exactly_a<numeric>(arg) and
-                                arg.info(info_flags::positive) and
-                                ex_to<numeric>(arg) < *_num1_p;
-                }
-                return false;
-        }
-        else if (serial == abs_SERIAL::serial) {
-                switch (inf) {
-                case info_flags::real:
-                case info_flags::nonnegative:
-                        return true;
-                case info_flags::nonzero:
-                        return op(0).info(info_flags::nonzero);
-                }
-                return false;
-        }
-        else if (serial == real_part_function_SERIAL::serial) {
-                switch (inf) {
-                case info_flags::real:
-                case info_flags::nonnegative:
-                        return true;
-                case info_flags::nonzero:
-                        return op(0).info(info_flags::nonzero);
-                }
-                return false;
-        }
-        else if (serial == imag_part_function_SERIAL::serial) {
-                switch (inf) {
-                case info_flags::real:
-                case info_flags::nonnegative:
-                        return true;
-                case info_flags::nonzero:
-                        return op(0).info(info_flags::nonzero);
-                }
-                return false;
-        }
-        else if (serial == binomial_SERIAL::serial) {
-                const ex& arg = op(0);
-                switch (inf) {
-                case static_cast<unsigned int>((info_flags::real != 0u) or (info_flags::nonnegative != 0u)):
-                        return arg.info(inf);
-                case info_flags::integer:
-                        return arg.info(inf) and op(1).info(inf);
-                }
-                return false;
-        }
-        else if (serial == factorial_SERIAL::serial) {
-                const ex& arg = op(0);
-                switch (inf) {
-                case static_cast<unsigned int>((info_flags::real != 0u) or (info_flags::nonnegative != 0u)):
-                        return arg.info(inf);
-                case info_flags::integer:
-                        return arg.info(inf);
-                }
-                return false;
-        }
-
-	return iflags.get(inf);
 }
 
 bool has_function(const ex & x)

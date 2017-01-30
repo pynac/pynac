@@ -136,9 +136,10 @@ static ex exp_eval(const ex & x)
 		return x_red.op(0);
 	
 	// exp(float) -> float
-	if (is_exactly_a<numeric>(x_red) && !x_red.info(info_flags::crational))
+	if (is_exactly_a<numeric>(x_red)
+            and x_red.info(info_flags::inexact))
 		return exp(ex_to<numeric>(x_red));
-	
+
 	return exp(x_red).hold();
 }
 
@@ -250,21 +251,23 @@ static ex log_eval(const ex & x)
 {
 	if (is_exactly_a<numeric>(x)) {
 		// log(float) -> float
-		if (!x.info(info_flags::crational))
+		if (x.info(info_flags::crational)) {
+                        if (x.is_zero())         // log(0) -> infinity
+                                //throw(pole_error("log_eval(): log(0)",0));
+                                return NegInfinity;
+                        if (not x.info(info_flags::inexact) and x.info(info_flags::negative))
+                                return (log(-x)+I*Pi);
+                        if (x.is_equal(_ex1))  // log(1) -> 0
+                                return _ex0;
+                        if (x.is_equal(I))       // log(I) -> Pi*I/2
+                                return (Pi*I*_ex1_2);
+                        if (x.is_equal(-I))      // log(-I) -> -Pi*I/2
+                                return (Pi*I*_ex_1_2);
+                }
+                else if (not x.info(info_flags::inexact))
+                        return log(x).hold();
+                else
 			return log(ex_to<numeric>(x));
-
-		if (x.is_zero())         // log(0) -> infinity
-			//throw(pole_error("log_eval(): log(0)",0));
-			return NegInfinity;
-		if (not x.info(info_flags::inexact) and x.info(info_flags::negative))
-			return (log(-x)+I*Pi);
-		if (x.is_equal(_ex1))  // log(1) -> 0
-			return _ex0;
-		if (x.is_equal(I))       // log(I) -> Pi*I/2
-			return (Pi*I*_ex1_2);
-		if (x.is_equal(-I))      // log(-I) -> -Pi*I/2
-			return (Pi*I*_ex_1_2);
-
 	}
 
 	// log(exp(t)) -> t (if -Pi < t.imag() <= Pi):
@@ -437,8 +440,8 @@ static ex logb_evalf(const ex & x, const ex & base, PyObject* parent)
 
 static ex logb_eval(const ex & x, const ex & base)
 {
-	if (is_exactly_a<numeric>(x) and x.info(info_flags::crational)
-	    and is_exactly_a<numeric>(base) and base.info(info_flags::crational)) {
+	if (is_exactly_a<numeric>(x) and not x.info(info_flags::inexact)
+	    and is_exactly_a<numeric>(base) and not base.info(info_flags::inexact)) {
                 numeric a = ex_to<numeric>(x);
                 numeric b = ex_to<numeric>(base);
                 if (b.info(info_flags::real) and a.info(info_flags::real)) {
@@ -472,6 +475,163 @@ REGISTER_FUNCTION(logb, eval_func(logb_eval).
                        evalf_func(logb_evalf).
                        latex_name("\\log"));
 
+//////////
+// dilogarithm
+//////////
+
+static ex Li2_evalf(const ex & x, PyObject* parent)
+{
+	if (is_exactly_a<numeric>(x))
+		return Li2(ex_to<numeric>(x), parent);
+	
+	return Li2(x).hold();
+}
+
+static ex Li2_eval(const ex & x)
+{
+        if (is_exactly_a<numeric>(x) and not ex_to<numeric>(x).is_exact())
+	        return Li2_evalf(x, nullptr);
+
+	if (x.info(info_flags::numeric)) {
+		// Li2(0) -> 0
+		if (x.is_zero())
+			return _ex0;
+		// Li2(1) -> Pi^2/6
+		if (x.is_equal(_ex1))
+			return power(Pi,_ex2)/_ex6;
+		// Li2(1/2) -> Pi^2/12 - log(2)^2/2
+		if (x.is_equal(_ex1_2))
+			return power(Pi,_ex2)/_ex12 + power(log(_ex2),_ex2)*_ex_1_2;
+		// Li2(-1) -> -Pi^2/12
+		if (x.is_equal(_ex_1))
+			return -power(Pi,_ex2)/_ex12;
+		// Li2(I) -> -Pi^2/48+Catalan*I
+		if (x.is_equal(I))
+			return power(Pi,_ex2)/_ex_48 + Catalan*I;
+		// Li2(-I) -> -Pi^2/48-Catalan*I
+		if (x.is_equal(-I))
+			return power(Pi,_ex2)/_ex_48 - Catalan*I;
+		// Li2(float)
+		if (x.info(info_flags::inexact))
+			return Li2(ex_to<numeric>(x));
+	}
+	
+	return Li2(x).hold();
+}
+
+static ex Li2_deriv(const ex & x, unsigned deriv_param)
+{
+	GINAC_ASSERT(deriv_param==0);
+	
+	// d/dx Li2(x) -> -log(1-x)/x
+	return -log(_ex1-x)/x;
+}
+
+static ex Li2_series(const ex &x, const relational &rel, int order, unsigned options)
+{
+	const ex x_pt = x.subs(rel, subs_options::no_pattern);
+	if (x_pt.info(info_flags::numeric)) {
+		// First special case: x==0 (derivatives have poles)
+		if (x_pt.is_zero()) {
+			// method:
+			// The problem is that in d/dx Li2(x==0) == -log(1-x)/x we cannot 
+			// simply substitute x==0.  The limit, however, exists: it is 1.
+			// We also know all higher derivatives' limits:
+			// (d/dx)^n Li2(x) == n!/n^2.
+			// So the primitive series expansion is
+			// Li2(x==0) == x + x^2/4 + x^3/9 + ...
+			// and so on.
+			// We first construct such a primitive series expansion manually in
+			// a dummy symbol s and then insert the argument's series expansion
+			// for s.  Reexpanding the resulting series returns the desired
+			// result.
+			const symbol s;
+			ex ser;
+			// manually construct the primitive expansion
+			for (int i=1; i<order; ++i)
+				ser += pow(s,i) / pow(numeric(i), *_num2_p);
+			// substitute the argument's series expansion
+			ser = ser.subs(s==x.series(rel, order), subs_options::no_pattern);
+			// maybe that was terminating, so add a proper order term
+			epvector nseq;
+			nseq.push_back(expair(Order(_ex1), order));
+			ser += pseries(rel, nseq);
+			// reexpanding it will collapse the series again
+			return ser.series(rel, order);
+			// NB: Of course, this still does not allow us to compute anything
+			// like sin(Li2(x)).series(x==0,2), since then this code here is
+			// not reached and the derivative of sin(Li2(x)) doesn't allow the
+			// substitution x==0.  Probably limits *are* needed for the general
+			// cases.  In case L'Hospital's rule is implemented for limits and
+			// basic::series() takes care of this, this whole block is probably
+			// obsolete!
+		}
+		// second special case: x==1 (branch point)
+		if (x_pt.is_equal(_ex1)) {
+			// method:
+			// construct series manually in a dummy symbol s
+			const symbol s;
+			ex ser = zeta(_ex2);
+			// manually construct the primitive expansion
+			for (int i=1; i<order; ++i)
+				ser += pow(1-s,i) * (numeric(1,i)*(I*Pi+log(s-1)) - numeric(1,i*i));
+			// substitute the argument's series expansion
+			ser = ser.subs(s==x.series(rel, order), subs_options::no_pattern);
+			// maybe that was terminating, so add a proper order term
+			epvector nseq;
+			nseq.push_back(expair(Order(_ex1), order));
+			ser += pseries(rel, nseq);
+			// reexpanding it will collapse the series again
+			return ser.series(rel, order);
+		}
+		// third special case: x real, >=1 (branch cut)
+		if (((options & series_options::suppress_branchcut) == 0u) &&
+			ex_to<numeric>(x_pt).is_real() && ex_to<numeric>(x_pt)>1) {
+			// method:
+			// This is the branch cut: assemble the primitive series manually
+			// and then add the corresponding complex step function.
+			const symbol &s = ex_to<symbol>(rel.lhs());
+			const ex point = rel.rhs();
+			const symbol foo;
+			epvector seq;
+			// zeroth order term:
+			seq.push_back(expair(Li2(x_pt), _ex0));
+			// compute the intermediate terms:
+			ex replarg = series(Li2(x), s==foo, order);
+			for (size_t i=1; i<replarg.nops()-1; ++i)
+				seq.push_back(expair((replarg.op(i)/power(s-foo,i)).series(foo==point,1,options).op(0).subs(foo==s, subs_options::no_pattern),i));
+			// append an order term:
+			seq.push_back(expair(Order(_ex1), replarg.nops()-1));
+			return pseries(rel, seq);
+		}
+	}
+	// all other cases should be safe, by now:
+	throw do_taylor();  // caught by function::series()
+}
+
+static ex Li2_conjugate(const ex & x)
+{
+	// conjugate(Li2(x))==Li2(conjugate(x)) unless on the branch cuts which
+	// run along the positive real axis beginning at 1.
+	if (x.info(info_flags::negative)) {
+		return Li2(x).hold();
+	}
+	if (is_exactly_a<numeric>(x) &&
+	    (!x.imag_part().is_zero() || x < *_num1_p)) {
+		return Li2(x.conjugate());
+	}
+	return conjugate_function(Li2(x)).hold();
+}
+
+
+unsigned Li2_SERIAL::serial = function::register_new(function_options("dilog", 1).
+                       eval_func(Li2_eval).
+                       evalf_func(Li2_evalf).
+                       derivative_func(Li2_deriv).
+                       series_func(Li2_series).
+                       conjugate_func(Li2_conjugate).
+                       latex_name("{\\rm Li}_2"));
+
 //////////////////////////////////////
 // classical polylog function (see inifcns_nstdsum.cpp for multiple)
 //////////////////////////////////////
@@ -500,14 +660,8 @@ static ex Li_eval(const ex& m_, const ex& x_)
 	if (m_.is_integer_one()) {
 		return -log(1-x_);
 	}
-	if (m_.is_equal(_ex2)) {
-		if (x_.is_equal(I)) {
-			return power(Pi,_ex2)/_ex_48 + Catalan*I;
-		}
-		if (x_.is_equal(-I)) {
-			return power(Pi,_ex2)/_ex_48 - Catalan*I;
-		}
-	}
+	if (m_.is_equal(_ex2)) 
+                return Li2_eval(x_);
 
         if ((is_exactly_a<numeric>(x_) and not ex_to<numeric>(x_).is_exact())
             or (is_exactly_a<numeric>(m_) and not ex_to<numeric>(m_).is_exact())) {

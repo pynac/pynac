@@ -319,7 +319,7 @@ bool ex::is_integer_one() const
     if (!is_exactly_a<numeric>(*this))
         return false;
     return ex_to<numeric>(*this).is_integer()
-        and ex_to<numeric>(*this).is_equal(*_num1_p);
+        and ex_to<numeric>(*this).is_one();
 }
   
 bool ex::is_integer_pmone() const
@@ -328,8 +328,8 @@ bool ex::is_integer_pmone() const
         return false;
     numeric num = ex_to<numeric>(*this);
     return ((ex_to<numeric>(*this).is_integer())
-        and (ex_to<numeric>(*this).is_equal(*_num1_p)
-            or ex_to<numeric>(*this).is_equal(*_num_1_p)));
+        and (ex_to<numeric>(*this).is_one()
+            or ex_to<numeric>(*this).is_minus_one()));
 }
 
 void ex::set_domain(unsigned d)
@@ -345,6 +345,7 @@ void ex::set_domain(unsigned d)
 }
 
 size_t ex::nsymbols() const
+// DON'T USE if you want the number of symbols, instead use symbols().size()
 {
 	int res = 0;
 	if (is_exactly_a<symbol>(*this)) {

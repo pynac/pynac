@@ -389,7 +389,7 @@ static ex frac_cancel(const ex &n, const ex &d)
 	// Handle special cases where numerator or denominator is 0
 	if (num.is_zero())
 		return (new lst(num, _ex1))->setflag(status_flags::dynallocated);
-	if (den.expand().is_zero())
+	if (den.is_zero())
 		throw(std::overflow_error("frac_cancel: division by zero in frac_cancel"));
 
 	// Bring numerator and denominator to Z[X] by multiplying with
@@ -626,7 +626,7 @@ ex ex::normal(int level, bool noexpand_combined, bool noexpand_numer) const
 	if (!repl.empty())
 		e = e.subs(repl, subs_options::no_pattern);
 
-	// Convert {numerator, denominator} form back to fraction
+        // Convert {numerator, denominator} form back to fraction
         if ((options & normal_options::no_expand_fraction_numer) == 0u)
                 return e.op(0).expand() / e.op(1);
         else
@@ -1003,10 +1003,59 @@ ex gcd(const ex &a, const ex &b)
 {
         if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b))
                 return gcd(ex_to<numeric>(a), ex_to<numeric>(b));
-        exmap repl;
-        ex poly_a = a.to_rational(repl);
-        ex poly_b = b.to_rational(repl);
-        return gcdpoly(poly_a, poly_b).subs(repl, subs_options::no_pattern);
+        return gcdpoly(a, b);
+}
+
+bool factor(const ex& the_ex, ex& res_ex)
+{
+        if (is_exactly_a<numeric>(the_ex)
+            or is_exactly_a<symbol>(the_ex)
+            or is_exactly_a<function>(the_ex)
+            or is_exactly_a<constant>(the_ex)) {
+                return false;
+        }
+        if (is_exactly_a<mul>(the_ex)) {
+                const mul& m = ex_to<mul>(the_ex);
+                exvector ev;
+                bool mchanged = false;
+                for (size_t i=0; i<m.nops(); ++i) {
+                        ex r;
+                        const ex& e = m.op(i);
+                        bool res = factor(e, r);
+                        if (res) {
+                                ev.push_back(r);
+                                mchanged = true;
+                        }
+                        else
+                                ev.push_back(e);
+                }
+                if (mchanged)
+                        res_ex = mul(ev);
+                return mchanged;
+        }
+        else if (is_exactly_a<power>(the_ex)) {
+                const power& p = ex_to<power>(the_ex);
+                ex r;
+                bool pchanged = factor(p.op(0), r);
+                if (pchanged)
+                        res_ex = power(r, p.op(1));
+                return pchanged;
+        }
+        ex num, den;
+        ex normalized = the_ex.numer_denom();
+        num = normalized.op(0);
+        bool nres = factorpoly(num, res_ex);
+        den = normalized.op(1);
+        ex res_den;
+        bool dres = factorpoly(den, res_den);
+        if (not nres and not dres)
+                return false;
+        if (not nres)
+                res_ex = num;
+        if (not dres)
+                res_den = den;
+        res_ex = res_ex / res_den;
+        return true;
 }
 
 bool factor(const ex& the_ex, ex& res_ex)

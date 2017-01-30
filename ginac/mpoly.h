@@ -32,6 +32,7 @@ class symbol;
 
 // Polynomial GCD in Z[X], cofactors are returned in ca and cb, if desired
 extern ex gcdpoly(const ex &a, const ex &b, ex *ca = nullptr, ex *cb = nullptr, bool check_args = true);
+extern bool factorpoly(const ex& p, ex& res);
 
 // Polynomial LCM in Z[X]
 extern ex lcm(const ex &a, const ex &b, bool check_args = true);
@@ -50,6 +51,7 @@ extern ex collect_common_factors(const ex & e);
 
 // Resultant of two polynomials e1,e2 with respect to symbol s.
 extern ex resultant(const ex & e1, const ex & e2, const ex & s);
+extern ex resultantpoly(const ex & ee1, const ex & ee2, const ex & s);
 
 } // namespace GiNaC
 

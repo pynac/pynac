@@ -307,6 +307,7 @@ bool power::info(unsigned inf) const
 		case info_flags::cinteger_polynomial:
 		case info_flags::rational_polynomial:
 		case info_flags::crational_polynomial:
+                case info_flags::integer:
 			return exponent.info(info_flags::nonnegint) &&
 			       basis.info(inf);
 		case info_flags::rational_function:
@@ -322,7 +323,8 @@ bool power::info(unsigned inf) const
 			return (flags & status_flags::expanded) != 0u;
 		case info_flags::positive:
                         if (exponent.info(info_flags::even))
-                                return basis.info(info_flags::real);
+                                return basis.info(info_flags::real)
+                                   and basis.info(info_flags::nonzero);
                         if (exponent.info(info_flags::odd))
                                 return basis.info(info_flags::positive);
 			return basis.info(info_flags::positive) && exponent.info(info_flags::real);
@@ -330,7 +332,11 @@ bool power::info(unsigned inf) const
 			return (basis.info(info_flags::positive) && exponent.info(info_flags::real)) ||
 			       (basis.info(info_flags::real) && exponent.info(info_flags::integer) && exponent.info(info_flags::even));
 		case info_flags::real:
-			return basis.info(inf) && exponent.info(info_flags::integer);
+			return ((basis.info(inf) and
+                                 (exponent.info(info_flags::integer) or
+                                 exponent.info(info_flags::positive))) or
+                                (basis.info(info_flags::positive) and
+                                 exponent.info(inf)));
 		case info_flags::has_indices: {
 			if ((flags & status_flags::has_indices) != 0u)
 				return true;
@@ -678,7 +684,7 @@ ex power::eval(int level) const
                                 if (canonicalizable && (! unit_normal))
                                         icont = icont.mul(*_num_1_p);
 
-                                if (canonicalizable && (icont != *_num1_p)) {
+                                if (canonicalizable and not icont.is_one()) {
                                         const add& addref = ex_to<add>(ebasis);
                                         auto  addp = new add(addref);
                                         addp->setflag(status_flags::dynallocated);
@@ -689,7 +695,7 @@ ex power::eval(int level) const
                                                 elem.coeff = ex_to<numeric>(elem.coeff).div_dyn(icont);
 
                                         const numeric c = icont.power(num_exponent);
-                                        if (likely(c != *_num1_p))
+                                        if (likely(not c.is_one()))
                                                 return (new mul(power(*addp, num_exponent), c))->setflag(status_flags::dynallocated);
                                         else
                                                 return power(*addp, num_exponent);
@@ -736,14 +742,19 @@ ex power::eval(int level) const
 	if (ebasis.info(info_flags::positive)) {
 		if (eexponent.is_equal(1/log(ebasis)))
 			return exp(log(basis)*exponent);
-		else if (is_exactly_a<mul>(eexponent)) {
-			for (size_t i=0; i < eexponent.nops(); i++) {
-				if (eexponent.op(i).is_equal(1/log(ebasis)))
+		else if (is_exactly_a<mul>(eexponent) and
+			 std::any_of(eexponent.begin(), eexponent.end(),
+                                [ebasis](ex e)
+                                { return e.is_equal(1/log(ebasis)); }))
 					return exp(log(basis)*exponent);
-			}
-		}
 	}
 	
+	// negative^even --> positive^even
+        if (eexponent.info(info_flags::even)
+            and eexponent.info(info_flags::real)
+            and (-ebasis).info(info_flags::positive))
+                return power(-ebasis, eexponent);
+
 	if (are_ex_trivially_equal(ebasis,basis) &&
 	    are_ex_trivially_equal(eexponent,exponent)) {
 		return this->hold();
@@ -1397,11 +1408,11 @@ ex power::expand_add(const add & a, long n, unsigned options) const
 					} else if (the_exponent[i] == 1) {
 						// optimized
 						monomial.push_back(expair(r, _ex1));
-						if (c != *_num1_p)
+						if (not c.is_one())
 							factor = factor.mul(c);
 					} else { // general case exponent[i] > 1
 						monomial.push_back(expair(r, the_exponent[i]));
-						if (c != *_num1_p)
+						if (not c.is_one())
 							factor = factor.mul(c.power(the_exponent[i]));
 					}
 				}

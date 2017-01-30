@@ -49,6 +49,9 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "flint/fmpz.h"
+#include "flint/fmpz_factor.h"
+
 #include "numeric.h"
 #include "operators.h"
 #include "power.h"
@@ -535,6 +538,22 @@ const numeric& numeric::operator=(const numeric& x) {
 int numeric::compare_same_type(const numeric& right) const {
         verbose("compare_same_type");
         if (t != right.t) {
+                if (t == MPZ and right.t == MPQ) {
+                        int ret = mpq_cmp_z(right.v._bigrat, v._bigint);
+                        if (ret > 0)
+                                ret = -1;
+                        else if (ret < 0)
+                                ret = 1;
+                        return ret;
+                }
+                else if (t == MPQ and right.t == MPZ) {
+                        int ret = mpq_cmp_z(v._bigrat, right.v._bigint);
+                        if (ret > 0)
+                                ret = 1;
+                        else if (ret < 0)
+                                ret = -1;
+                        return ret;
+                }
                 numeric a, b;
                 coerce(a, b, *this, right);
                 return a.compare_same_type(b);
@@ -1127,6 +1146,37 @@ const numeric numeric::add(const numeric &other) const {
         // Or just a nested switch of switches that covers all
         // combinations of long,double,mpfr,mpz,mpq,mpfc,mpqc.  Yikes.
         if (t != other.t) {
+                if (t == MPZ and other.t == MPQ) {
+                        mpq_t bigrat, tmp;
+                        mpq_init(bigrat);
+                        mpq_init(tmp);
+                        mpz_t bigint;
+                        mpz_init_set(bigint, mpq_denref(other.v._bigrat));
+                        mpq_set_z(tmp, bigint);
+                        mpz_mul(bigint, bigint, v._bigint);
+                        mpz_add(bigint, bigint, mpq_numref(other.v._bigrat));
+                        mpq_set_z(bigrat, bigint);
+                        mpq_div(bigrat, bigrat, tmp);
+                        mpq_clear(tmp);
+                        mpz_clear(bigint);
+                        return bigrat;
+                }
+                else if (t == MPQ and other.t == MPZ) {
+                        mpq_t bigrat, tmp;
+                        mpq_init(bigrat);
+                        mpq_init(tmp);
+                        mpz_t bigint;
+                        mpz_init_set(bigint, mpq_denref(v._bigrat));
+                        mpq_set_z(tmp, bigint);
+                        mpz_mul(bigint, bigint, other.v._bigint);
+                        mpz_add(bigint, bigint, mpq_numref(v._bigrat));
+                        mpq_set_z(bigrat, bigint);
+                        mpq_div(bigrat, bigrat, tmp);
+                        mpq_clear(tmp);
+                        mpz_clear(bigint);
+                        return bigrat;
+                }
+
                 numeric a, b;
                 coerce(a, b, *this, other);
                 return a + b;
@@ -1575,6 +1625,40 @@ bool numeric::is_zero() const {
         }
 }
 
+bool numeric::is_one() const {
+        verbose("is_one");
+        switch (t) {
+                case DOUBLE:
+                        return v._double == 1.0;
+                case MPZ:
+                        return mpz_cmp_si(v._bigint, 1) == 0;
+                case MPQ:
+                        return mpq_cmp_si(v._bigrat, 1, 1) == 0;
+                case PYOBJECT:
+                        return is_equal(*_num1_p);
+                default:
+                        std::cerr << "type = " << t << "\n";
+                        stub("invalid type: is_one() type not handled");
+        }
+}
+
+bool numeric::is_minus_one() const {
+        verbose("is_one");
+        switch (t) {
+                case DOUBLE:
+                        return v._double == -1.0;
+                case MPZ:
+                        return mpz_cmp_si(v._bigint, -1) == 0;
+                case MPQ:
+                        return mpq_cmp_si(v._bigrat, -1, 1) == 0;
+                case PYOBJECT:
+                        return is_equal(*_num_1_p);
+                default:
+                        std::cerr << "type = " << t << "\n";
+                        stub("invalid type: is_minus_one() type not handled");
+        }
+}
+
 /** True if object is not complex and greater than zero. */
 bool numeric::is_positive() const {
         verbose("is_positive");
@@ -1807,7 +1891,18 @@ bool numeric::is_exact() const {
 
 bool numeric::operator==(const numeric &right) const {
         verbose3("operator==", *this, right);
+
         if (t != right.t) {
+                if (t == MPZ and right.t == MPQ) {
+                        if (mpz_cmp_ui(mpq_denref(right.v._bigrat), 1) != 0)
+                                return false;
+                        return mpz_cmp(v._bigint, mpq_numref(right.v._bigrat)) ==0;
+                }
+                else if (t == MPQ and right.t == MPZ) {
+                        if (mpz_cmp_ui(mpq_denref(v._bigrat), 1) != 0)
+                                return false;
+                        return mpz_cmp(right.v._bigint, mpq_numref(v._bigrat)) ==0;
+                }
                 numeric a, b;
                 coerce(a, b, *this, right);
                 return a == b;
@@ -1829,6 +1924,16 @@ bool numeric::operator==(const numeric &right) const {
 bool numeric::operator!=(const numeric &right) const {
         verbose("operator!=");
         if (t != right.t) {
+                if (t == MPZ and right.t == MPQ) {
+                        if (mpz_cmp_ui(mpq_denref(right.v._bigrat), 1) != 0)
+                                return true;
+                        return mpz_cmp(v._bigint, mpq_numref(right.v._bigrat)) !=0;
+                }
+                else if (t == MPQ and right.t == MPZ) {
+                        if (mpz_cmp_ui(mpq_denref(v._bigrat), 1) != 0)
+                                return true;
+                        return mpz_cmp(right.v._bigint, mpq_numref(v._bigrat)) !=0;
+                }
                 numeric a, b;
                 coerce(a, b, *this, right);
                 return a != b;
@@ -2016,7 +2121,7 @@ const numeric numeric::to_bigint() const {
         switch (t) {
             case MPZ: return *this;
             case MPQ: 
-                if (not denom().is_equal(*_num1_p))
+                if (not denom().is_one())
                     throw std::runtime_error("not integer in numeric::to_mpz_num()");
                 return numer();
             case PYOBJECT:
@@ -2075,6 +2180,25 @@ giac::gen* numeric::to_giacgen(giac::context* cptr) const
                 return nullptr;
 }
 #endif
+
+CanonicalForm numeric::to_canonical() const
+{
+        if (t == MPZ) {
+                if (mpz_fits_sint_p(v._bigint))
+                        return CanonicalForm(to_int());
+                mpz_t bigint;
+                mpz_init_set(bigint, v._bigint);
+                return make_cf(mpz_ptr(const_cast<__mpz_struct*>(bigint)));
+        }
+        if (t == MPQ) {
+                mpz_t num, den;
+                mpz_init_set(num, mpz_ptr(mpq_numref(v._bigrat)));
+                mpz_init_set(den, mpz_ptr(mpq_denref(v._bigrat)));
+                return make_cf(num, den, false);
+        }
+
+        throw (std::runtime_error("can't happen in numeric::to_canonical"));
+}
 
 /* Return the underlying Python object corresponding to this
    numeric.  If this numeric isn't implemented using a Python
@@ -2269,8 +2393,8 @@ const numeric numeric::log() const {
 
 // General log
 const numeric numeric::log(const numeric &b) const {
-        if (b == *_num1_p) {
-                if (*this == *_num1_p)
+        if (b.is_one()) {
+                if (is_one())
 		        throw (std::runtime_error("log(1,1) encountered"));
                 else
                         return py_funcs.py_eval_unsigned_infinity();
@@ -2294,8 +2418,8 @@ const numeric numeric::log(const numeric &b) const {
 // Handle special cases here that return MPZ/MPQ
 const numeric numeric::ratlog(const numeric &b, bool& israt) const {
         israt = true;
-        if (b == *_num1_p) {
-                if (*this == *_num1_p)
+        if (b.is_one()) {
+                if (is_one())
 		        throw (std::runtime_error("log(1,1) encountered"));
                 else
                         return py_funcs.py_eval_unsigned_infinity();
@@ -2324,7 +2448,7 @@ const numeric numeric::ratlog(const numeric &b, bool& israt) const {
         }
 
         if (t == MPZ) {
-                if (b.numer() == *_num1_p)
+                if (b.numer().is_one())
                         return -ratlog(b.denom(), israt);
                 else {
                         israt = false;
@@ -2332,7 +2456,7 @@ const numeric numeric::ratlog(const numeric &b, bool& israt) const {
                 }
         }
         if (b.t == MPZ) {
-                if (numer() == *_num1_p)
+                if (numer().is_one())
                         return -denom().ratlog(b, israt);
                 else {
                         israt = false;
@@ -2341,7 +2465,7 @@ const numeric numeric::ratlog(const numeric &b, bool& israt) const {
         }
 
         numeric d = denom().log(b.denom());
-        if (numer() == *_num1_p and b.numer() == *_num1_p)
+        if (numer().is_one() and b.numer().is_one())
                 return d;
         numeric n = numer().log(b.numer());
         if (n == d)
@@ -2440,6 +2564,12 @@ const numeric numeric::psi(const numeric& y) const {
 }
 
 const numeric numeric::factorial() const {
+        if (t == MPZ) {
+                mpz_t bigint;
+                mpz_init(bigint);
+                mpz_fac_ui(bigint, to_long());
+                return bigint;
+        }
         PY_RETURN(py_funcs.py_factorial);
 }
 
@@ -2485,6 +2615,14 @@ const numeric numeric::binomial(const numeric &k) const {
                 throw(std::runtime_error("numeric::binomial(): python function (Expression_to_ex) raised exception"));
         }
         return ex_to<numeric>(eval_result);
+}
+
+const numeric binomial(unsigned long n, unsigned long k)
+{
+        mpz_t bigint;
+        mpz_init(bigint);
+        mpz_bin_uiui(bigint, n, k);
+        return bigint;
 }
 
 const numeric numeric::bernoulli() const {
@@ -2627,6 +2765,62 @@ const numeric numeric::lcm(const numeric &b) const {
         }
         
         PY_RETURN2(py_funcs.py_lcm, b);
+}
+
+void numeric::factor(std::vector<std::pair<long, int>>& factors) const
+{
+        if (t == MPQ)
+                return to_bigint().factor(factors);
+        if (t != MPZ)
+                return;
+        if (is_one() or is_minus_one())
+                return;
+        fmpz_t f;
+        fmpz_init(f);
+        mpz_t bigint;
+        mpz_init(bigint);
+        mpz_abs(bigint, v._bigint);
+        fmpz_set_mpz(f, bigint);
+        fmpz_factor_t fs;
+        fmpz_factor_init(fs);
+        fmpz_factor(fs, f);
+        for (slong i=0; i<fs->num; ++i) {
+                fmpz_get_mpz(bigint, fs->p + i);
+                factors.push_back(std::make_pair(mpz_get_si(bigint),
+                                              int(*(fs->exp+i))));
+        }
+        mpz_clear(bigint);
+        fmpz_clear(f);
+        fmpz_factor_clear(fs);
+}
+
+static void setDivisors(long n, int i, std::set<int>& divisors,
+        const std::vector<std::pair<long, int>>& factors)
+// author of this little gem:
+// http://stackoverflow.com/users/3864373/rocky-johnson
+{
+    for (size_t j = i; j<factors.size(); j++) {
+        long x = factors[j].first * n;
+        for (int k = 0; k<factors[j].second; k++) {
+            divisors.insert(x);
+            setDivisors(x, j + 1, divisors, factors);
+            x *= factors[j].first;
+        }
+    }
+}
+
+void numeric::divisors(std::set<int>& divs) const
+{
+        if (t == MPQ)
+                return to_bigint().divisors(divs);
+        if (t != MPZ)
+                return;
+        divs.insert(1);
+        if (is_one() or is_minus_one())
+                return;
+        std::vector<std::pair<long, int>> factors;
+        factor(factors);
+        setDivisors(1, 0, divs, factors);
 }
 
 /** Size in binary notation.  For integers, this is the smallest n >= 0 such
@@ -2826,7 +3020,7 @@ const numeric acos(const numeric &x) {
 const numeric atan(const numeric &x) {
         if (!x.is_real() &&
                 x.real().is_zero() &&
-                abs(x.imag()).is_equal(*_num1_p))
+                abs(x.imag()).is_one())
                 throw pole_error("atan(): logarithmic pole", 0);
         return x.atan();
 }
@@ -2885,8 +3079,8 @@ const numeric atanh(const numeric &x) {
 }
 
 
-const numeric Li2(const numeric &x) {
-        return x.Li2(*_num2_p, nullptr);
+const numeric Li2(const numeric &x, PyObject* parent) {
+        return x.Li2(*_num2_p, parent);
 }
 
 const numeric Li2(const numeric &n, const numeric &x, PyObject* parent) {

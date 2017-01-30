@@ -24,6 +24,7 @@
 #include "ex.h"
 #include "constant.h"
 #include "lst.h"
+#include "fderivative.h"
 #include "mul.h"
 #include "power.h"
 #include "operators.h"
@@ -66,6 +67,19 @@ static ex conjugate_conjugate(const ex & arg)
 	return arg;
 }
 
+// If x is real then U.diff(x)-I*V.diff(x) represents both conjugate(U+I*V).diff(x) 
+// and conjugate((U+I*V).diff(x))
+static ex conjugate_expl_derivative(const ex & arg, const symbol & s)
+{
+	if (s.info(info_flags::real))
+		return conjugate(arg.diff(s));
+	else {
+		exvector vec_arg;
+		vec_arg.push_back(arg);
+		return fderivative(ex_to<function>(conjugate(arg)).get_serial(),0,vec_arg).hold()*arg.diff(s);
+	}
+}
+
 static ex conjugate_real_part(const ex & arg)
 {
 	return arg.real_part();
@@ -78,6 +92,7 @@ static ex conjugate_imag_part(const ex & arg)
 
 REGISTER_FUNCTION(conjugate_function, eval_func(conjugate_eval).
                                       evalf_func(conjugate_evalf).
+                                      expl_derivative_func(conjugate_expl_derivative).
                                       print_func<print_latex>(conjugate_print_latex).
                                       conjugate_func(conjugate_conjugate).
                                       real_part_func(conjugate_real_part).
@@ -127,8 +142,21 @@ static ex real_part_imag_part(const ex & arg)
 	return 0;
 }
 
+// If x is real then Re(e).diff(x) is equal to Re(e.diff(x)) 
+static ex real_part_expl_derivative(const ex & arg, const symbol & s)
+{
+	if (s.info(info_flags::real))
+		return real_part_function(arg.diff(s));
+	else {
+		exvector vec_arg;
+		vec_arg.push_back(arg);
+		return fderivative(ex_to<function>(real_part(arg)).get_serial(),0,vec_arg).hold()*arg.diff(s);
+	}
+}
+
 REGISTER_FUNCTION(real_part_function, eval_func(real_part_eval).
                                       evalf_func(real_part_evalf).
+                                      expl_derivative_func(real_part_expl_derivative).
                                       print_func<print_latex>(real_part_print_latex).
                                       conjugate_func(real_part_conjugate).
                                       real_part_func(real_part_real_part).
@@ -178,8 +206,21 @@ static ex imag_part_imag_part(const ex & arg)
 	return 0;
 }
 
+// If x is real then Im(e).diff(x) is equal to Im(e.diff(x)) 
+static ex imag_part_expl_derivative(const ex & arg, const symbol & s)
+{
+	if (s.info(info_flags::real))
+		return imag_part_function(arg.diff(s));
+	else {
+		exvector vec_arg;
+		vec_arg.push_back(arg);
+		return fderivative(ex_to<function>(imag_part(arg)).get_serial(),0,vec_arg).hold()*arg.diff(s);
+	}
+}
+
 REGISTER_FUNCTION(imag_part_function, eval_func(imag_part_eval).
                                       evalf_func(imag_part_evalf).
+                                      expl_derivative_func(imag_part_expl_derivative).
                                       print_func<print_latex>(imag_part_print_latex).
                                       conjugate_func(imag_part_conjugate).
                                       real_part_func(imag_part_real_part).
@@ -259,6 +300,12 @@ static ex abs_eval(const ex & arg)
 	return abs(arg).hold();
 }
 
+static ex abs_expl_derivative(const ex & arg, const symbol & s)
+{
+	ex diff_arg = arg.diff(s);
+	return (diff_arg*arg.conjugate()+arg*diff_arg.conjugate())/2/abs(arg);
+}
+
 static void abs_print_latex(const ex & arg, const print_context & c)
 {
 	c.s << "{\\left| "; arg.print(c); c.s << " \\right|}";
@@ -305,6 +352,7 @@ static ex abs_deriv(const ex & x, unsigned deriv_param)
 
 REGISTER_FUNCTION(abs, eval_func(abs_eval).
                        evalf_func(abs_evalf).
+                       expl_derivative_func(abs_expl_derivative).
                        print_func<print_latex>(abs_print_latex).
                        print_func<print_csrc_float>(abs_print_csrc_float).
                        print_func<print_csrc_double>(abs_print_csrc_float).
@@ -584,174 +632,6 @@ REGISTER_FUNCTION(eta, eval_func(eta_eval).
 
 
 //////////
-// dilogarithm
-//////////
-
-static ex Li2_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return Li2(ex_to<numeric>(x));
-	
-	return Li2(x).hold();
-}
-
-static ex Li2_eval(const ex & x)
-{
-	if (x.info(info_flags::numeric)) {
-		// Li2(0) -> 0
-		if (x.is_zero())
-			return _ex0;
-		// Li2(1) -> Pi^2/6
-		if (x.is_equal(_ex1))
-			return power(Pi,_ex2)/_ex6;
-		// Li2(1/2) -> Pi^2/12 - log(2)^2/2
-		if (x.is_equal(_ex1_2))
-			return power(Pi,_ex2)/_ex12 + power(log(_ex2),_ex2)*_ex_1_2;
-		// Li2(-1) -> -Pi^2/12
-		if (x.is_equal(_ex_1))
-			return -power(Pi,_ex2)/_ex12;
-		// Li2(I) -> -Pi^2/48+Catalan*I
-		if (x.is_equal(I))
-			return power(Pi,_ex2)/_ex_48 + Catalan*I;
-		// Li2(-I) -> -Pi^2/48-Catalan*I
-		if (x.is_equal(-I))
-			return power(Pi,_ex2)/_ex_48 - Catalan*I;
-		// Li2(float)
-		if (!x.info(info_flags::crational))
-			return Li2(ex_to<numeric>(x));
-	}
-	
-	return Li2(x).hold();
-}
-
-static ex Li2_deriv(const ex & x, unsigned deriv_param)
-{
-	GINAC_ASSERT(deriv_param==0);
-	
-	// d/dx Li2(x) -> -log(1-x)/x
-	return -log(_ex1-x)/x;
-}
-
-static ex Li2_series(const ex &x, const relational &rel, int order, unsigned options)
-{
-	const ex x_pt = x.subs(rel, subs_options::no_pattern);
-	if (x_pt.info(info_flags::numeric)) {
-		// First special case: x==0 (derivatives have poles)
-		if (x_pt.is_zero()) {
-			// method:
-			// The problem is that in d/dx Li2(x==0) == -log(1-x)/x we cannot 
-			// simply substitute x==0.  The limit, however, exists: it is 1.
-			// We also know all higher derivatives' limits:
-			// (d/dx)^n Li2(x) == n!/n^2.
-			// So the primitive series expansion is
-			// Li2(x==0) == x + x^2/4 + x^3/9 + ...
-			// and so on.
-			// We first construct such a primitive series expansion manually in
-			// a dummy symbol s and then insert the argument's series expansion
-			// for s.  Reexpanding the resulting series returns the desired
-			// result.
-			const symbol s;
-			ex ser;
-			// manually construct the primitive expansion
-			for (int i=1; i<order; ++i)
-				ser += pow(s,i) / pow(numeric(i), *_num2_p);
-			// substitute the argument's series expansion
-			ser = ser.subs(s==x.series(rel, order), subs_options::no_pattern);
-			// maybe that was terminating, so add a proper order term
-			epvector nseq;
-			nseq.push_back(expair(Order(_ex1), order));
-			ser += pseries(rel, nseq);
-			// reexpanding it will collapse the series again
-			return ser.series(rel, order);
-			// NB: Of course, this still does not allow us to compute anything
-			// like sin(Li2(x)).series(x==0,2), since then this code here is
-			// not reached and the derivative of sin(Li2(x)) doesn't allow the
-			// substitution x==0.  Probably limits *are* needed for the general
-			// cases.  In case L'Hospital's rule is implemented for limits and
-			// basic::series() takes care of this, this whole block is probably
-			// obsolete!
-		}
-		// second special case: x==1 (branch point)
-		if (x_pt.is_equal(_ex1)) {
-			// method:
-			// construct series manually in a dummy symbol s
-			const symbol s;
-			ex ser = zeta(_ex2);
-			// manually construct the primitive expansion
-			for (int i=1; i<order; ++i)
-				ser += pow(1-s,i) * (numeric(1,i)*(I*Pi+log(s-1)) - numeric(1,i*i));
-			// substitute the argument's series expansion
-			ser = ser.subs(s==x.series(rel, order), subs_options::no_pattern);
-			// maybe that was terminating, so add a proper order term
-			epvector nseq;
-			nseq.push_back(expair(Order(_ex1), order));
-			ser += pseries(rel, nseq);
-			// reexpanding it will collapse the series again
-			return ser.series(rel, order);
-		}
-		// third special case: x real, >=1 (branch cut)
-		if (((options & series_options::suppress_branchcut) == 0u) &&
-			ex_to<numeric>(x_pt).is_real() && ex_to<numeric>(x_pt)>1) {
-			// method:
-			// This is the branch cut: assemble the primitive series manually
-			// and then add the corresponding complex step function.
-			const symbol &s = ex_to<symbol>(rel.lhs());
-			const ex point = rel.rhs();
-			const symbol foo;
-			epvector seq;
-			// zeroth order term:
-			seq.push_back(expair(Li2(x_pt), _ex0));
-			// compute the intermediate terms:
-			ex replarg = series(Li2(x), s==foo, order);
-			for (size_t i=1; i<replarg.nops()-1; ++i)
-				seq.push_back(expair((replarg.op(i)/power(s-foo,i)).series(foo==point,1,options).op(0).subs(foo==s, subs_options::no_pattern),i));
-			// append an order term:
-			seq.push_back(expair(Order(_ex1), replarg.nops()-1));
-			return pseries(rel, seq);
-		}
-	}
-	// all other cases should be safe, by now:
-	throw do_taylor();  // caught by function::series()
-}
-
-static ex Li2_conjugate(const ex & x)
-{
-	// conjugate(Li2(x))==Li2(conjugate(x)) unless on the branch cuts which
-	// run along the positive real axis beginning at 1.
-	if (x.info(info_flags::negative)) {
-		return Li2(x).hold();
-	}
-	if (is_exactly_a<numeric>(x) &&
-	    (!x.imag_part().is_zero() || x < *_num1_p)) {
-		return Li2(x.conjugate());
-	}
-	return conjugate_function(Li2(x)).hold();
-}
-
-
-unsigned Li2_SERIAL::serial = function::register_new(function_options("dilog", 1).
-                       eval_func(Li2_eval).
-                       evalf_func(Li2_evalf).
-                       derivative_func(Li2_deriv).
-                       series_func(Li2_series).
-                       conjugate_func(Li2_conjugate).
-                       latex_name("{\\rm Li}_2"));
-
-//////////
-// trilogarithm
-//////////
-
-static ex Li3_eval(const ex & x)
-{
-	if (x.is_zero())
-		return x;
-	return Li3(x).hold();
-}
-
-REGISTER_FUNCTION(Li3, eval_func(Li3_eval).
-                       latex_name("{\\rm Li}_3"));
-
-//////////
 // Order term function (for truncated power series)
 //////////
 
@@ -799,16 +679,15 @@ static ex Order_imag_part(const ex & x)
 	return Order(x).hold();
 }
 
-static ex Order_derivative(const exvector &seq, const symbol& s)
+static ex Order_expl_derivative(const ex & arg, const symbol & s)
 {
-		return Order(seq[0].diff(s));
+	return Order(arg.diff(s));
 }
 
 REGISTER_FUNCTION(Order, eval_func(Order_eval).
                          series_func(Order_series).
                          latex_name("\\mathcal{O}").
-                         do_not_apply_chain_rule().
-                         derivative_func(Order_derivative).
+                         expl_derivative_func(Order_expl_derivative).
                          conjugate_func(Order_conjugate).
                          real_part_func(Order_real_part).
                          imag_part_func(Order_imag_part));

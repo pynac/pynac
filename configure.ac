@@ -20,11 +20,11 @@ dnl http://www.freesoftwaremagazine.com/articles/building_shared_libraries_once_
 dnl if you change this YOU MUST also change the libtool version below
 m4_define([ginac_major_version], [0])
 m4_define([ginac_minor_version], [7])
-m4_define([ginac_micro_version], [0])
+m4_define([ginac_micro_version], [4])
 
-m4_define([lt_current], [8])
+m4_define([lt_current], [11])
 m4_define([lt_revision], [0])
-m4_define([lt_age], [0])
+m4_define([lt_age], [2])
 
 
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
@@ -150,6 +150,14 @@ AC_CHECK_HEADER(limits, , GINAC_ERROR([The standard <limits> header file could n
 if test "x$CONFIG_RUSAGE" = "xno"; then
     AC_CHECK_HEADER(ctime, , GINAC_ERROR([The standard <ctime> header file could not be found.]))
 fi
+
+PKG_PROG_PKG_CONFIG
+
+dnl Find Singular's factory header and library with pkg-config
+PKG_CHECK_MODULES([FACTORY], [factory],[
+    AC_SUBST(FACTORY_CFLAGS)
+    AC_SUBST(FACTORY_LIBS)],
+    [AC_MSG_ERROR([This package needs libfactory])])
 
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
