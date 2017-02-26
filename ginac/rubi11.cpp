@@ -12,13 +12,10 @@ static ex rubi(ex e, ex x)
 {
         if (not is_exactly_a<symbol>(x))
                 throw std::runtime_error("rubi(): not a symbol");
-        if (is_exactly_a<numeric>(e) or is_exactly_a<constant>(e))
-                return _ex0;
-        if (is_exactly_a<symbol>(e))
-                if (e.is_equal(x))
-                        return _ex1;
-                else
-                        return _ex0;
+        if (not has_symbol(e))
+                return e*x;
+        if (e.is_equal(x))
+                return power(x, _ex2) / _ex2;
         ex the_ex = e.expand();
         if (is_exactly_a<add>(the_ex)) {
                 const add& m = ex_to<add>(the_ex);
@@ -39,6 +36,19 @@ static ex rubi(ex e, ex x)
                 if (not cvec.empty())
                         return mul(cvec) * rubi(mul(xvec), x);
         }
+        ex a, b;
+        if (is_exactly_a<power>(e)) {
+                const power& p = ex_to<power>(e);
+                const ex& ebas = p.op(0);
+                const ex& m = p.op(1);
+                if (ebas.has_symbol(x) and not m.has_symbol(x)) {
+                        if (ebas.is_linear(x, a, b))
+                                return rubi111(a, b, m);
+                        else if (ebas.is_quadratic(x, a, b, c))
+                                return rubi121(a, b, c, m);
+                        else
+                                return rubi1x1(ebas, m);
+                }
         return rubi11(the_ex, x);
 }
 
@@ -56,8 +66,11 @@ static ex rubi11(ex e, symbol x)
                                         return power(x,m+1) / (m+1);
                         }
                         else throw rubi_exception();
-
-                if (not ebas.has_symbol(x) and m.degree(x)==1)
-                if (ebas.degree(x)
+                ex a, b;
+                if (not ebas.has_symbol(x))
+                        if (m.is_linear(x, a, b))
+                                return power(ebas,m) / (b * log(a));
+                        else return;
+                if (
         }
 }
