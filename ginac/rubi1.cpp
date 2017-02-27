@@ -72,7 +72,32 @@ static ex rubi111(ex a, ex b, ex m, ex x)
                 else throw rubi_exception();
 }
 
-static ex rubi121(ex a, ex b, ex c, ex m, ex x)
+static ex rubi121(ex ae, ex be, ex ce, ex pe, ex x)
 {
+        if (not is_exactly_a<numeric>(ae)
+            or not is_exactly_a<numeric>(be)
+            or not is_exactly_a<numeric>(ce)
+            or not is_exactly_a<numeric>(pe))
+                throw rubi_exception();
 
+        const numeric& a = ex_to<numeric>(ae);
+        const numeric& b = ex_to<numeric>(be);
+        const numeric& c = ex_to<numeric>(ce);
+        const numeric& p = ex_to<numeric>(pe);
+        
+        if (b*b - a*c*(*_num4_p)).is_zero()) {
+                if (p.is_equal(*_num_1_2_p)) {
+                        return (x*c + b/(*_num2_p)) * power(x*x*c+x*b+a, _ex_1_2) * rubi111(b/(*_num2_p), c, *_num_1_p, x);
+                }
+                return (x*c*_ex2 + b) * power(x*x*c+x*b+a, p) / c / _ex2 / (_ex2*p+_ex1);
+        }
+
+        if (not (p*(*_num4_p)).is_integer()) {
+                numeric qq = b*b - a*c*(*_num4_p));
+                ex q;
+                if (qq.is_negative())
+                        q = power(ex(qq), _ex1_2);
+                else
+                        q = ex
+        }
 }
