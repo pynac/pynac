@@ -36,41 +36,43 @@ static ex rubi(ex e, ex x)
                 if (not cvec.empty())
                         return mul(cvec) * rubi(mul(xvec), x);
         }
-        ex a, b;
+        ex a, b, c;
         if (is_exactly_a<power>(e)) {
                 const power& p = ex_to<power>(e);
                 const ex& ebas = p.op(0);
                 const ex& m = p.op(1);
                 if (ebas.has_symbol(x) and not m.has_symbol(x)) {
                         if (ebas.is_linear(x, a, b))
-                                return rubi111(a, b, m);
+                                return rubi111(a, b, m, x);
                         else if (ebas.is_quadratic(x, a, b, c))
-                                return rubi121(a, b, c, m);
+                                return rubi121(a, b, c, m, x);
                         else
-                                return rubi1x1(ebas, m);
+                                return rubi1x1(ebas, m, x);
                 }
         return rubi11(the_ex, x);
 }
 
-static ex rubi11(ex e, symbol x)
+static ex rubi111(ex a, ex b, ex m, ex x)
 {
-        if (is_exactly_a<power>(e)) {
-                const power& p = ex_to<power>(e);
-                const ex& ebas = p.op(0);
-                const ex& m = p.op(1);
-                if (ebas.is_equal(x))
-                        if (is_exactly_a<numeric>(m)) {
-                                if (ex_to<numeric>(m).is_minus_one())
-                                        return log(x);
-                                else
-                                        return power(x,m+1) / (m+1);
-                        }
-                        else throw rubi_exception();
-                ex a, b;
-                if (not ebas.has_symbol(x))
-                        if (m.is_linear(x, a, b))
-                                return power(ebas,m) / (b * log(a));
-                        else return;
-                if (
-        }
+        if (b.is_integer_one() and a.is_zero())
+                if (is_exactly_a<numeric>(m)) {
+                        if (ex_to<numeric>(m).is_minus_one())
+                                return log(x);
+                        else
+                                return power(x,m+1) / (m+1);
+                }
+                else throw rubi_exception();
+        else
+                if (is_exactly_a<numeric>(m)) {
+                        if (ex_to<numeric>(m).is_minus_one())
+                                return log(a+b*x) / b;
+                        else
+                                return power(a+b*x,m+1) / b / (m+1);
+                }
+                else throw rubi_exception();
+}
+
+static ex rubi121(ex a, ex b, ex c, ex m, ex x)
+{
+
 }
