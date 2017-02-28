@@ -7,9 +7,9 @@ libpynac_la_SOURCES = add.cpp archive.cpp assume.cpp basic.cpp clifford.cpp \
   infinity.cpp inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp \
   inifcns_hyperb.cpp inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
   inifcns_orthopoly.cpp inifcns_hyperg.cpp inifcns_comb.cpp \
-  lst.cpp matrix.cpp mpoly-giac.cpp mpoly-ginac.cpp \
-  mpoly-singular.cpp mpoly.cpp mul.cpp ncmul.cpp normal.cpp numeric.cpp \
-  operators.cpp power.cpp py_funcs.cpp registrar.cpp relational.cpp remember.cpp \
+  lst.cpp matrix.cpp mpoly-giac.cpp mpoly-ginac.cpp mpoly-singular.cpp \
+  mpoly.cpp mul.cpp ncmul.cpp normal.cpp numeric.cpp operators.cpp power.cpp \
+  py_funcs.cpp registrar.cpp relational.cpp remember.cpp rubi1.cpp \
   pseries.cpp print.cpp symbol.cpp symmetry.cpp tensor.cpp upoly-ginac.cpp \
   utils.cpp wildcard.cpp templates.cpp infoflagbase.cpp sum.cpp \
   remember.h tostring.h utils.h compiler.h order.cpp useries.cpp

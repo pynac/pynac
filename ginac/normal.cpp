@@ -201,11 +201,11 @@ bool ex::is_linear(const symbol& x, ex& a, ex& b) const
 {
         if (degree(x) > 1)
                 return false;
-        a = coeff(x, 1);
-        if (has_symbol(a,x))
-                return false;
-        b = ((*this) - a*x).expand();
+        b = coeff(x, 1);
         if (has_symbol(b,x))
+                return false;
+        a = ((*this) - b*x).expand();
+        if (has_symbol(a,x))
                 return false;
         return true;
 }
@@ -214,14 +214,14 @@ bool ex::is_quadratic(const symbol& x, ex& a, ex& b, ex& c) const
 {
         if (degree(x) > 2)
                 return false;
-        a = coeff(x, 2);
-        if (has_symbol(a,x))
+        c = coeff(x, 2);
+        if (has_symbol(c,x))
                 return false;
         b = coeff(x, 1);
         if (has_symbol(b,x))
                 return false;
-        c = ((*this) - a*power(x,2) - b*x).expand();
-        if (has_symbol(c,x))
+        a = ((*this) - c*power(x,2) - b*x).expand();
+        if (has_symbol(a,x))
                 return false;
         return true;
 }
