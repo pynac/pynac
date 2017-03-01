@@ -2687,6 +2687,22 @@ const numeric numeric::sqrt() const {
         PY_RETURN(py_funcs.py_sqrt);
 }
 
+bool numeric::is_square() const
+{
+        if (is_negative())
+                return false;
+        if (is_zero() or is_one())
+                return true;
+        if (t == MPZ) {
+                return mpz_perfect_square_p(v._bigint);
+        }
+        else if (t == MPQ) {
+                return (mpz_perfect_square_p(mpq_numref(v._bigrat))
+                    and mpz_perfect_square_p(mpq_denref(v._bigrat)));
+        }
+        return false;
+}
+
 // Fast sqrt in case of square, symbolic sqrt else.
 const ex numeric::sqrt_as_ex() const
 {
