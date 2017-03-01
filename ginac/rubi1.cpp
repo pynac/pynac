@@ -4,6 +4,7 @@
 #include "add.h"
 #include "mul.h"
 #include "symbol.h"
+#include "relational.h"
 #include "ex.h"
 #include "utils.h"
 #include "operators.h"
@@ -47,6 +48,7 @@ class rubi_exception : public std::runtime_error {
 ex rubi(ex e, ex x);
 static ex rubi11(ex e, ex x);
 static ex rubi111(ex a, ex b, ex m, ex x);
+static ex rubi121(ex ae, ex be, ex me, ex ce, ex de, ex ne, ex x);
 static ex rubi121(ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi1x1(ex bas, ex exp, ex xe);
 
@@ -164,32 +166,75 @@ static ex _2F1(ex a, ex b, ex c, ex x)
         return eval_result;
 }
 
+static ex rubi121(ex ae, ex be, ex me, ex ce, ex de, ex ne, ex x)
+{
+        return _ex0;
+}
+
 static ex rubi121(ex ae, ex be, ex ce, ex pe, ex x)
 {
         if (not is_exactly_a<numeric>(ae)
             or not is_exactly_a<numeric>(be)
-            or not is_exactly_a<numeric>(ce)
-            or not is_exactly_a<numeric>(pe))
+            or not is_exactly_a<numeric>(ce))
                 throw rubi_exception();
 
         const numeric& a = ex_to<numeric>(ae);
         const numeric& b = ex_to<numeric>(be);
         const numeric& c = ex_to<numeric>(ce);
+        numeric qq = b*b - a*c*(*_num4_p);
+        ex q = qq.sqrt_as_ex();
+        
+        // symbolic p --> rule H
+        if (not is_exactly_a<numeric>(pe))
+                return _ex0-power(x*x*c+x*b+a, pe+(*_num1_p)) / (q*(pe+(*_num1_p)) * power((_ex_2*x*c+q-b)/_ex2/q, pe+(*_num1_p))) * _2F1(-pe, pe+_ex1, pe+_ex2, (_ex2*x*c+b+q)/_ex2/q);
+        
         const numeric& p = ex_to<numeric>(pe);
         
-        if ((b*b - a*c*(*_num4_p)).is_zero()) {
+        // Rule 1
+        if (qq.is_zero()) {
                 if (p.is_equal(*_num_1_2_p)) {
                         return (x*c + b/(*_num2_p)) * power(x*x*c+x*b+a, _ex_1_2) * rubi111(b/(*_num2_p), c, *_num_1_p, x);
                 }
                 return (x*c*_ex2 + b) * power(x*x*c+x*b+a, pe) / c / _ex2 / (_ex2*p+_ex1);
         }
-        if (not (p*(*_num4_p)).is_integer()) {
-                if (not (p*(*_num3_p)).is_integer()) {
-                        ex q = (b*b - a*c*(*_num4_p)).sqrt_as_ex();
-                        return _ex0-power(x*x*c+x*b+a, p+(*_num1_p)) / (q*(p+(*_num1_p)) * power((_ex_2*x*c+q-b)/_ex2/q, p+(*_num1_p))) * _2F1(-pe, pe+_ex1, pe+_ex2, (_ex2*x*c+b+q)/_ex2/q);
+
+        // Rule 2
+        if (p.is_positive() and (p*(*_num4_p)).is_integer()) {
+                if (p.is_integer()) {
+                        if (qq.is_square())
+                                return power(c, -p) * rubi112((b-q)/(*_num2_p), c, p, (b+q)/(*_num2_p), c, p);
+                        else
+                                return rubi(power(x*x*c+x*b+a, pe).expand(), x);
                 }
+                return (_ex2*x*c+b)*power(x*x*c+x*b+a, pe)/c/_ex2/(p*(*_num2_p)+(*_num1_p)) - p*qq/c/_ex2/(p*(*_num2_p)+(*_num1_p)) * rubi121(ae,be,ce,pe-_ex1,x);
         }
-        return _ex0;
+
+        // Rule 3
+        if (p < *_num_1_p and (p*(*_num4_p)).is_integer()) {
+                if (p == *_num_3_2_p)
+                        return _ex2 * (_ex2*x*c+b) / q / sqrt(x*x*c+x*b+a);
+                return (_ex2*x*c+b)*power(x*x*c+x*b+a, pe+_ex1)/(pe+_ex1)/qq - _ex2*c*(p*(*_num2_p)+(*_num3_p))/(pe+_ex1)/qq * rubi121(ae,be,ce,pe+_ex1,x);
+        }
+
+        // Rule 4
+        if (p == *_num_1_p) {
+                if (qq.is_positive() and qq.is_square())
+                        return ce/q * rubi111((be-q)/_ex2,ce,_ex_1,x) - ce/q * rubi111((be+q)/_ex2,ce,_ex_1,x);
+                ex t = rubi121(qq, _ex0, _ex_1, x);
+                return _ex_2 * t.subs(x == (_ex2*x*c+b));
+        }
+
+        // Rule 5
+        // if ((a*(*_num4_p) - b*b/c).is_positive()) {
+        //        ex t = rubi(power(_ex1-x*x/qq, pe), x);
+        //        return power(_ex2*c*power(_ex_4*c/qq, pe), _ex_1) * t.subs(x == x*c*_ex2+b);
+        //}
+
+        // Fallback rule H
+        return _ex0-power(x*x*c+x*b+a, p+(*_num1_p)) / (q*(p+(*_num1_p)) * power((_ex_2*x*c+q-b)/_ex2/q, p+(*_num1_p))) * _2F1(-pe, pe+_ex1, pe+_ex2, (_ex2*x*c+b+q)/_ex2/q);
+
+        // Rule 7
+        // return power(x*x*c+x*b+a, pe) / power(-(x*x*c+x*b+a)*c/qq, p) * rubi121(-a*c/qq, -b*c/qq, -c*c/qq, pe, x);
 }
 
 static ex rubi11(ex e, ex x)
