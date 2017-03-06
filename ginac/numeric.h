@@ -237,6 +237,8 @@ public:
 	const numeric imag() const;
 	const numeric numer() const;
 	const numeric denom() const;
+        const numeric floor() const;
+        const numeric frac() const;
 
 	const numeric exp() const;
 	const numeric log() const;
