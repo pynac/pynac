@@ -281,7 +281,8 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                                 return _ex0-power(c+d*x, n+_ex1) * power(a+b*x, m+_ex1) / _ex2 / b / c / (n+_ex1) + (m+n+_ex2)/_ex2/c/(n+_ex1) * rubi112(c, d, n+_ex1, a, b, m, x);
                 }
                 ex _ex5_4 = _ex5 / _ex4;
-                if ((b*d*a*c).info(info_flags::positive)) { // never true?
+                if ((b*d/a/c).info(info_flags::positive)) {
+                        // true for conjugates
                         // Rule 2.2
                         if (m.is_equal(_ex5_4)
                             and n.is_equal(_ex1_4))
@@ -293,18 +294,73 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
         }
         
-        // Fallback Expansion Rule 3
-        if (m.info(info_flags::positive)
-            and m.info(info_flags::integer))
-                return rubi(expand(expand(power(a+b*x,m)) * power(c+d*x,n)), x);
-        if (n.info(info_flags::positive)
-            and n.info(info_flags::integer))
-                return rubi(expand(expand(power(c+d*x,n)) * power(a+b*x,m)), x);
-        // Fallback Rule H.4
-        if (m.is_equal(_ex_1) and a.is_zero())
-                return _ex0-power(c+d*x, n+_ex1) / (c*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, _ex1+d*x/c);
-        if (n.is_equal(_ex_1) and c.is_zero())
-                return _ex0-power(a+b*x, m+_ex1) / (a*(m+_ex1)) * _2F1(1, m+_ex1, m+_ex2, _ex1+b*x/a);
+        // Expansion Rule 3
+        //if (m.info(info_flags::positive)
+        //    and m.info(info_flags::integer))
+        //        return rubi(expand(expand(power(a+b*x,m)) * power(c+d*x,n)), x);
+        //if (n.info(info_flags::positive)
+        //    and n.info(info_flags::integer))
+        //        return rubi(expand(expand(power(c+d*x,n)) * power(a+b*x,m)), x);
+
+        // 4
+        const ex _ex3_2 = _ex3/_ex2;
+        const ex _ex_3_2 = _ex_3/_ex2;
+        const ex _ex2_3 = _ex2/_ex3;
+        const ex _ex_2_3 = _ex_2/_ex3;
+        if (m.is_equal(_ex_1) or n.is_equal(_ex_1)) { // we know m>n
+                // Rule 4.1
+                if (n.is_equal(_ex_1) and m.info(info_flags::positive))
+                        return power(a+b*x,m)/d/m - expand(bcmad/d * rubi(power(a+b*x,m-1)/(c+d*x),x));
+                // Rule 4.2
+                if ((n+_ex1).info(info_flags::negative)) // we know m=-1
+                        return power(c+d*x,n+_ex1)/(n+_ex1)/bcmad - expand(b/bcmad * rubi(power(c+d*x,n+_ex1)/(a+b*x),x));
+                const ex bcmad_b = bcmad / d;
+                if (m.is_equal(_ex_1_3)) { // we know n=-1
+                        // Rule 4.3.1.1
+                        if (bcmad_b.info(info_flags::positive)) {
+                                ex q = power(bcmad_b, _ex1_3);
+                                return _ex0-log(c+d*x)/_ex2/d/q - _ex3_2/d/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) + _ex3_2/d * rubi121(q*q,q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                        }
+                        // Rule 4.3.1.2
+                        else if (bcmad_b.info(info_flags::negative)) {
+                                ex q = power(_ex0-bcmad_b, _ex1_3);
+                                return log(c+d*x)/_ex2/d/q - _ex3_2/d/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) + _ex3_2/d * rubi121(q*q,-q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                        }
+                }
+                if (m.is_equal(_ex_2_3)) { // we know n=-1
+                        // Rule 4.3.2.1
+                        if (bcmad_b.info(info_flags::positive)) {
+                                ex q = power(bcmad_b, _ex1_3);
+                                return _ex0-log(c+d*x)/_ex2/d/q/q - _ex3_2/d/q/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) - _ex3_2/d/q * rubi121(q*q,q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                        }
+                        // Rule 4.3.2.2
+                        else if (bcmad_b.info(info_flags::negative)) {
+                                ex q = power(_ex0-bcmad_b, _ex1_3);
+                                return _ex0-log(c+d*x)/_ex2/d/q/q + _ex3_2/d/q/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) + _ex3_2/d/q * rubi121(q*q,-q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                        }
+                }
+                // Rule 4.3.3
+                if (is_exactly_a<numeric>(m)
+                    and m.info(info_flags::negative)
+                    and ((m+_ex1).info(info_flags::positive))) {
+                        numeric p = ex_to<numeric>(m).denom();
+                        return ex(p) * rubi(power(x,(m+_ex1)*p-_ex1) / (bcmad + d*power(x,p)), x).subs(x == power(a+b*x,p.inverse()));
+                }
+
+                // Fallback Rules H.4
+                if (m.is_equal(_ex_1)
+                    and not n.info(info_flags::integer)) {
+                        if (a.is_zero())
+                                return _ex0-power(c+d*x, n+_ex1) / (c*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, _ex1+d*x/c);
+                        return _ex0-power(c+d*x, n+_ex1) / (bcmad*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, (b*(c+d*x)/bcmad).normal());
+                }
+                if (n.is_equal(_ex_1)
+                    and not m.info(info_flags::integer)) {
+                        if (c.is_zero())
+                                return _ex0-power(a+b*x, m+_ex1) / (a*(m+_ex1)) * _2F1(1, m+_ex1, m+_ex2, _ex1+b*x/a);
+                        return power(a+b*x, m+_ex1) / (bcmad*(m+_ex1)) * _2F1(1, m+_ex1, m+_ex2, (-d*(a+b*x)/bcmad).normal());
+                }
+        }
         throw rubi_exception();
 }
 
@@ -348,19 +404,23 @@ static ex rubi121(ex a, ex b, ex c, ex p, ex x)
                 return (_ex2*x*c+b)*power(x*x*c+x*b+a, p+_ex1)/(p+_ex1)/qq - _ex2*c*(p*_ex2+_ex3)/(p+_ex1)/qq * rubi121(a,b,c,p+_ex1,x);
         }
 
-        // Rule 4
+        // 4
         if (p.is_equal(_ex_1)) {
-                if (is_exactly_a<numeric>(qq))
-                // relaxed the square condition
+                // Rule 4.1, relaxed the square condition
+                if (qq.info(info_flags::positive))
                         return c/q * rubi(power(x*c+(b-q)/_ex2,_ex_1),x) - c/q * rubi(power(x*c+(b+q)/_ex2,_ex_1),x);
-                if (qq.info(info_flags::negative))
-                        return 2*atan(b/sqrt(-qq) + _ex2*c*x/sqrt(-qq)) / sqrt(-qq);
-                // Rule 5 in the form b^2-4ac>0 not 4a-b^2/c>0
-                if (qq.info(info_flags::positive)) {
-                        ex t = rubi112(_ex1, _ex1/q, p, _ex1, _ex_1/q, p, x);
-                        return power(_ex2*c*power(_ex_4*c/qq, p), _ex_1) * t.subs(x == x*c*_ex2+b);
+                // Rule 4.2
+                if (not b.is_zero()) {
+                        ex d = _ex1 - _ex4*a*c/b/b;
+                        if (d.info(info_flags::rational)
+                            and ((d*d).is_integer_one()
+                                    or not qq.info(info_flags::rational)))
+                                return _ex_2/b * rubi121(d, _ex0, _ex_1, _ex_1, x).subs(x == x*c*_ex2/b+_ex1);
                 }
-                throw rubi_exception();
+                // Rule 4.3, leads to loop if b==0 case not handled above
+                //return _ex_2*rubi121(q, _ex0, _ex_1, _ex_1, x).subs(x == x*c*_ex2+b);
+                // this is much simpler
+                return 2*atan(b/sqrt(-qq) + _ex2*c*x/sqrt(-qq)) / sqrt(-qq);
         }
 
         // Rule 6
@@ -371,6 +431,11 @@ static ex rubi121(ex a, ex b, ex c, ex p, ex x)
                         return _ex2 * rubi121(_ex4*c, _ex0, _ex_1, _ex_1, x).subs(x == (b+_ex2*c*x) * power(a + b*x + c*x*x, _ex_1_2));
         }
 
+        // Rule 5, loops with 1.1.2.2.1.3
+        //if ((4*a-b*b/c).info(info_flags::positive)) {
+        //        ex t = rubi112(_ex1, _ex1/q, p, _ex1, _ex_1/q, p, x);
+        //        return power(_ex2*c*power(_ex_4*c/qq, p), _ex_1) * t.subs(x == x*c*_ex2+b);
+        //}
         // Fallback rule H
         return _ex0-power(x*x*c+x*b+a, p+_ex1) / (q*(p+_ex1) * power((_ex_2*x*c+q-b)/_ex2/q, p+_ex1)) * _2F1(-p, p+_ex1, p+_ex2, (_ex2*x*c+b+q)/_ex2/q);
 
