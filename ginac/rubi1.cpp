@@ -77,7 +77,8 @@ ex rubi(ex e, ex xe)
                 return e*x;
         if (e.is_equal(x))
                 return power(x, _ex2) / _ex2;
-        ex the_ex = e.expand();
+        ex the_ex = e;
+        (void)the_ex.expand();
         if (is_exactly_a<add>(the_ex)) {
                 const add& m = ex_to<add>(the_ex);
                 exvector vec;
