@@ -255,6 +255,11 @@
         "file": "/home/ralf/sage/pynac/ginac/mpoly.cpp"
     }, 
     {
+        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/home/ralf/sage/local/include/c++/5.4.0 -I/home/ralf/sage/local/include/c++/5.4.0/x86_64-unknown-linux-gnu/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-mpoly-ginac.o /home/ralf/sage/pynac/ginac/mpoly-ginac.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/mpoly-ginac.cpp"
+    }, 
+    {
         "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/home/ralf/sage/local/include/c++/5.4.0 -I/home/ralf/sage/local/include/c++/5.4.0/x86_64-unknown-linux-gnu/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-mpoly-giac.o /home/ralf/sage/pynac/ginac/mpoly-giac.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/mpoly-giac.cpp"
