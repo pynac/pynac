@@ -95,7 +95,7 @@ dnl Check for the compiler and all the utilities needed for the build.
 AC_PROG_CXX
 AC_PROG_CXXCPP
 AC_PROG_INSTALL
-AM_PROG_LIBTOOL
+LT_INIT
 AC_LIBTOOL_WIN32_DLL
 
 AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs gmp headers]))
