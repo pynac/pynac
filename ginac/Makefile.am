@@ -2,7 +2,7 @@
 
 lib_LTLIBRARIES = libpynac.la
 libpynac_la_SOURCES = add.cpp archive.cpp assume.cpp basic.cpp \
-  constant.cpp ex.cpp expair.cpp expairseq.cpp exprseq.cpp fail.cpp \
+  constant.cpp ex.cpp expair.cpp expairseq.cpp exprseq.cpp \
   fderivative.cpp function.cpp function_info.cpp idx.cpp indexed.cpp \
   infinity.cpp inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp \
   inifcns_hyperb.cpp inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
@@ -25,8 +25,8 @@ libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshado
 libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) @FACTORY_LIBS@ $(LIBGIAC)
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h \
-  class-info.h constant.h infinity.h container.h ex.h expair.h expairseq.h \
-  exprseq.h fail.h fderivative.h flags.h function.h idx.h indexed.h \
+  class_info.h constant.h infinity.h container.h ex.h expair.h expairseq.h \
+  exprseq.h fderivative.h flags.h function.h idx.h indexed.h \
   inifcns.h lst.h matrix.h mpoly.h mul.h \
   ncmul.h normal.h numeric.h operators.h \
   power.h print.h pseries.h ptr.h registrar.h relational.h extern_templates.h \
