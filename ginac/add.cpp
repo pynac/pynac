@@ -417,10 +417,39 @@ ex add::eval(int level) const
 	// if any terms in the sum still are purely numeric, then they are more
 	// appropriately collected into the overall coefficient
 	int terms_to_collect = 0;
+	if (global_eval_fp and info(info_flags::inexact)) {
+                epvector nonsyms, syms;
+                for (const auto & elem : seq) {
+                        if (not has_symbol(elem.rest))
+                                nonsyms.push_back(elem);
+                        else
+                                syms.push_back(elem);
+                        if (unlikely(is_a<numeric>(elem.rest)))
+                                ++terms_to_collect;
+                }
+
+                numeric oc = *_num0_p;
+                for (const auto & elem : nonsyms) {
+                        const ex& evalf_res = elem.rest.evalf();
+                        if (is_exactly_a<numeric>(evalf_res))
+                                oc += ex_to<numeric>(evalf_res) * ex_to<numeric>(elem.coeff.evalf());
+                        else
+                                syms.push_back(elem);
+                }
+                epvector s;
+                s.reserve(syms.size());
+                for (const auto & elem : syms)
+                        s.push_back(elem);
+                if (syms.empty())
+                        return overall_coeff.add_dyn(oc);
+                else
+                        return (new add(s, overall_coeff.add_dyn(oc)))
+                                ->setflag(status_flags::dynallocated|status_flags::evaluated);
+        }
 	for (const auto & elem : seq)
 		if (unlikely(is_exactly_a<numeric>(elem.rest)))
 			++terms_to_collect;
-	if (terms_to_collect != 0) {
+        if (terms_to_collect != 0) {
                 epvector s;
 		s.reserve(seq_size - terms_to_collect);
 		numeric oc = *_num0_p;

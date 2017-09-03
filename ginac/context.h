@@ -11,6 +11,7 @@
 namespace GiNaC {
 
 extern bool global_hold;
+extern bool global_eval_fp;
 
 void set_state(const std::string&, bool);
 

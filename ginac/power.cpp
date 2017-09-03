@@ -38,6 +38,7 @@
 #include "relational.h"
 #include "compiler.h"
 #include "function.h"
+#include "context.h"
 
 #include <vector>
 #include <stdexcept>
@@ -549,6 +550,12 @@ ex power::eval(int level) const
 	// power of a function calculated by separate rules defined for this function
 	if (is_exactly_a<function>(ebasis))
 		return ex_to<function>(ebasis).power(eexponent);
+
+        if (global_eval_fp
+            and info(info_flags::inexact)
+            and not has_symbol(ebasis)
+            and not has_symbol(eexponent))
+                return ex_to<numeric>(ebasis.evalf(0)).power(ex_to<numeric>(eexponent.evalf(0)));
 
 	// Turn (x^c)^d into x^(c*d) in the case that x is positive and c is real,
         // or if d is integer (and positive to preserve fraction output).
