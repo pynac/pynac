@@ -33,6 +33,7 @@
 #include "function.h"
 #include "inifcns.h"
 #include "order.h"
+#include "context.h"
 
 #include <iostream>
 #include <vector>
@@ -696,6 +697,33 @@ ex mul::eval(int level) const
 	} else if (seq_size==0) {
 		// *(;c) -> c
 		return overall_coeff;
+        }
+
+        if (global_eval_fp and info(info_flags::inexact)) {
+                epvector nonsyms, syms;
+                for (const auto & elem : seq) {
+                        if (not has_symbol(elem.rest))
+                                nonsyms.push_back(elem);
+                        else
+                                syms.push_back(elem);
+                }
+                numeric oc = *_num1_p;
+                for (const auto & elem : nonsyms) {
+                        const ex& evalf_res = elem.rest.evalf();
+                        if (is_exactly_a<numeric>(evalf_res))
+                                oc *= ex_to<numeric>(evalf_res) * ex_to<numeric>(elem.coeff.evalf());
+                        else
+                                syms.push_back(elem);
+                }
+                epvector s;
+                s.reserve(syms.size());
+                for (const auto & elem : syms)
+                        s.push_back(elem);
+                if (syms.empty())
+                        return overall_coeff.mul_dyn(oc);
+                else
+                        return (new mul(s, overall_coeff.mul_dyn(oc)))
+                                ->setflag(status_flags::dynallocated|status_flags::evaluated);
 	} else if (seq_size==1
                    and overall_coeff.is_one()
 		   and not overall_coeff.is_parent_pos_char()) {
