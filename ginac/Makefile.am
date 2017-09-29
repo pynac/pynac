@@ -25,8 +25,8 @@ libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshado
 libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) @FACTORY_LIBS@ $(LIBGIAC)
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h \
-  class_info.h constant.h container.h context.h ex.h expair.h expairseq.h \
-  exprseq.h fderivative.h flags.h function.h \
+  class_info.h constant.h container.h context.h ex.h ex_utils.h \
+  expair.h expairseq.h exprseq.h fderivative.h flags.h function.h \
   inifcns.h infinity.h lst.h matrix.h mpoly.h mul.h \
   normal.h numeric.h operators.h \
   power.h print.h pseries.h ptr.h registrar.h relational.h extern_templates.h \
