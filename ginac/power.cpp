@@ -674,7 +674,9 @@ ex power::eval(int level) const
                         if (is_exactly_a<mul>(ebasis)) {
                                 return expand_mul(ex_to<mul>(ebasis), num_exponent, 0);
                         }
+                }
 
+                if (num_exponent.is_rational()) {
                         // (2*x + 6*y)^(-4) -> 1/16*(x + 3*y)^(-4)
                         if (is_exactly_a<add>(ebasis)) {
                                 numeric icont = ebasis.integer_content();
@@ -699,8 +701,8 @@ ex power::eval(int level) const
                                         addp->seq_sorted.resize(0);
                                         for (auto & elem : addp->seq)
                                                 elem.coeff = ex_to<numeric>(elem.coeff).div_dyn(icont);
-                                        const numeric c = icont.pow_intexp(num_exponent.to_long());
-                                        if (likely(not c.is_one()))
+                                        ex c = icont.power(num_exponent);
+                                        if (likely(not c.is_integer_one()))
                                                 return (new mul(power(*addp, num_exponent), c))->setflag(status_flags::dynallocated |
 	                                               status_flags::evaluated);
                                         return (new power(*addp, eexponent))->setflag(status_flags::dynallocated |
