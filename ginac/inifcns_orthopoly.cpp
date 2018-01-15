@@ -10,6 +10,7 @@
 #include "constant.h"
 #include "infinity.h"
 #include "numeric.h"
+#include "add.h"
 #include "mul.h"
 #include "power.h"
 #include "operators.h"
@@ -18,7 +19,103 @@
 #include "pseries.h"
 #include "utils.h"
 
+#include "gmp.h"
+#include "flint/fmpq_poly.h"
+#include "flint/fmpq.h"
+
 namespace GiNaC {
+
+//////////
+// Legendre polynomials P_n(x)
+//////////
+
+static ex legp_evalf(const ex& n, const ex& x, PyObject* parent)
+{
+	if (not is_exactly_a<numeric>(x)
+             or not is_exactly_a<numeric>(n))
+                return legendre_P(n,x).hold();
+
+        // see http://dlmf.nist.gov/15.9.E7
+        numeric numn = ex_to<numeric>(n);
+        numeric numx = ex_to<numeric>(x);
+        std::vector<numeric> numveca, numvecb;
+        numveca.push_back(numn.negative());
+        numvecb.push_back(numn + *_num1_p);
+        return hypergeometric_pFq(numveca, numvecb, (*_num1_p - numx).mul(*_num1_2_p), parent);
+}
+
+static ex legp_eval(const ex& n_, const ex& x)
+{
+        ex n;
+        if (n_.info(info_flags::negative))
+                n = _ex_1 - n_;
+        else
+                n = n_;
+	if (is_exactly_a<numeric>(x)) {
+                numeric numx = ex_to<numeric>(x);
+                if (numx.is_one())
+                        return _ex1;
+                if (numx.is_zero())
+                        if (n.info(info_flags::integer)) {
+                                if (n.info(info_flags::odd))
+                                        return _ex0;
+                                if (n.info(info_flags::even)) {
+                                        if (is_exactly_a<numeric>(n)) {
+                                                numeric numn = ex_to<numeric>(n);
+                                                return (numn+*_num_1_p).factorial() / numn.mul(*_num1_2_p).factorial().pow_intexp(2) * numn / _num2_p->pow_intexp(numn.to_int());
+                                        }
+                                        else
+                                                return gamma(n) / pow(gamma(n/_ex2), _ex2) / pow(_ex2, n-_ex2) / n;
+                                }
+                        }
+                if (is_exactly_a<numeric>(n)
+                    and (numx.info(info_flags::inexact)
+                         or n.info(info_flags::inexact)))
+                        return legp_evalf(n, x, nullptr);
+        }
+
+        if (not is_exactly_a<numeric>(n)
+            or not n.info(info_flags::integer))
+                return legendre_P(n, x).hold();
+
+        // Get coefficients from Flint, substitute x
+        numeric numn = ex_to<numeric>(n);
+        if (numn.is_zero())
+                return _ex1;
+        fmpq_poly_t poly;
+        fmpq_poly_init(poly);
+        fmpq_poly_legendre_p(poly, numn.to_long());
+        epvector epv;
+        slong deg = fmpq_poly_degree(poly);
+
+        for (slong nn=0; nn<=deg; nn++) {
+                fmpq_t c;
+                fmpq_init(c);
+                fmpq_poly_get_coeff_fmpq(c, poly, nn);
+                if (not fmpq_is_zero(c)) {
+                        mpq_t gc;
+                        mpq_init(gc);
+                        fmpq_get_mpq(gc, c);
+                        numeric nc(gc); // numeric clears gc
+                        epv.push_back(expair(nc, pow(x, nn)));
+                }
+                fmpq_clear(c);
+        }
+        fmpq_poly_clear(poly);
+        return add(epv);
+}
+
+static ex legp_deriv(const ex& n, const ex & x, unsigned deriv_param)
+{
+	    if (deriv_param == 0)
+                    throw std::runtime_error("derivative w.r.t. to the index is not supported yet");
+	    return (n*legendre_P(n-1, x).hold() - n*x*legendre_P(n, x).hold()) / (1 - pow(x, 2));
+}
+
+REGISTER_FUNCTION(legendre_P, eval_func(legp_eval).
+                        evalf_func(legp_evalf).
+                        derivative_func(legp_deriv).
+		        latex_name("P"));
 
 //////////
 // Hermite polynomials H_n(x)
