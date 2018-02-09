@@ -20,7 +20,7 @@ libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO) -no-undefined
 else
 libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 endif
-libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -Wno-unknown-pragmas
+libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -Wno-unknown-pragmas -Wno-parentheses-equality
 
 libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) @FACTORY_LIBS@ $(LIBGIAC)
 ginacincludedir = $(includedir)/pynac
