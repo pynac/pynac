@@ -23,8 +23,6 @@
 #ifndef __GINAC_BASIC_H__
 #define __GINAC_BASIC_H__
 
-#include <Python.h>
-#include <cstddef> // for size_t
 #include <vector>
 #include <set>
 #include <map>
@@ -38,8 +36,13 @@
 #include "ptr.h"
 #include "assertion.h"
 #include "registrar.h"
+#include "context.h"
 
-#include <factory/factory.h>
+// PyObject forward declaration 
+#ifndef PyObject_HEAD
+struct _object;
+typedef _object PyObject;
+#endif
 
 #ifdef PYNAC_HAVE_LIBGIAC
 namespace giac
@@ -178,11 +181,7 @@ public: // only const functions please (may break reference counting)
 	virtual ex eval(int level = 0) const;
 	virtual ex evalf(int level = 0, PyObject* parent=nullptr) const;
 	virtual ex evalm() const;
-	virtual ex eval_integ() const;
-protected:
-	virtual ex eval_ncmul(const exvector & v) const;
 public:
-	virtual ex eval_indexed(const basic & i) const;
 
 	// printing
 	virtual void print(const print_context & c, unsigned level = 0) const;
@@ -192,6 +191,9 @@ public:
 
 	// info
 	virtual bool info(unsigned inf) const;
+        virtual bool is_integer() const { return info(info_flags::integer); }
+        virtual bool is_real() const { return info(info_flags::real); }
+        virtual bool is_positive() const { return info(info_flags::positive); }
 
 	// operand access
 	virtual size_t nops() const;
@@ -205,7 +207,6 @@ public:
 	// pattern matching
 	virtual bool has(const ex & other, unsigned options = 0) const;
 	virtual bool match(const ex & pattern, lst & repl_lst) const;
-protected:
 	virtual bool match_same_type(const basic & other) const;
 
 	virtual void do_print(const print_context & c, unsigned level) const;
@@ -228,9 +229,9 @@ public:
 
 	// degree/coeff
 	virtual bool is_polynomial(const ex & var) const;
-	virtual int degree(const ex & s) const;
-	virtual int ldegree(const ex & s) const;
-	virtual ex coeff(const ex & s, int n = 1) const;
+	virtual numeric degree(const ex & s) const;
+	virtual numeric ldegree(const ex & s) const;
+	virtual ex coeff(const ex & s, const ex & n) const;
 
 	// expand/collect
 	virtual ex expand(unsigned options = 0) const;
@@ -252,12 +253,6 @@ public:
 	virtual numeric integer_content() const;
 	virtual ex smod(const numeric &xi) const;
 	virtual numeric max_coefficient() const;
-
-	// indexed objects
-	virtual exvector get_free_indices() const;
-	virtual ex add_indexed(const ex & self, const ex & other) const;
-	virtual ex scalar_mul_indexed(const ex & self, const numeric & other) const;
-	virtual bool contract_with(exvector::iterator self, exvector::iterator other, exvector & v) const;
 
 	// noncommutativity
 	virtual unsigned return_type() const;
@@ -294,6 +289,8 @@ public:
 	ex subs_one_level(const exmap & m, unsigned options) const;
 	ex diff(const symbol & s, unsigned nth = 1) const;
 	bool is_equal(const basic & other) const;
+        bool is_evaluated() const
+            { return global_hold or ((flags & status_flags::evaluated) != 0u); }
 	const basic & hold() const;
 
 	long gethash() const
@@ -306,9 +303,8 @@ public:
 			compare_statistics.gethash_cached++;
 #endif
 			return hashvalue;
-		} else {
-			return calchash();
-		}
+		} 
+                return calchash();
 	}
 
 	tinfo_t tinfo() const {return tinfo_key;}
@@ -319,14 +315,12 @@ public:
 	/** Clear some status_flags. */
 	const basic & clearflag(unsigned f) const {flags &= ~f; return *this;}
 
-protected:
 	void ensure_if_modifiable() const;
 #ifdef PYNAC_HAVE_LIBGIAC
         const giac::polynome to_polynome(ex_int_map& map, exvector& revmap);
 #endif
 
 	// member variables
-protected:
 	tinfo_t tinfo_key;                  ///< type info
 	mutable unsigned flags;             ///< of type status_flags
 	mutable long hashvalue=0;         ///< hash value

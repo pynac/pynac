@@ -39,17 +39,21 @@
 
 namespace GiNaC {
 
-static bool first_symbol = true;
-static symbol symb;
-
-static void check_poly_ccoeff_zero(flint_series_t& fp)
+// Normalize series if offset positive.
+static void normalize(flint_series_t& fp)
 {
         if (fp.offset > 0) {
                 fmpq_poly_shift_left(fp.ft, fp.ft, fp.offset);
                 fp.offset = 0;
-                return;
         }
-        else if (fp.offset < 0)
+}
+
+// Check that constant coeff of series is zero.
+static void check_poly_ccoeff_zero(const flint_series_t& fp)
+{
+        if (fp.offset > 0)
+                return;
+        if (fp.offset < 0)
                 throw flint_error();
         fmpq_t c;
         fmpq_init(c);
@@ -59,6 +63,7 @@ static void check_poly_ccoeff_zero(flint_series_t& fp)
         fmpq_clear(c);
 }
 
+// Check that constant coeff of series is one.
 static void check_poly_ccoeff_one(const flint_series_t& fp)
 {
         if (fp.offset != 0)
@@ -71,7 +76,8 @@ static void check_poly_ccoeff_one(const flint_series_t& fp)
         fmpq_clear(c);
 }
 
-long fmpq_poly_ldegree(fmpq_poly_t fp)
+// Return low degree of polynomial
+long fmpq_poly_ldegree(const fmpq_poly_t& fp)
 {
         if (fmpq_poly_is_zero(fp))
                 return 0;
@@ -81,6 +87,7 @@ long fmpq_poly_ldegree(fmpq_poly_t fp)
                 fmpq_init(c);
                 fmpq_poly_get_coeff_fmpq(c, fp, n);
                 if (not fmpq_is_zero(c)) {
+                        fmpq_clear(c);
                         return n;
                 }
                 fmpq_clear(c);
@@ -249,6 +256,8 @@ static funcmap_t& funcmap()
         return _funcmap;
 }
 
+static bool rational_ex_f;
+
 // Fast heuristic that rejects/accepts expressions for the fast
 // expansion via Flint. It can give false positives that must be
 // caught before Flint raises SIGABRT, because we want to use the
@@ -260,50 +269,65 @@ static funcmap_t& funcmap()
 // The helper uses recurrence to check that all numerics are from QQ,
 // that there is not more than one symbol, no constants, and all
 // function serial numbers are in the funcmap keys.
-static bool unhandled_elements_in(ex the_ex) {
-
+static bool unhandled_elements_in(const ex& the_ex, const symbol& symb)
+{
         if (is_exactly_a<constant>(the_ex))
                 return true;
         if (is_exactly_a<numeric>(the_ex))
                 return not (ex_to<numeric>(the_ex).is_mpz()
+                                or ex_to<numeric>(the_ex).is_long()
                                 or ex_to<numeric>(the_ex).is_mpq());
         if (is_exactly_a<symbol>(the_ex)) {
-                if (not first_symbol)
-                        return (not ex_to<symbol>(the_ex).is_equal(symb));
-                first_symbol = false;
-                symb = ex_to<symbol>(the_ex);
-                return false;
+                return (not ex_to<symbol>(the_ex).is_equal(symb));
         }
         if (is_exactly_a<function>(the_ex)) {
-                function f = ex_to<function>(the_ex);
+                rational_ex_f = false;
+                const function& f = ex_to<function>(the_ex);
                 if (funcmap().find(f.get_serial()) == funcmap().end())
                         return true;
                 for (unsigned int i=0; i<f.nops(); i++)
-                        if (unhandled_elements_in(f.op(i)))
+                        if (unhandled_elements_in(f.op(i), symb))
                                 return true;
                 return false;
         }
         if (is_exactly_a<power>(the_ex)) {
-                power pow = ex_to<power>(the_ex);
-                return (unhandled_elements_in(pow.op(0))
-                     or unhandled_elements_in(pow.op(1)));
+                const power& pow = ex_to<power>(the_ex);
+                if (not is_exactly_a<numeric>(pow.op(1)))
+                        rational_ex_f = false;
+                return (unhandled_elements_in(pow.op(0), symb)
+                     or unhandled_elements_in(pow.op(1), symb));
         }
         if (is_a<expairseq>(the_ex)) {
                 const expairseq& epseq = ex_to<expairseq>(the_ex);
                 for (unsigned int i=0; i<epseq.nops(); i++) {
-                        if (unhandled_elements_in(epseq.op(i)))
+                        if (unhandled_elements_in(epseq.op(i), symb))
                                 return true;
                 }
-                if (unhandled_elements_in(epseq.op(epseq.nops())))
+                if (unhandled_elements_in(epseq.get_overall_coeff(), symb))
                         return true;
                 return false;
         }
         return true;
 }
 
-bool useries_can_handle(ex the_ex) {
-
-        return (not unhandled_elements_in(the_ex));
+bool useries_can_handle(const ex& the_ex, const symbol& s)
+{
+        rational_ex_f = true;
+        bool ok = (not unhandled_elements_in(the_ex, s));
+        if (ok) {
+                ex nd = the_ex.numer_denom();
+                try {
+                        (void) nd.op(0).degree(s).to_long();
+                        (void) nd.op(0).ldegree(s).to_long();
+                        (void) nd.op(1).degree(s).to_long();
+                        (void) nd.op(1).ldegree(s).to_long();
+                }
+                catch (conversion_error) {
+                        throw std::runtime_error("exponent too big");
+                }
+                catch (std::runtime_error) {}
+        }
+        return ok;
 }
 
 class ldegree_error : public std::runtime_error {
@@ -316,16 +340,16 @@ class ldegree_error : public std::runtime_error {
 // series computation the precision may have to be increased. This
 // is the case if we encounter an add in the treewalk. If not we
 // can exactly determine the low degree.
-static int low_series_degree(ex the_ex) {
+static int low_series_degree(const ex& the_ex) {
         static std::unordered_set<unsigned int> funcset {{
-                {sin_SERIAL::serial},
-                {tan_SERIAL::serial},
-                {asin_SERIAL::serial},
-                {atan_SERIAL::serial},
-                {sinh_SERIAL::serial},
-                {tanh_SERIAL::serial},
-                {asinh_SERIAL::serial},
-                {atanh_SERIAL::serial},
+                sin_SERIAL::serial,
+                tan_SERIAL::serial,
+                asin_SERIAL::serial,
+                atan_SERIAL::serial,
+                sinh_SERIAL::serial,
+                tanh_SERIAL::serial,
+                asinh_SERIAL::serial,
+                atanh_SERIAL::serial,
 }};
 
         if (is_exactly_a<constant>(the_ex)
@@ -334,7 +358,7 @@ static int low_series_degree(ex the_ex) {
         if (is_exactly_a<symbol>(the_ex))
                 return 1;
         if (is_exactly_a<function>(the_ex)) {
-                function f = ex_to<function>(the_ex);
+                const function& f = ex_to<function>(the_ex);
                 unsigned int ser = f.get_serial();
                 if (ser == log_SERIAL::serial)
                         return 1;
@@ -348,10 +372,10 @@ static int low_series_degree(ex the_ex) {
                 return low_series_degree(f.op(0));
         }
         if (is_exactly_a<power>(the_ex)) {
-                power pow = ex_to<power>(the_ex);
+                const power& pow = ex_to<power>(the_ex);
                 ex expo = pow.op(1);
                 if (is_exactly_a<numeric>(expo)) {
-                        numeric n = ex_to<numeric>(expo);
+                        const numeric& n = ex_to<numeric>(expo);
                         if (n.is_integer())
                                 return (low_series_degree(pow.op(0))
                                       * n.to_int());
@@ -372,12 +396,11 @@ static int low_series_degree(ex the_ex) {
         return 0;
 }
 
-ex useries(ex the_ex, const relational & r, int order, unsigned options)
+ex useries(const ex& the_ex, const symbol& x, int order, unsigned options)
 {
         if (order <= 0)
                 // send residues to the old code
                 throw flint_error(); 
-        symbol x = ex_to<symbol>(r.lhs());
         bool may_extend = false;
         int ldeg = 0;
         try {
@@ -389,8 +412,8 @@ ex useries(ex the_ex, const relational & r, int order, unsigned options)
 
         epvector epv;
         if (ldeg >= order) {
-                epv.push_back(expair(Order(_ex1), order));
-                return pseries(r, epv);
+                epv.emplace_back(Order(_ex1), order);
+                return pseries(relational(x,_ex0), epv);
         }
 
         if (ldeg > 0) {
@@ -406,7 +429,9 @@ ex useries(ex the_ex, const relational & r, int order, unsigned options)
         // Precision may have been lost when adding terms
         if (may_extend and deg < prec - fp.offset) {
                 fmpq_poly_set_ui(fp.ft, 0);
-                the_ex.useries(fp, 2*prec - fp.offset - deg);
+                int old_offset = fp.offset;
+                fp.offset = 0;
+                the_ex.useries(fp, 2*prec - old_offset - deg);
         }
 
         // Fill expair vector
@@ -421,12 +446,12 @@ ex useries(ex the_ex, const relational & r, int order, unsigned options)
                         mpq_init(gc);
                         fmpq_get_mpq(gc, c);
                         numeric nc(gc); // numeric clears gc
-                        epv.push_back(expair(nc, numeric(n + fp.offset)));
+                        epv.emplace_back(nc, numeric(n + fp.offset));
                 }
                 fmpq_clear(c);
         }
-        epv.push_back(expair(Order(_ex1), order));
-        return pseries(r, epv);
+        epv.emplace_back(Order(_ex1), order);
+        return pseries(relational(x,_ex0), epv);
 }
 
 void symbol::useries(flint_series_t& fp, int order) const
@@ -452,15 +477,14 @@ void add::useries(flint_series_t& fp, int order) const
                 }
                 fmpq_poly_add(fp.ft, fp.ft, fp1.ft);
         }
-        ex ovcoeff = op(nops());
-        if (not is_exactly_a<numeric>(ovcoeff))
-                throw std::runtime_error("non-numeric oc encountered");
-        numeric oc = ex_to<numeric>(ovcoeff);
+        const numeric& oc = overall_coeff;
         if (oc.is_zero())
                 return;
 
         flint_series_t fp1;
-        if (oc.is_mpz())
+        if (oc.is_long())
+                fmpq_poly_set_si(fp1.ft, oc.to_long());
+        else if (oc.is_mpz())
                 fmpq_poly_set_mpz(fp1.ft, oc.as_mpz());
         else
                 fmpq_poly_set_mpq(fp1.ft, oc.as_mpq());
@@ -478,14 +502,13 @@ void mul::useries(flint_series_t& fp, int order) const
                 fmpq_poly_mullow(fp.ft, fp.ft, fp1.ft, order+2);
                 fp.offset = newoff;
         }
-        ex ovcoeff = op(nops());
-        if (not is_exactly_a<numeric>(ovcoeff))
-                throw std::runtime_error("non-numeric oc encountered");
-        numeric oc = ex_to<numeric>(ovcoeff);
+        const numeric& oc = overall_coeff;
         if (oc.is_one())
                 return;
 
-        if (oc.is_mpz())
+        if (oc.is_long())
+                fmpq_poly_scalar_mul_si(fp.ft, fp.ft, oc.to_long());
+        else if (oc.is_mpz())
                 fmpq_poly_scalar_mul_mpz(fp.ft, fp.ft, oc.as_mpz());
         else
                 fmpq_poly_scalar_mul_mpq(fp.ft, fp.ft, oc.as_mpq());
@@ -504,7 +527,7 @@ void power::useries(flint_series_t& fp, int order) const
                 fmpq_poly_exp_series(fp.ft, fp.ft, order);
                 return;
         }
-        numeric nexp = ex_to<numeric>(exponent);
+        const numeric& nexp = ex_to<numeric>(exponent);
         if (nexp.is_mpq()) {
                 int num = nexp.numer().to_int();
                 int den = nexp.denom().to_int();
@@ -555,7 +578,7 @@ void power::useries(flint_series_t& fp, int order) const
                 fmpq_poly_truncate(fp.ft, fp.offset + order + 2);
                 return;
         }
-        else if (expint < 0) {
+        if (expint < 0) {
                 if (fmpq_poly_is_zero(fp1.ft))
                         throw flint_error();
                 if (ldeg) {
@@ -579,12 +602,15 @@ void function::useries(flint_series_t& fp, int order) const
                 throw std::runtime_error("can't happen in function::useries");
         flint_series_t fp1;
         seq[0].useries(fp1, order);
+        normalize(fp1);
         (*search->second)(fp, fp1, order);
 }
 
 void numeric::useries(flint_series_t& fp, int order) const
 {
-        if (is_mpz())
+        if (is_long())
+                fmpq_poly_set_si(fp.ft, to_long());
+        else if (is_mpz())
                 fmpq_poly_set_mpz(fp.ft, as_mpz());
         else
                 fmpq_poly_set_mpq(fp.ft, as_mpq());

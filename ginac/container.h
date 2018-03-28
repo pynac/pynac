@@ -569,8 +569,8 @@ ex container<C>::eval(int level) const
 {
 	if (level == 1)
 		return hold();
-	else
-		return thiscontainer(evalchildren(level));
+
+        return thiscontainer(evalchildren(level));
 }
 
 template <template <class T, class = std::allocator<T> > class C>
@@ -585,16 +585,16 @@ ex container<C>::subs(const exmap & m, unsigned options) const
 	//   -> f(f^-1(x))  [subschildren]
 	//   -> x           [eval]   /* must not subs(x==f^-1(x))! */
 	std::unique_ptr<STLT> vp = subschildren(m, options);
-	if (vp.get()) {
+	if (vp) {
 		ex result(thiscontainer(std::move(vp)));
 		if (is_a<container<C> >(result))
 			return ex_to<basic>(result).subs_one_level(m, options);
-		else
+		
 			return result;
 	} else {
 		if (is_a<container<C> >(*this))
 			return subs_one_level(m, options);
-		else
+		
 			return *this;
 	}
 }
@@ -758,7 +758,7 @@ typename container<C>::STLT container<C>::evalchildren(int level) const
 {
 	if (level == 1)
 		return this->seq;
-	else if (level == -max_recursion_level)
+	if (level == -max_recursion_level)
 		throw std::runtime_error("max recursion level reached");
 
 	STLT s;
@@ -806,6 +806,14 @@ std::unique_ptr<typename container<C>::STLT> container<C>::subschildren(const ex
 	
 	return std::unique_ptr<STLT>(nullptr); // nothing has changed
 }
+
+typedef container<std::vector> exprseq;
+template<> const tinfo_static_t exprseq::tinfo_static;
+template<> registered_class_info exprseq::reg_info;
+
+typedef container<std::list> lst;
+template<> const tinfo_static_t lst::tinfo_static;
+template<> registered_class_info lst::reg_info;
 
 } // namespace GiNaC
 

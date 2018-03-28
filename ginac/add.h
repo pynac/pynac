@@ -41,7 +41,7 @@ public:
 	add(const ex & lh, const ex & rh);
 	add(const exvector & v, bool hold=false);
 	add(const epvector & v);
-	add(const epvector & v, const ex & oc);
+	add(const epvector & v, const numeric & oc);
 //	add(std::unique_ptr<epvector> vp, const ex & oc);
 	
 	// functions overriding virtual functions from base classes
@@ -49,9 +49,9 @@ public:
 	unsigned precedence() const override {return 40;}
 	bool info(unsigned inf) const override;
 	bool is_polynomial(const ex & var) const override;
-	int degree(const ex & s) const override;
-	int ldegree(const ex & s) const override;
-	ex coeff(const ex & s, int n=1) const override;
+	numeric degree(const ex & s) const override;
+	numeric ldegree(const ex & s) const override;
+	ex coeff(const ex & s, const ex & n) const override;
 	ex eval(int level=0) const override;
 	ex series(const relational & r, int order, unsigned options = 0) const override;
         void useries(flint_series_t& fp, int order) const override;
@@ -62,22 +62,21 @@ public:
 	ex conjugate() const override;
 	ex real_part() const override;
 	ex imag_part() const override;
-	exvector get_free_indices() const override;
-	ex eval_ncmul(const exvector & v) const override;
 	const epvector & get_sorted_seq() const override;
 	ex lead_coeff() const;
 protected:
 	ex derivative(const symbol & s) const override;
 	unsigned return_type() const override;
 	tinfo_t return_type_tinfo() const override;
-	ex thisexpairseq(const epvector & v, const ex & oc, bool do_index_renaming = false) const override;
-	ex thisexpairseq(std::unique_ptr<epvector> vp, const ex & oc, bool do_index_renaming = false) const override;
+	ex thisexpairseq(const epvector & v, const numeric & oc, bool do_index_renaming = false) const override;
+	ex thisexpairseq(std::unique_ptr<epvector> vp, const numeric & oc, bool do_index_renaming = false) const override;
 	expair split_ex_to_pair(const ex & e) const override;
 	expair combine_ex_with_coeff_to_pair(const ex & e,
-	                                     const ex & c) const override;
+	                                     const numeric & c) const override;
 	expair combine_pair_with_coeff_to_pair(const expair & p,
-	                                       const ex & c) const override;
+	                                     const numeric & c) const override;
 	ex recombine_pair_to_ex(const expair & p) const override;
+	ex power(const numeric& expo) const;
 	ex expand(unsigned options=0) const override;
 	ex eval_infinity(epvector::const_iterator infinity_iter) const;
 
@@ -86,7 +85,6 @@ protected:
 	void print_add(const print_context & c, unsigned level, bool latex) const;
 	void do_print(const print_context & c, unsigned level) const override;
 	void do_print_latex(const print_latex & c, unsigned level) const;
-	void do_print_csrc(const print_csrc & c, unsigned level) const;
 	void do_print_python_repr(const print_python_repr & c, unsigned level) const override;
 
 public:

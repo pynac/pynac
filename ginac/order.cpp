@@ -34,9 +34,9 @@ double numeric_to_double(const numeric& exp)
 {
 	if (exp.is_real())
 		return exp.to_double();
-	else 
-		return std::sqrt(std::pow(exp.real().to_double(), 2) + 
-				 std::pow(exp.imag().to_double(), 2));
+	
+        return std::sqrt(std::pow(exp.real().to_double(), 2) + 
+                         std::pow(exp.imag().to_double(), 2));
 }
 
 
@@ -233,7 +233,7 @@ int print_order::compare(const basic &lh, const basic &rh) const
 			return compare_mul_power(
 					static_cast<const mul&>(lh),
 					static_cast<const power&>(rh));
-		else if (typeid_rh == symbol_id())
+		if (typeid_rh == symbol_id())
 			return compare_mul_symbol(
 					static_cast<const mul&>(lh),
 					static_cast<const symbol&>(rh));
@@ -248,7 +248,7 @@ int print_order::compare(const basic &lh, const basic &rh) const
 			return compare_add_power(
 					static_cast<const add&>(lh),
 					static_cast<const power&>(rh));
-		else if (typeid_rh == symbol_id())
+		if (typeid_rh == symbol_id())
 			return compare_add_symbol(
 					static_cast<const add&>(lh),
 					static_cast<const symbol&>(rh));
@@ -263,7 +263,7 @@ int print_order::compare(const basic &lh, const basic &rh) const
 			return -compare_mul_power(
 					static_cast<const mul&>(rh),
 					static_cast<const power&>(lh));
-		else if (typeid_rh == add_id())
+		if (typeid_rh == add_id())
 			return -compare_add_power(
 					static_cast<const add&>(rh),
 					static_cast<const power&>(lh));
@@ -278,7 +278,7 @@ int print_order::compare(const basic &lh, const basic &rh) const
 			return -compare_mul_symbol(
 					static_cast<const mul&>(rh),
 					static_cast<const symbol&>(lh));
-		else if (typeid_rh == add_id())
+		if (typeid_rh == add_id())
 			return -compare_add_symbol(
 					static_cast<const add&>(rh),
 					static_cast<const symbol&>(lh));
@@ -325,7 +325,7 @@ int print_order::compare_mul_symbol(const mul &lh, const symbol &rh) const
 		return cmpval;
 	}
 
-	if (lh.seq.size() == 1 && lh.overall_coeff.is_equal(_ex1))
+	if (lh.seq.size() == 1 and lh.overall_coeff.is_one())
 		return 0;
 
 	// there is something of total degree 0 in front of the mul object
@@ -366,7 +366,7 @@ int print_order::compare_mul_power(const mul &lh, const power &rh) const
 		return cmpval;
 	}
 
-	if (lh.seq.size() == 1 && lh.overall_coeff.is_equal(_ex1))
+	if (lh.seq.size() == 1 and lh.overall_coeff.is_one())
 		return 0;
 
 	// there is something of total degree 0 in front of the mul object
@@ -414,7 +414,7 @@ int print_order::compare_same_type_mul(const mul &lh, const mul &rh) const
 	// compare sizes
 	if (cit1 != last1) 
 		return 1;
-	else if (cit2 != last2)
+	if (cit2 != last2)
 		return -1;
 
 	// compare overall_coeff
@@ -444,7 +444,7 @@ int print_order::compare_add_symbol(const add &lh, const symbol &rh) const
 		return cmpval;
 	}
 
-	if (lh.seq.size() == 1 && lh.overall_coeff.is_equal(_ex0))
+	if (lh.seq.size() == 1 and lh.overall_coeff.is_zero())
 		return 0;
 
 	// there is something at the end of the add object
@@ -472,7 +472,7 @@ int print_order::compare_add_mul(const add &lh,
 		return cmpval;
 	}
 
-	if (lh.seq.size() == 1 && lh.overall_coeff.is_equal(_ex0))
+	if (lh.seq.size() == 1 and lh.overall_coeff.is_zero())
 		return 0;
 
 	// there is something at the end of the object
@@ -500,7 +500,7 @@ int print_order::compare_add_power(const add &lh,
 		return cmpval;
 	}
 
-	if (lh.seq.size() == 1 && lh.overall_coeff.is_equal(_ex0))
+	if (lh.seq.size() == 1 and lh.overall_coeff.is_zero())
 		return 0;
 
 	// there is something at the end of the object
@@ -540,7 +540,7 @@ int print_order::compare_same_type_add(const add &lh, const add &rh) const
 	// compare sizes
 	if (cit1 != last1) 
 		return 1;
-	else if (cit2 != last2)
+	if (cit2 != last2)
 		return -1;
 
 	// compare overall_coeff

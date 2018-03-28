@@ -22,6 +22,7 @@
 
 #include "inifcns.h"
 #include "ex.h"
+#include "ex_utils.h"
 #include "constant.h"
 #include "lst.h"
 #include "fderivative.h"
@@ -31,11 +32,12 @@
 #include "relational.h"
 #include "pseries.h"
 #include "symbol.h"
-#include "symmetry.h"
 #include "utils.h"
+#include "wildcard.h"
 
 #include <vector>
 #include <stdexcept>
+#include <string>
 #include <sstream>
 
 namespace GiNaC {
@@ -71,13 +73,13 @@ static ex conjugate_conjugate(const ex & arg)
 // and conjugate((U+I*V).diff(x))
 static ex conjugate_expl_derivative(const ex & arg, const symbol & s)
 {
-	if (s.info(info_flags::real))
+	if (s.is_real())
 		return conjugate(arg.diff(s));
-	else {
-		exvector vec_arg;
-		vec_arg.push_back(arg);
-		return fderivative(ex_to<function>(conjugate(arg)).get_serial(),0,vec_arg).hold()*arg.diff(s);
-	}
+
+        exvector vec_arg;
+        vec_arg.push_back(arg);
+        return fderivative(ex_to<function>(conjugate(arg)).get_serial(),
+                        0, vec_arg).hold() * arg.diff(s);
 }
 
 static ex conjugate_real_part(const ex & arg)
@@ -113,13 +115,15 @@ static ex real_part_evalf(const ex & arg, PyObject* parent)
 
 static ex real_part_eval(const ex & arg)
 {
+        if (arg.is_real())
+                return arg;
         ex pat = pow(wild(1), wild(2));
         lst l;
         if (arg.find(pat, l))
                 // real parts of powers can be expensive
                 return arg.expand().real_part();
-        else
-                return arg.real_part();
+
+        return arg.real_part();
 }
 
 static void real_part_print_latex(const ex & arg, const print_context & c)
@@ -145,13 +149,13 @@ static ex real_part_imag_part(const ex & arg)
 // If x is real then Re(e).diff(x) is equal to Re(e.diff(x)) 
 static ex real_part_expl_derivative(const ex & arg, const symbol & s)
 {
-	if (s.info(info_flags::real))
+	if (s.is_real())
 		return real_part_function(arg.diff(s));
-	else {
-		exvector vec_arg;
-		vec_arg.push_back(arg);
-		return fderivative(ex_to<function>(real_part(arg)).get_serial(),0,vec_arg).hold()*arg.diff(s);
-	}
+	
+        exvector vec_arg;
+        vec_arg.push_back(arg);
+        return fderivative(ex_to<function>(real_part(arg)).get_serial(),
+                        0, vec_arg).hold() * arg.diff(s);
 }
 
 REGISTER_FUNCTION(real_part_function, eval_func(real_part_eval).
@@ -177,13 +181,15 @@ static ex imag_part_evalf(const ex & arg, PyObject* parent)
 
 static ex imag_part_eval(const ex & arg)
 {
+        if (arg.is_real())
+                return _ex0;
         ex pat = pow(wild(1), wild(2));
         lst l;
         if (arg.find(pat, l))
                 // imag parts of powers can be expensive
                 return arg.expand().imag_part();
-        else
-                return arg.imag_part();
+
+        return arg.imag_part();
 }
 
 static void imag_part_print_latex(const ex & arg, const print_context & c)
@@ -209,13 +215,13 @@ static ex imag_part_imag_part(const ex & arg)
 // If x is real then Im(e).diff(x) is equal to Im(e.diff(x)) 
 static ex imag_part_expl_derivative(const ex & arg, const symbol & s)
 {
-	if (s.info(info_flags::real))
+	if (s.is_real())
 		return imag_part_function(arg.diff(s));
-	else {
-		exvector vec_arg;
-		vec_arg.push_back(arg);
-		return fderivative(ex_to<function>(imag_part(arg)).get_serial(),0,vec_arg).hold()*arg.diff(s);
-	}
+
+        exvector vec_arg;
+        vec_arg.push_back(arg);
+        return fderivative(ex_to<function>(imag_part(arg)).get_serial(),
+                        0, vec_arg).hold() * arg.diff(s);
 }
 
 REGISTER_FUNCTION(imag_part_function, eval_func(imag_part_eval).
@@ -244,7 +250,8 @@ static ex abs_eval(const ex & arg)
 	if (is_exactly_a<numeric>(arg))
 		return abs(ex_to<numeric>(arg));
 
-	if (arg.info(info_flags::nonnegative) or arg.info(info_flags::positive))
+	if (arg.info(info_flags::nonnegative)
+            or arg.is_positive())
 		return arg;
 
 	if (arg.info(info_flags::negative) or (-arg).info(info_flags::nonnegative))
@@ -257,7 +264,8 @@ static ex abs_eval(const ex & arg)
                         return exp(arg.op(0).real_part());
                 if (is_ex_the_function(arg, conjugate_function))
                         return abs(arg.op(0));
-                if (is_ex_the_function(arg, step))
+                if (is_ex_the_function(arg, unit_step)
+                    or is_ex_the_function(arg, heaviside))
                         return arg;
                 return abs(arg).hold();
         }
@@ -270,12 +278,12 @@ static ex abs_eval(const ex & arg)
                         const ex& factor = arg.op(i);
                         if (has_symbol(factor))
                                 prod_sy *= factor;
-                        else if (factor.info(info_flags::real)) {
+                        else if (factor.is_real()) {
                                 if (factor.info(info_flags::negative)) {                                        
                                         is_prod_neg = not is_prod_neg;
                                         prod *= factor;
                                 }
-                                else if (factor.info(info_flags::positive))                                        
+                                else if (factor.is_positive())                                        
                                         prod *= factor;
                                 else
                                         prod *= abs(factor).hold();
@@ -285,7 +293,7 @@ static ex abs_eval(const ex & arg)
                 }
                 if (is_prod_neg)
                         prod *= _ex_1;
-                if (not prod_sy.is_integer_one())
+                if (not prod_sy.is_one())
                         prod *= abs(prod_sy).hold();
                 return prod;
 	}
@@ -293,7 +301,8 @@ static ex abs_eval(const ex & arg)
 	if (is_exactly_a<power>(arg)) {
 		const ex& base = arg.op(0);
 		const ex& exponent = arg.op(1);
-		if (base.info(info_flags::positive) || exponent.info(info_flags::real))
+		if (base.is_positive()
+                    or exponent.is_real())
 			return pow(abs(base), exponent.real_part());
 	}
 
@@ -309,11 +318,6 @@ static ex abs_expl_derivative(const ex & arg, const symbol & s)
 static void abs_print_latex(const ex & arg, const print_context & c)
 {
 	c.s << "{\\left| "; arg.print(c); c.s << " \\right|}";
-}
-
-static void abs_print_csrc_float(const ex & arg, const print_context & c)
-{
-	c.s << "fabs("; arg.print(c); c.s << ")";
 }
 
 static ex abs_conjugate(const ex & arg)
@@ -335,10 +339,10 @@ static ex abs_power(const ex & arg, const ex & exp)
 {
 	if (((is_exactly_a<numeric>(exp) and ex_to<numeric>(exp).is_even()) 
                 or exp.info(info_flags::even))
-                and (arg.info(info_flags::real) or arg.is_equal(arg.conjugate())))
+                and (arg.is_real() or arg.is_equal(arg.conjugate())))
 	        return power(arg, exp);
-	else
-	        return power(abs(arg), exp).hold();
+
+        return power(abs(arg), exp).hold();
 }
 
 static ex abs_deriv(const ex & x, unsigned deriv_param)
@@ -354,8 +358,6 @@ REGISTER_FUNCTION(abs, eval_func(abs_eval).
                        evalf_func(abs_evalf).
                        expl_derivative_func(abs_expl_derivative).
                        print_func<print_latex>(abs_print_latex).
-                       print_func<print_csrc_float>(abs_print_csrc_float).
-                       print_func<print_csrc_double>(abs_print_csrc_float).
                        derivative_func(abs_deriv).
                        conjugate_func(abs_conjugate).
                        real_part_func(abs_real_part).
@@ -366,80 +368,172 @@ REGISTER_FUNCTION(abs, eval_func(abs_eval).
 // Step function
 //////////
 
-static ex step_evalf(const ex & arg, PyObject* parent)
+static ex unit_step_evalf(const ex & arg, PyObject* parent)
 {
-	if (is_exactly_a<numeric>(arg))
+	if (not is_exactly_a<numeric>(arg))
+	        return unit_step(arg).hold();
+
+        if (arg.is_zero())
+                return _ex1;
+
+        if (arg.is_real())
 		return step(ex_to<numeric>(arg));
 	
-	return step(arg).hold();
+	return unit_step(arg).hold();
 }
 
-static ex step_eval(const ex & arg)
+static ex unit_step_eval(const ex & arg)
 {
+        if (arg.is_positive())
+                return _ex1;
+        if (arg.info(info_flags::negative))
+                return _ex0;
 	if (is_exactly_a<numeric>(arg))
-		return step(ex_to<numeric>(arg));
-	
-	else if (is_exactly_a<mul>(arg) &&
-	         is_exactly_a<numeric>(arg.op(arg.nops()-1))) {
-		numeric oc = ex_to<numeric>(arg.op(arg.nops()-1));
+		return unit_step_evalf(arg, nullptr);
+	if (is_exactly_a<mul>(arg)) {
+		const numeric& oc = ex_to<mul>(arg).get_overall_coeff();
 		if (oc.is_real()) {
 			if (oc > 0)
 				// step(42*x) -> step(x)
-				return step(arg/oc).hold();
-			else
-				// step(-42*x) -> step(-x)
-				return step(-arg/oc).hold();
+				return unit_step(arg/oc).hold();
+
+                        // step(-42*x) -> step(-x)
+                        return unit_step(-arg/oc).hold();
 		}
 		if (oc.real().is_zero()) {
 			if (oc.imag() > 0)
 				// step(42*I*x) -> step(I*x)
-				return step(I*arg/oc).hold();
-			else
-				// step(-42*I*x) -> step(-I*x)
-				return step(-I*arg/oc).hold();
+				return unit_step(I*arg/oc).hold();
+
+                        // step(-42*I*x) -> step(-I*x)
+                        return unit_step(-I*arg/oc).hold();
 		}
 	}
 	
-	return step(arg).hold();
+	return unit_step(arg).hold();
 }
 
-static ex step_series(const ex & arg,
-                      const relational & rel,
-                      int order,
-                      unsigned options)
+static ex unit_step_series(const ex & arg,
+                           const relational & rel,
+                           int order,
+                           unsigned options)
 {
 	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
 	if (is_exactly_a<numeric>(arg_pt)
 	    && ex_to<numeric>(arg_pt).real().is_zero()
 	    && ((options & series_options::suppress_branchcut) == 0u))
-		throw (std::domain_error("step_series(): on imaginary axis"));
+		throw (std::domain_error("unit_step_series(): on imaginary axis"));
 	
 	epvector seq;
-	seq.push_back(expair(step(arg_pt), _ex0));
+	seq.emplace_back(unit_step(arg_pt), _ex0);
 	return pseries(rel,seq);
 }
 
-static ex step_conjugate(const ex& arg)
+static ex unit_step_conjugate(const ex& arg)
 {
-	return step(arg).hold();
+	return unit_step(arg).hold();
 }
 
-static ex step_real_part(const ex& arg)
+static ex unit_step_real_part(const ex& arg)
 {
-	return step(arg).hold();
+	return unit_step(arg).hold();
 }
 
-static ex step_imag_part(const ex& arg)
+static ex unit_step_imag_part(const ex& arg)
 {
 	return 0;
 }
 
-REGISTER_FUNCTION(step, eval_func(step_eval).
-                        evalf_func(step_evalf).
-                        series_func(step_series).
-                        conjugate_func(step_conjugate).
-                        real_part_func(step_real_part).
-                        imag_part_func(step_imag_part));
+REGISTER_FUNCTION(unit_step, eval_func(unit_step_eval).
+                        evalf_func(unit_step_evalf).
+                        series_func(unit_step_series).
+                        conjugate_func(unit_step_conjugate).
+                        real_part_func(unit_step_real_part).
+                        imag_part_func(unit_step_imag_part));
+
+//////////
+// Heaviside function
+//////////
+
+static ex heaviside_evalf(const ex & arg, PyObject* parent)
+{
+	if (is_exactly_a<numeric>(arg)
+            and arg.is_real()
+            and not arg.is_zero())
+		return step(ex_to<numeric>(arg));
+	
+	return heaviside(arg).hold();
+}
+
+static ex heaviside_eval(const ex & arg)
+{
+        if (arg.is_positive())
+                return _ex1;
+        if (arg.info(info_flags::negative))
+                return _ex0;
+	if (is_exactly_a<numeric>(arg))
+		return heaviside_evalf(arg, nullptr);
+	
+	if (is_exactly_a<mul>(arg)) {
+		const numeric& oc = ex_to<mul>(arg).get_overall_coeff();
+		if (oc.is_real()) {
+			if (oc > 0)
+				// step(42*x) -> step(x)
+				return heaviside(arg/oc).hold();
+
+                        // step(-42*x) -> step(-x)
+                        return heaviside(-arg/oc).hold();
+		}
+		if (oc.real().is_zero()) {
+			if (oc.imag() > 0)
+				// step(42*I*x) -> step(I*x)
+				return heaviside(I*arg/oc).hold();
+
+                        // step(-42*I*x) -> step(-I*x)
+                        return heaviside(-I*arg/oc).hold();
+		}
+	}
+	
+	return heaviside(arg).hold();
+}
+
+static ex heaviside_series(const ex & arg,
+                           const relational & rel,
+                           int order,
+                           unsigned options)
+{
+	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
+	if (is_exactly_a<numeric>(arg_pt)
+	    && ex_to<numeric>(arg_pt).real().is_zero()
+	    && ((options & series_options::suppress_branchcut) == 0u))
+		throw (std::domain_error("heaviside_series(): on imaginary axis"));
+	
+	epvector seq;
+	seq.emplace_back(heaviside(arg_pt), _ex0);
+	return pseries(rel,seq);
+}
+
+static ex heaviside_conjugate(const ex& arg)
+{
+	return heaviside(arg).hold();
+}
+
+static ex heaviside_real_part(const ex& arg)
+{
+	return heaviside(arg).hold();
+}
+
+static ex heaviside_imag_part(const ex& arg)
+{
+	return 0;
+}
+
+REGISTER_FUNCTION(heaviside, eval_func(heaviside_eval).
+                        evalf_func(heaviside_evalf).
+                        series_func(heaviside_series).
+                        conjugate_func(heaviside_conjugate).
+                        real_part_func(heaviside_real_part).
+                        imag_part_func(heaviside_imag_part));
 
 //////////
 // Complex sign
@@ -458,24 +552,23 @@ static ex csgn_eval(const ex & arg)
 	if (is_exactly_a<numeric>(arg))
 		return csgn(ex_to<numeric>(arg));
 	
-	else if (is_exactly_a<mul>(arg) &&
-	         is_exactly_a<numeric>(arg.op(arg.nops()-1))) {
-		numeric oc = ex_to<numeric>(arg.op(arg.nops()-1));
+	if (is_exactly_a<mul>(arg)) {
+		const numeric& oc = ex_to<mul>(arg).get_overall_coeff();
 		if (oc.is_real()) {
 			if (oc > 0)
 				// csgn(42*x) -> csgn(x)
 				return csgn(arg/oc).hold();
-			else
-				// csgn(-42*x) -> -csgn(x)
-				return -csgn(arg/oc).hold();
+
+                        // csgn(-42*x) -> -csgn(x)
+                        return -csgn(arg/oc).hold();
 		}
 		if (oc.real().is_zero()) {
 			if (oc.imag() > 0)
 				// csgn(42*I*x) -> csgn(I*x)
 				return csgn(I*arg/oc).hold();
-			else
-				// csgn(-42*I*x) -> -csgn(I*x)
-				return -csgn(I*arg/oc).hold();
+
+                        // csgn(-42*I*x) -> -csgn(I*x)
+                        return -csgn(I*arg/oc).hold();
 		}
 	}
 	
@@ -494,7 +587,7 @@ static ex csgn_series(const ex & arg,
 		throw (std::domain_error("csgn_series(): on imaginary axis"));
 	
 	epvector seq;
-	seq.push_back(expair(csgn(arg_pt), _ex0));
+	seq.emplace_back(csgn(arg_pt), _ex0);
 	return pseries(rel,seq);
 }
 
@@ -515,13 +608,15 @@ static ex csgn_imag_part(const ex& arg)
 
 static ex csgn_power(const ex & arg, const ex & exp)
 {
-	if (is_a<numeric>(exp) && exp.info(info_flags::positive) && ex_to<numeric>(exp).is_integer()) {
+	if (is_a<numeric>(exp)
+            and exp.is_positive()
+            and exp.is_integer()) {
 		if (ex_to<numeric>(exp).is_odd())
 			return csgn(arg).hold();
-		else
-			return power(csgn(arg), _ex2).hold();
-	} else
-		return power(csgn(arg), exp).hold();
+
+                return power(csgn(arg), _ex2).hold();
+        }
+        return power(csgn(arg), exp).hold();
 }
 
 
@@ -544,12 +639,12 @@ static ex eta_evalf(const ex &x, const ex &y, PyObject* parent)
 {
 	// It seems like we basically have to replicate the eval function here,
 	// since the expression might not be fully evaluated yet.
-	if (x.info(info_flags::positive) || y.info(info_flags::positive))
+	if (x.is_positive() or y.is_positive())
 		return _ex0;
 
 	if (x.info(info_flags::numeric) &&	y.info(info_flags::numeric)) {
-		const numeric nx = ex_to<numeric>(x);
-		const numeric ny = ex_to<numeric>(y);
+		const numeric& nx = ex_to<numeric>(x);
+		const numeric& ny = ex_to<numeric>(y);
 		const numeric nxy = ex_to<numeric>(x*y);
 		int cut = 0;
 		if (nx.is_real() && nx.is_negative())
@@ -568,13 +663,13 @@ static ex eta_evalf(const ex &x, const ex &y, PyObject* parent)
 static ex eta_eval(const ex &x, const ex &y)
 {
 	// trivial:  eta(x,c) -> 0  if c is real and positive
-	if (x.info(info_flags::positive) || y.info(info_flags::positive))
+	if (x.is_positive() or y.is_positive())
 		return _ex0;
 
 	if (x.info(info_flags::numeric) &&	y.info(info_flags::numeric)) {
 		// don't call eta_evalf here because it would call Pi.evalf()!
-		const numeric nx = ex_to<numeric>(x);
-		const numeric ny = ex_to<numeric>(y);
+		const numeric& nx = ex_to<numeric>(x);
+		const numeric& ny = ex_to<numeric>(y);
 		const numeric nxy = ex_to<numeric>(x*y);
 		int cut = 0;
 		if (nx.is_real() && nx.is_negative())
@@ -602,7 +697,7 @@ static ex eta_series(const ex & x, const ex & y,
 	    ((x_pt*y_pt).info(info_flags::numeric) && (x_pt*y_pt).info(info_flags::negative)))
 			throw (std::domain_error("eta_series(): on discontinuity"));
 	epvector seq;
-	seq.push_back(expair(eta(x_pt,y_pt), _ex0));
+	seq.emplace_back(eta(x_pt,y_pt), _ex0);
 	return pseries(rel,seq);
 }
 
@@ -625,7 +720,6 @@ REGISTER_FUNCTION(eta, eval_func(eta_eval).
                        evalf_func(eta_evalf).
                        series_func(eta_series).
                        latex_name("\\eta").
-                       set_symmetry(sy_symm(0, 1)).
                        conjugate_func(eta_conjugate).
                        real_part_func(eta_real_part).
                        imag_part_func(eta_imag_part));
@@ -641,13 +735,12 @@ static ex Order_eval(const ex & x)
 		// O(c) -> O(1) or 0
 		if (!x.is_zero())
 			return Order(_ex1).hold();
-		else
-			return _ex0;
-	} else if (is_exactly_a<mul>(x)) {
+                return _ex0;
+	}
+        if (is_exactly_a<mul>(x)) {
 		const mul &m = ex_to<mul>(x);
 		// O(c*expr) -> O(expr)
-		if (is_exactly_a<numeric>(m.op(m.nops() - 1)))
-			return Order(x / m.op(m.nops() - 1)).hold();
+		return Order(x / m.get_overall_coeff()).hold();
 	}
 	return Order(x).hold();
 }
@@ -658,7 +751,8 @@ static ex Order_series(const ex & x, const relational & r, int order, unsigned o
 	epvector new_seq;
 	GINAC_ASSERT(is_a<symbol>(r.lhs()));
 	const symbol &s = ex_to<symbol>(r.lhs());
-	new_seq.push_back(expair(Order(_ex1), numeric(std::min(x.ldegree(s), order))));
+        int ldeg = x.ldegree(s).to_int();
+	new_seq.emplace_back(Order(_ex1), numeric(std::min(ldeg, order)));
 	return pseries(r, new_seq);
 }
 
@@ -674,7 +768,7 @@ static ex Order_real_part(const ex & x)
 
 static ex Order_imag_part(const ex & x)
 {
-	if(x.info(info_flags::real))
+	if(x.is_real())
 		return 0;
 	return Order(x).hold();
 }
@@ -691,5 +785,107 @@ REGISTER_FUNCTION(Order, eval_func(Order_eval).
                          conjugate_func(Order_conjugate).
                          real_part_func(Order_real_part).
                          imag_part_func(Order_imag_part));
+
+static ex cases_eval(const ex & arg)
+{
+        if (not is_exactly_a<exprseq>(arg))
+                throw std::runtime_error("cases argument not a sequence");
+        bool default_seen = false;
+        ex deflt;
+        for (auto case_ : arg) {
+                if (not is_exactly_a<exprseq>(case_)) {
+                        if (not default_seen) {
+                                deflt = case_;
+                                default_seen = true;
+                        }
+                        continue;
+                }
+                const exprseq& seq = ex_to<exprseq>(case_);
+                if (seq.nops() == 1) {
+                        if (not default_seen) {
+                                deflt = seq[0];
+                                default_seen = true;
+                        }
+                        continue;
+                }
+                if (seq.nops() != 2)
+                        throw std::runtime_error("cases case not a pair");
+                const ex& cond = seq[0];
+                if (is_exactly_a<numeric>(cond)) {
+                        if (not cond.is_zero()
+                            and not default_seen) {
+                                deflt = seq[1];
+                                default_seen = true;
+                        }
+                        continue;
+                }
+                if (is_exactly_a<relational>(cond)) {
+                        auto res = ex_to<relational>(cond).decide();
+                        if (res == relational::result::True)
+                                return seq[1];
+                        if (res == relational::result::False)
+                                continue;
+                        // undecidable relation
+                        return cases(arg).hold();
+                }
+                throw std::runtime_error("cases with meaningless condition");
+        }
+        if (default_seen)
+                return deflt;
+        return cases(arg).hold();
+}
+
+static ex cases_evalf(const ex & arg, PyObject* parent)
+{
+        return cases(arg).hold();
+}
+
+static ex cases_conjugate(const ex & arg)
+{
+        return cases(arg).hold();
+}
+
+static ex cases_real_part(const ex & arg)
+{
+        return cases(arg).hold();
+}
+
+static ex cases_imag_part(const ex & arg)
+{
+        return cases(arg).hold();
+}
+
+REGISTER_FUNCTION(cases, eval_func(cases_eval).
+                       evalf_func(cases_evalf).
+                       conjugate_func(cases_conjugate).
+                       real_part_func(cases_real_part).
+                       imag_part_func(cases_imag_part));
+
+static std::string ex_to_str(const ex& e) {
+        std::stringstream tstream;
+        print_context c(tstream);
+        e.print(c);
+        return tstream.str();
+}
+
+static ex set_of_all_eval(const ex& arg1, const ex& arg2)
+{
+        if (is_exactly_a<function>(arg2)) {
+                std::string name = ex_to<function>(arg2).get_name();
+                if (not (name == "element_of"))
+                        throw std::runtime_error(std::string("not a set membership statement: ") + ex_to_str(arg2));
+                return set_of_all(arg1, arg2).hold();
+        }
+        if (not is_exactly_a<exprseq>(arg2))
+                throw std::runtime_error(std::string("not a set membership statement: ") + ex_to_str(arg2));
+        for (auto item : arg2) {
+                if (not is_exactly_a<function>(item)
+                    or not (ex_to<function>(item).get_name() == "element_of"))
+                        throw std::runtime_error(std::string("not a set membership statement: ") + ex_to_str(item));
+        }
+        return set_of_all(arg1, arg2).hold();
+}
+
+REGISTER_FUNCTION(set_of_all, eval_func(set_of_all_eval));
 
 } // namespace GiNaC

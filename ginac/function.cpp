@@ -20,12 +20,13 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <Python.h>
+#include "py_funcs.h"
 #include "function.h"
 #include "operators.h"
 #include "fderivative.h"
 #include "ex.h"
 #include "lst.h"
-#include "symmetry.h"
 #include "print.h"
 #include "power.h"
 #include "relational.h"
@@ -35,7 +36,6 @@
 #include "utils.h"
 #include "remember.h"
 #include "symbol.h"
-#include "py_funcs.h"
 
 #include <iostream>
 #include <string>
@@ -82,7 +82,7 @@ void function_options::initialize()
 	set_name(s1, s2);
 	nparams = 0;
 	eval_f = real_part_f = imag_part_f = conjugate_f = derivative_f
-		= expl_derivative_f = power_f = series_f = nullptr;
+            = pynac_eval_f = expl_derivative_f = power_f = series_f = nullptr;
 	evalf_f = nullptr;
 	evalf_params_first = true;
 	apply_chain_rule = true;
@@ -128,24 +128,28 @@ function_options & function_options::eval_func(eval_funcp_1 e)
 {
 	test_and_set_nparams(1);
 	eval_f = eval_funcp(e);
+        pynac_eval_f = eval_f;
 	return *this;
 }
 function_options & function_options::eval_func(eval_funcp_2 e)
 {
 	test_and_set_nparams(2);
 	eval_f = eval_funcp(e);
+        pynac_eval_f = eval_f;
 	return *this;
 }
 function_options & function_options::eval_func(eval_funcp_3 e)
 {
 	test_and_set_nparams(3);
 	eval_f = eval_funcp(e);
+        pynac_eval_f = eval_f;
 	return *this;
 }
 function_options & function_options::eval_func(eval_funcp_6 e)
 {
 	test_and_set_nparams(6);
 	eval_f = eval_funcp(e);
+        pynac_eval_f = eval_f;
 	return *this;
 }
 
@@ -319,6 +323,7 @@ function_options& function_options::eval_func(eval_funcp_exvector e)
 {
 	eval_use_exvector_args = true;
 	eval_f = eval_funcp(e);
+        pynac_eval_f = eval_f;
 	return *this;
 }
 function_options& function_options::evalf_func(evalf_funcp_exvector ef)
@@ -466,12 +471,6 @@ function_options & function_options::overloaded(unsigned o)
 	return *this;
 }
 
-function_options & function_options::set_symmetry(const symmetry & s)
-{
-	symtree = s;
-	return *this;
-}
-	
 void function_options::test_and_set_nparams(unsigned n)
 {
 	if (nparams==0) {
@@ -513,7 +512,13 @@ void function_options::set_print_dflt_func(PyObject* f)
 unsigned function::current_serial = 0;
 
 
-GINAC_IMPLEMENT_REGISTERED_CLASS(function, exprseq)
+registered_class_info function::reg_info = \
+        registered_class_info(registered_class_options("function",
+                                "exprseq",
+                                &function::tinfo_static,
+                                &function::unarchive));
+
+const tinfo_static_t function::tinfo_static = {};
 
 //////////
 // default constructor
@@ -550,6 +555,16 @@ function::function(unsigned ser, const ex & param1, const ex & param2)
 }
 function::function(unsigned ser, const ex & param1, const ex & param2, const ex & param3)
 	: exprseq(param1, param2, param3), serial(ser)
+{
+	tinfo_key = &function::tinfo_static;
+}
+function::function(unsigned ser, const ex & param1, const ex & param2, const ex & param3, const ex & param4)
+	: exprseq(param1, param2, param3, param4), serial(ser)
+{
+	tinfo_key = &function::tinfo_static;
+}
+function::function(unsigned ser, const ex & param1, const ex & param2, const ex & param3, const ex & param4, const ex & param5)
+	: exprseq(param1, param2, param3, param4, param5), serial(ser)
 {
 	tinfo_key = &function::tinfo_static;
 }
@@ -721,9 +736,9 @@ void function::print(const print_context & c, unsigned level) const
 			    << std::hex << ", hash=0x" << hashvalue << ", flags=0x" << flags << std::dec
 			    << ", nops=" << nops()
 			    << std::endl;
-			unsigned delta_indent = static_cast<const print_tree &>(c).delta_indent;
-			for (size_t i=0; i<seq.size(); ++i)
-				seq[i].print(c, level + delta_indent);
+			unsigned delta_indent = dynamic_cast<const print_tree &>(c).delta_indent;
+			for (const auto& term : seq)
+				term.print(c, level + delta_indent);
 			c.s << std::string(level + delta_indent, ' ') << "=====" << std::endl;
 		}
                 else {
@@ -779,20 +794,10 @@ next_context:
 			    << std::hex << ", hash=0x" << hashvalue << ", flags=0x" << flags << std::dec
 			    << ", nops=" << nops()
 			    << std::endl;
-			unsigned delta_indent = static_cast<const print_tree &>(c).delta_indent;
+			unsigned delta_indent = dynamic_cast<const print_tree &>(c).delta_indent;
 			for (auto & elem : seq)
 				elem.print(c, level + delta_indent);
 			c.s << std::string(level + delta_indent, ' ') << "=====" << std::endl;
-
-		} else if (is_a<print_csrc>(c)) {
-
-			// Print function name in lowercase
-			std::string lname = opt.name;
-			size_t num = lname.size();
-			for (size_t i=0; i<num; i++)
-				lname[i] = tolower(lname[i]);
-			c.s << lname;
-			printseq(c, "(", ',', ")", exprseq::precedence(), function::precedence());
 
 		} else if (is_a<print_latex>(c)) {
 			c.s << opt.TeX_name;
@@ -806,25 +811,26 @@ next_context:
 
 		// Method found, call it
 		current_serial = serial;
-		if (opt.print_use_exvector_args)
-			((print_funcp_exvector)pdt[id])(seq, c);
-		else switch (opt.nparams) {
-			// the following lines have been generated for max. 14 parameters
-		case 1:
-			((print_funcp_1)(pdt[id]))(seq[1-1], c);
-			break;
-		case 2:
-			((print_funcp_2)(pdt[id]))(seq[1-1], seq[2-1], c);
-			break;
-		case 3:
-			((print_funcp_3)(pdt[id]))(seq[1-1], seq[2-1], seq[3-1], c);
-			break;
+                if (opt.print_use_exvector_args)
+                        (reinterpret_cast<print_funcp_exvector>(pdt[id]))(seq, c);
+                else
+                        switch (opt.nparams) {
+                        // the following lines have been generated for max. 14 parameters
+                        case 1:
+                                (reinterpret_cast<print_funcp_1>(pdt[id]))(seq[1 - 1], c);
+                                break;
+                        case 2:
+                                (reinterpret_cast<print_funcp_2>(pdt[id]))(seq[1 - 1], seq[2 - 1], c);
+                                break;
+                        case 3:
+                                (reinterpret_cast<print_funcp_3>(pdt[id]))(seq[1 - 1], seq[2 - 1], seq[3 - 1], c);
+                                break;
 
-			// end of generated lines
-		default:
-			throw(std::logic_error("function::print(): invalid nparams"));
-		}
-	}
+                        // end of generated lines
+                        default:
+                                throw(std::logic_error("function::print(): invalid nparams"));
+                        }
+        }
 	}
 }
 
@@ -843,23 +849,6 @@ ex function::eval(int level) const
 	GINAC_ASSERT(serial<registered_functions().size());
 	const function_options &opt = registered_functions()[serial];
 
-	// Canonicalize argument order according to the symmetry properties
-	if (seq.size() > 1 && !(opt.symtree.is_zero())) {
-		exvector v = seq;
-		GINAC_ASSERT(is_a<symmetry>(opt.symtree));
-		int sig = canonicalize(v.begin(), ex_to<symmetry>(opt.symtree));
-		if (sig != std::numeric_limits<int>::max()) {
-			// Something has changed while sorting arguments, more evaluations later
-			if (sig == 0)
-				return _ex0;
-			return ex(sig) * thiscontainer(v);
-		}
-	}
-
-	if (opt.eval_f==nullptr) {
-		return this->hold();
-	}
-
 	bool use_remember = opt.use_remember;
 	ex eval_result;
 	if (use_remember && lookup_remember_table(eval_result)) {
@@ -867,11 +856,20 @@ ex function::eval(int level) const
 	}
 	current_serial = serial;
 
-	if ((opt.python_func & function_options::eval_python_f) != 0u) {
+	if (opt.eval_f==nullptr)
+		return this->hold();
+        eval_funcp eval_f;
+        if (opt.pynac_eval_f == nullptr)
+                eval_f = opt.eval_f;
+        else
+                eval_f = opt.pynac_eval_f;
+
+	if (opt.pynac_eval_f == nullptr
+            and (opt.python_func & function_options::eval_python_f) != 0u) {
 		// convert seq to a PyTuple of Expressions
 		PyObject* args = py_funcs.exvector_to_PyTuple(seq);
 		// call opt.eval_f with this list
-		PyObject* pyresult = PyObject_CallMethod((PyObject*)opt.eval_f,
+		PyObject* pyresult = PyObject_CallMethod(reinterpret_cast<PyObject*>(eval_f),
 				const_cast<char*>("_eval_"), const_cast<char*>("O"), args);
 		Py_DECREF(args);
 		if (pyresult == nullptr) { 
@@ -888,18 +886,21 @@ ex function::eval(int level) const
 		}
 	}
 	else if (opt.eval_use_exvector_args)
-		eval_result = ((eval_funcp_exvector)(opt.eval_f))(seq);
+		eval_result = (reinterpret_cast<eval_funcp_exvector>(eval_f))(seq);
 	else
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		eval_result = ((eval_funcp_1)(opt.eval_f))(seq[1-1]);
+		eval_result = (reinterpret_cast<eval_funcp_1>(eval_f))(seq[1-1]);
 		break;
 	case 2:
-		eval_result = ((eval_funcp_2)(opt.eval_f))(seq[1-1], seq[2-1]);
+		eval_result = (reinterpret_cast<eval_funcp_2>(eval_f))(seq[1-1], seq[2-1]);
 		break;
 	case 3:
-		eval_result = ((eval_funcp_3)(opt.eval_f))(seq[1-1], seq[2-1], seq[3-1]);
+		eval_result = (reinterpret_cast<eval_funcp_3>(eval_f))(seq[1-1], seq[2-1], seq[3-1]);
+		break;
+	case 6:
+		eval_result = (reinterpret_cast<eval_funcp_6>(eval_f))(seq[1-1], seq[2-1], seq[3-1], seq[4-1], seq[5-1], seq[6-1]);
 		break;
 
 		// end of generated lines
@@ -930,7 +931,20 @@ ex function::evalf(int level, PyObject* kwds) const
 			eseq.push_back(elem.evalf(level, kwds));
 	}
 
-	if (opt.evalf_f==nullptr) {
+	if (opt.evalf_f == nullptr) {
+                if (opt.nparams == 1 and is_exactly_a<numeric>(eseq[1-1])) {
+                        const numeric& n = ex_to<numeric>(eseq[1-1]);
+                        try {
+                                return n.try_py_method(get_name());
+                        }
+                        catch (std::logic_error) {
+                                try {
+                                        const numeric& nn = ex_to<numeric>(n.evalf()).try_py_method(get_name());
+                                        return nn.to_dict_parent(kwds);
+                                }
+                                catch (std::logic_error) {}
+                        }
+                }
 		return function(serial,eseq).hold();
 	}
 	current_serial = serial;
@@ -939,7 +953,7 @@ ex function::evalf(int level, PyObject* kwds) const
 		PyObject* args = py_funcs.exvector_to_PyTuple(eseq);
 		// call opt.evalf_f with this list
 		PyObject* pyresult = PyEval_CallObjectWithKeywords(
-			PyObject_GetAttrString((PyObject*)opt.evalf_f,
+			PyObject_GetAttrString(reinterpret_cast<PyObject*>(opt.evalf_f),
 				"_evalf_"), args, kwds);
 		Py_DECREF(args);
 		if (pyresult == nullptr) { 
@@ -954,15 +968,17 @@ ex function::evalf(int level, PyObject* kwds) const
 		return result;
 	}
 	if (opt.evalf_use_exvector_args)
-		return ((evalf_funcp_exvector)(opt.evalf_f))(seq, kwds);
+		return (reinterpret_cast<evalf_funcp_exvector>(opt.evalf_f))(seq, kwds);
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		return ((evalf_funcp_1)(opt.evalf_f))(eseq[1-1], kwds);
+		return (reinterpret_cast<evalf_funcp_1>(opt.evalf_f))(eseq[1-1], kwds);
 	case 2:
-		return ((evalf_funcp_2)(opt.evalf_f))(eseq[1-1], eseq[2-1], kwds);
+		return (reinterpret_cast<evalf_funcp_2>(opt.evalf_f))(eseq[1-1], eseq[2-1], kwds);
 	case 3:
-		return ((evalf_funcp_3)(opt.evalf_f))(eseq[1-1], eseq[2-1], eseq[3-1], kwds);
+		return (reinterpret_cast<evalf_funcp_3>(opt.evalf_f))(eseq[1-1], eseq[2-1], eseq[3-1], kwds);
+	case 6:
+		return (reinterpret_cast<evalf_funcp_6>(opt.evalf_f))(eseq[1-1], eseq[2-1], eseq[3-1], eseq[4-1], eseq[5-1], eseq[6-1], kwds);
 
 		// end of generated lines
 	}
@@ -977,7 +993,7 @@ long function::calchash() const
 		v ^= this->op(i).gethash();
 	}
 
-	if ((flags & status_flags::evaluated) != 0u) {
+	if (is_evaluated()) {
 		setflag(status_flags::hash_calculated);
 		hashvalue = v;
 	}
@@ -1017,7 +1033,7 @@ ex function::series(const relational & r, int order, unsigned options) const
 		PyDict_SetItemString(kwds, "at", py_funcs.ex_to_pyExpression(r.rhs()));
 		// call opt.series_f with this list
 		PyObject* pyresult = PyEval_CallObjectWithKeywords(
-			PyObject_GetAttrString((PyObject*)opt.series_f,
+			PyObject_GetAttrString(reinterpret_cast<PyObject*>(opt.series_f),
 				"_series_"), args, kwds);
 		Py_DECREF(args);
 		Py_DECREF(kwds);
@@ -1034,7 +1050,7 @@ ex function::series(const relational & r, int order, unsigned options) const
 	}
 	if (opt.series_use_exvector_args) {
 		try {
-			res = ((series_funcp_exvector)(opt.series_f))(seq, r, order, options);
+			res = (reinterpret_cast<series_funcp_exvector>(opt.series_f))(seq, r, order, options);
 		} catch (do_taylor) {
 			res = basic::series(r, order, options);
 		}
@@ -1044,21 +1060,21 @@ ex function::series(const relational & r, int order, unsigned options) const
 		// the following lines have been generated for max. 14 parameters
 	case 1:
 		try {
-			res = ((series_funcp_1)(opt.series_f))(seq[1-1],r,order,options);
+			res = (reinterpret_cast<series_funcp_1>(opt.series_f))(seq[1-1],r,order,options);
 		} catch (do_taylor) {
 			res = basic::series(r, order, options);
 		}
 		return res;
 	case 2:
 		try {
-			res = ((series_funcp_2)(opt.series_f))(seq[1-1], seq[2-1],r,order,options);
+			res = (reinterpret_cast<series_funcp_2>(opt.series_f))(seq[1-1], seq[2-1],r,order,options);
 		} catch (do_taylor) {
 			res = basic::series(r, order, options);
 		}
 		return res;
 	case 3:
 		try {
-			res = ((series_funcp_3)(opt.series_f))(seq[1-1], seq[2-1], seq[3-1],r,order,options);
+			res = (reinterpret_cast<series_funcp_3>(opt.series_f))(seq[1-1], seq[2-1], seq[3-1],r,order,options);
 		} catch (do_taylor) {
 			res = basic::series(r, order, options);
 		}
@@ -1081,7 +1097,7 @@ ex function::subs(const exmap & m, unsigned options) const
 		PyObject* args = py_funcs.subs_args_to_PyTuple(m, options, seq);
 		// call opt.subs_f with this list
 		PyObject* pyresult = PyObject_CallMethod(
-				(PyObject*)opt.subs_f,
+				reinterpret_cast<PyObject*>(opt.subs_f),
 				const_cast<char*>("_subs_"), const_cast<char*>("O"), args);
 		Py_DECREF(args);
 		if (pyresult == nullptr) { 
@@ -1094,8 +1110,8 @@ ex function::subs(const exmap & m, unsigned options) const
 			throw(std::runtime_error("function::subs(): python function (pyExpression_to_ex) raised exception"));
 		}
 		return result;
-	} else
-		return exprseq::subs(m, options);
+	} 
+	return exprseq::subs(m, options);
 }
 
 /** Implementation of ex::conjugate for functions. */
@@ -1113,7 +1129,7 @@ ex function::conjugate() const
 		PyObject* args = py_funcs.exvector_to_PyTuple(seq);
 		// call opt.conjugate_f with this list
 		PyObject* pyresult = PyObject_CallMethod(
-				(PyObject*)opt.conjugate_f,
+				reinterpret_cast<PyObject*>(opt.conjugate_f),
 				const_cast<char*>("_conjugate_"), const_cast<char*>("O"), args);
 		Py_DECREF(args);
 		if (pyresult == nullptr) { 
@@ -1128,17 +1144,17 @@ ex function::conjugate() const
 		return result;
 	}
 	if (opt.conjugate_use_exvector_args) {
-		return ((conjugate_funcp_exvector)(opt.conjugate_f))(seq);
+		return (reinterpret_cast<conjugate_funcp_exvector>(opt.conjugate_f))(seq);
 	}
 
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		return ((conjugate_funcp_1)(opt.conjugate_f))(seq[1-1]);
+		return (reinterpret_cast<conjugate_funcp_1>(opt.conjugate_f))(seq[1-1]);
 	case 2:
-		return ((conjugate_funcp_2)(opt.conjugate_f))(seq[1-1], seq[2-1]);
+		return (reinterpret_cast<conjugate_funcp_2>(opt.conjugate_f))(seq[1-1], seq[2-1]);
 	case 3:
-		return ((conjugate_funcp_3)(opt.conjugate_f))(seq[1-1], seq[2-1], seq[3-1]);
+		return (reinterpret_cast<conjugate_funcp_3>(opt.conjugate_f))(seq[1-1], seq[2-1], seq[3-1]);
 
 		// end of generated lines
 	}
@@ -1158,7 +1174,7 @@ ex function::real_part() const
 		// convert seq to a PyTuple of Expressions
 		PyObject* args = py_funcs.exvector_to_PyTuple(seq);
 		// call opt.real_part_f with this list
-		PyObject* pyresult = PyObject_CallMethod((PyObject*)opt.real_part_f,
+		PyObject* pyresult = PyObject_CallMethod(reinterpret_cast<PyObject*>(opt.real_part_f),
 				const_cast<char*>("_real_part_"), const_cast<char*>("O"), args);
 		Py_DECREF(args);
 		if (pyresult == nullptr) { 
@@ -1173,16 +1189,16 @@ ex function::real_part() const
 		return result;
 	}
 	if (opt.real_part_use_exvector_args)
-		return ((real_part_funcp_exvector)(opt.real_part_f))(seq);
+		return (reinterpret_cast<real_part_funcp_exvector>(opt.real_part_f))(seq);
 
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		return ((real_part_funcp_1)(opt.real_part_f))(seq[1-1]);
+		return (reinterpret_cast<real_part_funcp_1>(opt.real_part_f))(seq[1-1]);
 	case 2:
-		return ((real_part_funcp_2)(opt.real_part_f))(seq[1-1], seq[2-1]);
+		return (reinterpret_cast<real_part_funcp_2>(opt.real_part_f))(seq[1-1], seq[2-1]);
 	case 3:
-		return ((real_part_funcp_3)(opt.real_part_f))(seq[1-1], seq[2-1], seq[3-1]);
+		return (reinterpret_cast<real_part_funcp_3>(opt.real_part_f))(seq[1-1], seq[2-1], seq[3-1]);
 
 		// end of generated lines
 	}
@@ -1202,7 +1218,7 @@ ex function::imag_part() const
 		// convert seq to a PyTuple of Expressions
 		PyObject* args = py_funcs.exvector_to_PyTuple(seq);
 		// call opt.imag_part_f with this list
-		PyObject* pyresult = PyObject_CallMethod((PyObject*)opt.imag_part_f,
+		PyObject* pyresult = PyObject_CallMethod(reinterpret_cast<PyObject*>(opt.imag_part_f),
 				const_cast<char*>("_imag_part_"), const_cast<char*>("O"), args);
 		Py_DECREF(args);
 		if (pyresult == nullptr) { 
@@ -1217,16 +1233,16 @@ ex function::imag_part() const
 		return result;
 	}
 	if (opt.imag_part_use_exvector_args)
-		return ((imag_part_funcp_exvector)(opt.imag_part_f))(seq);
+		return (reinterpret_cast<imag_part_funcp_exvector>(opt.imag_part_f))(seq);
 
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		return ((imag_part_funcp_1)(opt.imag_part_f))(seq[1-1]);
+		return (reinterpret_cast<imag_part_funcp_1>(opt.imag_part_f))(seq[1-1]);
 	case 2:
-		return ((imag_part_funcp_2)(opt.imag_part_f))(seq[1-1], seq[2-1]);
+		return (reinterpret_cast<imag_part_funcp_2>(opt.imag_part_f))(seq[1-1], seq[2-1]);
 	case 3:
-		return ((imag_part_funcp_3)(opt.imag_part_f))(seq[1-1], seq[2-1], seq[3-1]);
+		return (reinterpret_cast<imag_part_funcp_3>(opt.imag_part_f))(seq[1-1], seq[2-1], seq[3-1]);
 
 		// end of generated lines
 	}
@@ -1270,7 +1286,7 @@ ex function::derivative(const symbol & s) const
 			// call opt.derivative_f with this list
 			PyObject* pyresult = PyEval_CallObjectWithKeywords(
 				PyObject_GetAttrString(
-					(PyObject*)opt.derivative_f,
+					reinterpret_cast<PyObject*>(opt.derivative_f),
 					"_tderivative_"), args, kwds);
 			Py_DECREF(symb);
 			Py_DECREF(args);
@@ -1290,45 +1306,25 @@ ex function::derivative(const symbol & s) const
 		if (!opt.derivative_use_exvector_args)
 			throw(std::runtime_error("function::derivative(): cannot call C++ function without exvector args"));
 		
-		return ((derivative_funcp_exvector_symbol)(opt.derivative_f))(seq, s);
+		return (reinterpret_cast<derivative_funcp_exvector_symbol>(opt.derivative_f))(seq, s);
 
-	} else {
-		// Chain rule
-		ex arg_diff;
-		size_t num = seq.size();
-		for (size_t i=0; i<num; i++) {
-			arg_diff = seq[i].diff(s);
-			// We apply the chain rule only when it makes sense.  This is not
-			// just for performance reasons but also to allow functions to
-			// throw when differentiated with respect to one of its arguments
-			// without running into trouble with our automatic full
-			// differentiation:
-			if (!arg_diff.is_zero())
-				result += pderivative(i)*arg_diff;
-		}
-	}
+	} 
+        // Chain rule
+        ex arg_diff;
+        size_t num = seq.size();
+        for (size_t i=0; i<num; i++) {
+                arg_diff = seq[i].diff(s);
+                // We apply the chain rule only when it makes sense.  This is not
+                // just for performance reasons but also to allow functions to
+                // throw when differentiated with respect to one of its arguments
+                // without running into trouble with our automatic full
+                // differentiation:
+                if (!arg_diff.is_zero())
+                        result += pderivative(i)*arg_diff;
+        }
+
 	return result;
 }
-
-/*
-int function::compare(const basic& other) const
-{
-	static const tinfo_t function_id = find_tinfo_key("function");
-	static const tinfo_t fderivative_id = find_tinfo_key("fderivative");
-
-	const tinfo_t typeid_this = tinfo();
-	const tinfo_t typeid_other = other.tinfo();
-	if (typeid_this==typeid_other) {
-		GINAC_ASSERT(typeid(*this)==typeid(other));
-		return compare_same_type(other);
-	} else if (typeid_this == function_id &&
-			typeid_other == fderivative_id) {
-		return -1;
-	} else {
-		return 1;
-	}
-}
-*/
 
 int function::compare_same_type(const basic & other) const
 {
@@ -1337,8 +1333,8 @@ int function::compare_same_type(const basic & other) const
 
 	if (serial != o.serial)
 		return serial < o.serial ? -1 : 1;
-	else
-		return exprseq::compare_same_type(o);
+
+        return exprseq::compare_same_type(o);
 }
 
 
@@ -1349,8 +1345,8 @@ bool function::is_equal_same_type(const basic & other) const
 
 	if (serial != o.serial)
 		return false;
-	else
-		return exprseq::is_equal_same_type(o);
+
+	return exprseq::is_equal_same_type(o);
 }
 
 bool function::match_same_type(const basic & other) const
@@ -1369,14 +1365,14 @@ unsigned function::return_type() const
 	if (opt.use_return_type) {
 		// Return type was explicitly specified
 		return opt.return_type;
-	} else {
-		// Default behavior is to use the return type of the first
-		// argument. Thus, exp() of a matrix behaves like a matrix, etc.
-		if (seq.empty())
-			return return_types::commutative;
-		else
-			return seq.begin()->return_type();
-	}
+	} 
+        // Default behavior is to use the return type of the first
+        // argument. Thus, exp() of a matrix behaves like a matrix, etc.
+        if (seq.empty())
+                return return_types::commutative;
+
+        return seq.begin()->return_type();
+	
 }
 
 tinfo_t function::return_type_tinfo() const
@@ -1387,14 +1383,14 @@ tinfo_t function::return_type_tinfo() const
 	if (opt.use_return_type) {
 		// Return type was explicitly specified
 		return opt.return_type_tinfo;
-	} else {
+	} 
 		// Default behavior is to use the return type of the first
 		// argument. Thus, exp() of a matrix behaves like a matrix, etc.
 		if (seq.empty())
 			return this;
-		else
+		
 			return seq.begin()->return_type_tinfo();
-	}
+	
 }
 
 //////////
@@ -1426,7 +1422,7 @@ ex function::pderivative(unsigned diff_param) const // partial differentiation
 		PyObject* kwds = Py_BuildValue("{s:I}","diff_param",diff_param);
 		// call opt.derivative_f with this list
 		PyObject* pyresult = PyEval_CallObjectWithKeywords(
-			PyObject_GetAttrString((PyObject*)opt.derivative_f,
+			PyObject_GetAttrString(reinterpret_cast<PyObject*>(opt.derivative_f),
 				"_derivative_"), args, kwds);
 		Py_DECREF(args);
 		Py_DECREF(kwds);
@@ -1445,15 +1441,17 @@ ex function::pderivative(unsigned diff_param) const // partial differentiation
 		return result;
 	}
 	if (opt.derivative_use_exvector_args)
-		return ((derivative_funcp_exvector)(opt.derivative_f))(seq, diff_param);
+		return (reinterpret_cast<derivative_funcp_exvector>(opt.derivative_f))(seq, diff_param);
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		return ((derivative_funcp_1)(opt.derivative_f))(seq[1-1],diff_param);
+		return (reinterpret_cast<derivative_funcp_1>(opt.derivative_f))(seq[1-1],diff_param);
 	case 2:
-		return ((derivative_funcp_2)(opt.derivative_f))(seq[1-1], seq[2-1],diff_param);
+		return (reinterpret_cast<derivative_funcp_2>(opt.derivative_f))(seq[1-1], seq[2-1],diff_param);
 	case 3:
-		return ((derivative_funcp_3)(opt.derivative_f))(seq[1-1], seq[2-1], seq[3-1],diff_param);
+		return (reinterpret_cast<derivative_funcp_3>(opt.derivative_f))(seq[1-1], seq[2-1], seq[3-1],diff_param);
+	case 6:
+		return (reinterpret_cast<derivative_funcp_6>(opt.derivative_f))(seq[1-1], seq[2-1], seq[3-1], seq[4-1], seq[5-1], seq[6-1], diff_param);
 
 		// end of generated lines
 	}
@@ -1469,15 +1467,15 @@ ex function::expl_derivative(const symbol & s) const // explicit differentiation
 		// Invoke the defined explicit derivative function.
 		current_serial = serial;
 		if (opt.expl_derivative_use_exvector_args)
-			return ((expl_derivative_funcp_exvector)(opt.expl_derivative_f))(seq, s);
+			return (reinterpret_cast<expl_derivative_funcp_exvector>(opt.expl_derivative_f))(seq, s);
 		switch (opt.nparams) {
 			// the following lines have been generated for max. 14 parameters
 			case 1:
-				return ((expl_derivative_funcp_1)(opt.expl_derivative_f))(seq[0], s);
+				return (reinterpret_cast<expl_derivative_funcp_1>(opt.expl_derivative_f))(seq[0], s);
 			case 2:
-				return ((expl_derivative_funcp_2)(opt.expl_derivative_f))(seq[0], seq[1], s);
+				return (reinterpret_cast<expl_derivative_funcp_2>(opt.expl_derivative_f))(seq[0], seq[1], s);
 			case 3:
-				return ((expl_derivative_funcp_3)(opt.expl_derivative_f))(seq[0], seq[1], seq[2], s);
+				return (reinterpret_cast<expl_derivative_funcp_3>(opt.expl_derivative_f))(seq[0], seq[1], seq[2], s);
 		}
 	}
 	// There is no fallback for explicit derivative.
@@ -1503,7 +1501,7 @@ ex function::power(const ex & power_param) const // power of function
 		PyDict_SetItemString(kwds, "power_param", py_funcs.ex_to_pyExpression(power_param));
 		// call opt.power_f with this list
 		PyObject* pyresult = PyEval_CallObjectWithKeywords(
-			PyObject_GetAttrString((PyObject*)opt.power_f,
+			PyObject_GetAttrString(reinterpret_cast<PyObject*>(opt.power_f),
 				"_power_"), args, kwds);
 		Py_DECREF(args);
 		Py_DECREF(kwds);
@@ -1519,15 +1517,15 @@ ex function::power(const ex & power_param) const // power of function
 		return result;
 	}
 	if (opt.power_use_exvector_args)
-		return ((power_funcp_exvector)(opt.power_f))(seq,  power_param);
+		return (reinterpret_cast<power_funcp_exvector>(opt.power_f))(seq,  power_param);
 	switch (opt.nparams) {
 		// the following lines have been generated for max. 14 parameters
 	case 1:
-		return ((power_funcp_1)(opt.power_f))(seq[1-1],power_param);
+		return (reinterpret_cast<power_funcp_1>(opt.power_f))(seq[1-1],power_param);
 	case 2:
-		return ((power_funcp_2)(opt.power_f))(seq[1-1], seq[2-1],power_param);
+		return (reinterpret_cast<power_funcp_2>(opt.power_f))(seq[1-1], seq[2-1],power_param);
 	case 3:
-		return ((power_funcp_3)(opt.power_f))(seq[1-1], seq[2-1], seq[3-1],power_param);
+		return (reinterpret_cast<power_funcp_3>(opt.power_f))(seq[1-1], seq[2-1], seq[3-1],power_param);
 
 		// end of generated lines
 	}
@@ -1577,11 +1575,11 @@ unsigned function::register_new(function_options const & opt)
 	registered_functions().push_back(opt);
 	if (opt.use_remember) {
 		remember_table::remember_tables().
-			push_back(remember_table(opt.remember_size,
+			emplace_back(opt.remember_size,
 			                         opt.remember_assoc_size,
-			                         opt.remember_strategy));
+			                         opt.remember_strategy);
 	} else {
-		remember_table::remember_tables().push_back(remember_table());
+		remember_table::remember_tables().emplace_back();
 	}
 	return registered_functions().size()-1;
 }
@@ -1611,19 +1609,19 @@ void function::set_domain(unsigned d)
         domain = d;
         iflags.clear();
         switch (d) {
-                case domain::complex:
-                        break;
-                case domain::real:
-                        iflags.set(info_flags::real, true);
-                        break;
-                case domain::positive:
-                        iflags.set(info_flags::real, true);
-                        iflags.set(info_flags::positive, true);
-                        break;
-                case domain::integer:
-                        iflags.set(info_flags::real, true);
-                        iflags.set(info_flags::integer, true);
-                        break;
+        case domain::complex:
+                break;
+        case domain::real:
+                iflags.set(info_flags::real, true);
+                break;
+        case domain::positive:
+                iflags.set(info_flags::real, true);
+                iflags.set(info_flags::positive, true);
+                break;
+        case domain::integer:
+                iflags.set(info_flags::real, true);
+                iflags.set(info_flags::integer, true);
+                break;
         }
 }
 
@@ -1649,6 +1647,71 @@ bool has_symbol_or_function(const ex & x)
 	return false;
 }
 
+static bool has_oneof_function_helper(const ex& x,
+                const std::map<unsigned,int>& m)
+{
+	if (is_exactly_a<function>(x)
+            and m.find(ex_to<function>(x).get_serial()) != m.end())
+		return true;
+	for (size_t i=0; i<x.nops(); ++i)
+		if (has_oneof_function_helper(x.op(i), m))
+			return true;
+
+	return false;
+}
+
+static void has_allof_function_helper(const ex& x,
+                std::map<unsigned,int>& m)
+{
+	if (is_exactly_a<function>(x)) {
+                unsigned ser = ex_to<function>(x).get_serial();
+                if (m.find(ser) != m.end())
+        		m[ser] = 1;
+        }
+	for (size_t i=0; i<x.nops(); ++i)
+		has_allof_function_helper(x.op(i), m);
+}
+
+bool has_function(const ex& x,
+                const std::string& s)
+{
+        std::map<unsigned,int> m;
+        unsigned ser = 0;
+        for (const auto & elem : function::registered_functions()) {
+                if (s == elem.name)
+                        m[ser] = 0;
+                ++ser;
+        }
+        if (m.empty())
+                return false;
+        return has_oneof_function_helper(x, m);
+}
+
+bool has_function(const ex& x,
+                const std::vector<std::string>& v,
+                bool all)
+{
+        std::map<unsigned,int> m;
+        for (const auto & s : v) {
+                unsigned ser = 0;
+                for (const auto & elem : function::registered_functions()) {
+                        if (s == elem.name)
+                                m[ser] = 0;
+                        ++ser;
+                }
+        }
+        if (m.empty())
+                return false;
+        if (all) {
+                has_allof_function_helper(x, m);
+                for (const auto & p : m)
+                        // TODO: false negative if >1 func with same name
+                        if (p.second == 0)
+                                return false;
+                return true;
+        }
+        return has_oneof_function_helper(x, m);
+}
 
 } // namespace GiNaC
 

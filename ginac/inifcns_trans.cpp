@@ -22,6 +22,7 @@
 
 #include "inifcns.h"
 #include "ex.h"
+#include "ex_utils.h"
 #include "lst.h"
 #include "constant.h"
 #include "infinity.h"
@@ -54,14 +55,6 @@ namespace GiNaC {
 // exponential function
 //////////
 
-static ex exp_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return exp(ex_to<numeric>(x));
-	
-	return exp(x).hold();
-}
-
 static ex exp_eval(const ex & x)
 {
 	// exp(0) -> 1
@@ -76,7 +69,7 @@ static ex exp_eval(const ex & x)
 	// exp(-oo) -> 0
 	// exp(UnsignedInfinity) -> error
 	if (is_exactly_a<infinity>(x)) {
-	        infinity xinf = ex_to<infinity>(x);
+	        const infinity& xinf = ex_to<infinity>(x);
 		if (xinf.is_plus_infinity())
 			return Infinity;
 		if (xinf.is_minus_infinity())
@@ -107,15 +100,15 @@ static ex exp_eval(const ex & x)
                                 // like I. To make this check should be faster
                                 // than the following
 
-		ex coef_pi = x.coeff(Pi).expand();
+		ex coef_pi = x.coeff(Pi,_ex1).expand();
 		ex rem = _ex0;
 		if (is_exactly_a<add>(coef_pi)) {
 			for (size_t i=0; i < coef_pi.nops(); i++) {
-				if ((coef_pi.op(i) / (_ex2 * I)).info(info_flags::integer))
+				if ((coef_pi.op(i) / (_ex2 * I)).is_integer())
 					rem += Pi * coef_pi.op(i);
 			}
 		}
-		else if ((coef_pi / (_ex2 * I)).info(info_flags::integer))
+		else if ((coef_pi / (_ex2 * I)).is_integer())
 			rem = Pi * coef_pi;
 		x_red = (x - rem).expand();
 
@@ -131,10 +124,61 @@ static ex exp_eval(const ex & x)
 	else
 		x_red = x;
 
-	// exp(log(x)) -> x
-	if (is_ex_the_function(x_red, log))
-		return x_red.op(0);
-	
+        if (is_exactly_a<function>(x_red)) {
+                const ex& arg = x_red.op(0);
+                // exp(log(x)) -> x
+                if (is_ex_the_function(x_red, log))
+                        return arg;
+                // exp(asinh(num)) etc.
+                if (is_exactly_a<numeric>(arg)) {
+                        if (is_ex_the_function(x_red, asinh))
+                                return arg + sqrt(power(arg, _ex2) + _ex1);
+                        if (is_ex_the_function(x_red, acosh))
+                                return arg + sqrt(power(arg, _ex2) - _ex1);
+                        if (is_ex_the_function(x_red, atanh))
+                                return sqrt((arg+_ex1) / (arg-_ex1));
+                        if (is_ex_the_function(x_red, acoth))
+                                return sqrt((arg-_ex1) / (arg+_ex1));
+                        if (is_ex_the_function(x_red, asech))
+                                return (_ex1/arg +
+                                        sqrt(_ex1-power(arg, _ex2))/arg);
+                        if (is_ex_the_function(x_red, acsch))
+                                return (_ex1/arg +
+                                        sqrt(_ex1+power(arg, _ex2))/arg);
+                }
+        }
+
+        if (is_exactly_a<mul>(x_red)
+            and x_red.nops() == 2) {
+                const ex& fac = x_red.op(0);
+                if (is_exactly_a<function>(fac)) {
+                        const ex& arg = fac.op(0);
+                        const numeric& c = ex_to<mul>(x_red).get_overall_coeff();
+                        // exp(c*log(x)) -> x^c
+                        if (is_ex_the_function(fac, log))
+                                return power(arg, c);
+                        // exp(c*asinh(num)) etc.
+                        if (is_exactly_a<numeric>(arg)) {
+                                if (is_ex_the_function(fac, asinh))
+                                        return power(arg + sqrt(power(arg, _ex2) + _ex1), c);
+                                if (is_ex_the_function(fac, acosh))
+                                        return power(arg + sqrt(power(arg, _ex2) - _ex1), c);
+                                if (is_ex_the_function(fac, atanh))
+                                        return power((arg+_ex1) / (arg-_ex1), c/ *_num2_p);
+                                if (is_ex_the_function(fac, acoth))
+                                        return power((arg-_ex1) / (arg+_ex1), c/ *_num2_p);
+                                if (is_ex_the_function(fac, asech))
+                                        return power(_ex1/arg +
+                                                sqrt(_ex1-power(arg, _ex2))/arg,
+                                                c);
+                                if (is_ex_the_function(fac, acsch))
+                                        return power(_ex1/arg +
+                                                sqrt(_ex1+power(arg, _ex2))/arg,
+                                                c);
+                        }
+                }
+        }
+
 	// exp(float) -> float
 	if (is_exactly_a<numeric>(x_red)
             and x_red.info(info_flags::inexact))
@@ -167,8 +211,8 @@ static ex exp_power(const ex & arg, const ex & p)
 	// the simplification code in mul::eval accordingly
 	if (is_exactly_a<numeric>(p) && ex_to<numeric>(p).is_integer())
 		return exp(p*arg);
-	else
-		return power(exp(arg), p).hold();
+
+	return power(exp(arg), p).hold();
 }
 
 static void exp_print(const ex & arg, const print_context & c,
@@ -182,7 +226,7 @@ static void exp_print(const ex & arg, const print_context & c,
 		if (latex) {
 			tcontext_p.reset(new print_latex(tstream, c.options));
 		} else {
-			tcontext_p.reset(new print_dflt(tstream, c.options));
+			tcontext_p.reset(new print_context(tstream, c.options));
 		}
 		arg.print(*tcontext_p);
 		std::string argstr = tstream.str();
@@ -209,7 +253,7 @@ static void exp_print(const ex & arg, const print_context & c,
 	}
 }
 
-static void exp_print_dflt(const ex & arg, const print_context & c)
+static void exp_print_norm(const ex & arg, const print_context & c)
 {
 	exp_print(arg, c, false);
 }
@@ -226,54 +270,50 @@ static ex exp_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(exp, eval_func(exp_eval).
-                       evalf_func(exp_evalf).
                        derivative_func(exp_deriv).
                        real_part_func(exp_real_part).
                        imag_part_func(exp_imag_part).
                        power_func(exp_power).
                        conjugate_func(exp_conjugate).
-                       print_func<print_dflt>(exp_print_dflt).
+                       print_func<print_context>(exp_print_norm).
                        print_func<print_latex>(exp_print_latex));
 
 //////////
 // natural logarithm
 //////////
 
-static ex log_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return log(ex_to<numeric>(x));
-	
-	return log(x).hold();
-}
-
 static ex log_eval(const ex & x)
 {
 	if (is_exactly_a<numeric>(x)) {
 		// log(float) -> float
+                const numeric& n = ex_to<numeric>(x);
 		if (x.info(info_flags::crational)) {
-                        if (x.is_zero())         // log(0) -> infinity
+                        if (n.is_zero())         // log(0) -> infinity
                                 //throw(pole_error("log_eval(): log(0)",0));
                                 return NegInfinity;
                         if (not x.info(info_flags::inexact) and x.info(info_flags::negative))
                                 return (log(-x)+I*Pi);
-                        if (x.is_equal(_ex1))  // log(1) -> 0
+                        if (n.is_one())  // log(1) -> 0
                                 return _ex0;
                         if (x.is_equal(I))       // log(I) -> Pi*I/2
                                 return (Pi*I*_ex1_2);
                         if (x.is_equal(-I))      // log(-I) -> -Pi*I/2
                                 return (Pi*I*_ex_1_2);
+                        std::pair<int,int> p;
+                        if (n.is_real() and n.is_integer()
+                            and n.is_small_power(p))
+                                return mul(p.second, log(p.first).hold());
                 }
                 else if (not x.info(info_flags::inexact))
                         return log(x).hold();
                 else
-			return log(ex_to<numeric>(x));
+			return log(n);
 	}
 
 	// log(exp(t)) -> t (if -Pi < t.imag() <= Pi):
 	if (is_ex_the_function(x, exp)) {
 		const ex &t = x.op(0);
-		if (t.info(info_flags::real))
+		if (t.is_real())
 			return t;
 	}
 	
@@ -334,31 +374,32 @@ static ex log_series(const ex &arg,
 
 		const symbol &s = ex_to<symbol>(rel.lhs());
 		const ex &point = rel.rhs();
-		const int n = argser.ldegree(s);
+		const numeric &num = argser.ldegree(s);
+                long n = num.to_long();
 		epvector seq;
 		// construct what we carelessly called the n*log(x) term above
 		const ex coeff = argser.coeff(s, n);
 		// expand the log, but only if coeff is real and > 0, since otherwise
 		// it would make the branch cut run into the wrong direction
-		if (coeff.info(info_flags::positive))
-			seq.push_back(expair(n*log(s-point)+log(coeff), _ex0));
+		if (coeff.is_positive())
+			seq.emplace_back(n*log(s-point)+log(coeff), _ex0);
 		else
-			seq.push_back(expair(log(coeff*pow(s-point, n)), _ex0));
+			seq.emplace_back(log(coeff*pow(s-point, n)), _ex0);
 
 		if (!argser.is_terminating() || argser.nops()!=1) {
 			// in this case n more (or less) terms are needed
 			// (sadly, to generate them, we have to start from the beginning)
-			if (n == 0 && coeff == 1) {
+			if (n == 0 and coeff.is_one()) {
 				epvector epv;
 				ex acc = (new pseries(rel, epv))->setflag(status_flags::dynallocated);
 				epv.reserve(2);
-				epv.push_back(expair(-1, _ex0));
-				epv.push_back(expair(Order(_ex1), order));
+				epv.emplace_back(-1, _ex0);
+				epv.emplace_back(Order(_ex1), order);
 				ex rest = pseries(rel, epv).add_series(argser);
 				for (int i = order-1; i>0; --i) {
 					epvector cterm;
 					cterm.reserve(1);
-					cterm.push_back(expair((i%2) != 0 ? _ex1/i : _ex_1/i, _ex0));
+					cterm.emplace_back((i%2) != 0 ? _ex1/i : _ex_1/i, _ex0);
 					acc = pseries(rel, cterm).add_series(ex_to<pseries>(acc));
 					acc = (ex_to<pseries>(rest)).mul_series(ex_to<pseries>(acc));
 				}
@@ -366,8 +407,8 @@ static ex log_series(const ex &arg,
 			}
 			const ex newarg = ex_to<pseries>((arg/coeff).series(rel, order+n, options)).shift_exponents(-n).convert_to_poly(true);
 			return pseries(rel, seq).add_series(ex_to<pseries>(log(newarg).series(rel, order, options)));
-		} else  // it was a monomial
-			return pseries(rel, seq);
+		}  // it was a monomial
+		return pseries(rel, seq);
 	}
 	if (((options & series_options::suppress_branchcut) == 0u) &&
 	     arg_pt.info(info_flags::negative)) {
@@ -379,8 +420,8 @@ static ex log_series(const ex &arg,
 		const symbol foo;
 		const ex replarg = series(log(arg), s==foo, order).subs(foo==point, subs_options::no_pattern);
 		epvector seq;
-		seq.push_back(expair(-I*csgn(arg*I)*Pi, _ex0));
-		seq.push_back(expair(Order(_ex1), order));
+		seq.emplace_back(-I*csgn(arg*I)*Pi, _ex0);
+		seq.emplace_back(Order(_ex1), order);
 		return series(replarg - I*Pi + pseries(rel, seq), rel, order);
 	}
 	throw do_taylor();  // caught by function::series()
@@ -388,14 +429,14 @@ static ex log_series(const ex &arg,
 
 static ex log_real_part(const ex & x)
 {
-	if (x.info(info_flags::positive))
+	if (x.is_positive())
 		return log(x).hold();
 	return log(abs(x));
 }
 
 static ex log_imag_part(const ex & x)
 {
-	if (x.info(info_flags::positive))
+	if (x.is_positive())
 		return _ex0;
 	return atan2(GiNaC::imag_part(x), GiNaC::real_part(x));
 }
@@ -404,7 +445,7 @@ static ex log_conjugate(const ex & x)
 {
 	// conjugate(log(x))==log(conjugate(x)) unless on the branch cut which
 	// runs along the negative real axis.
-	if (x.info(info_flags::positive)) {
+	if (x.is_positive()) {
 		return log(x);
 	}
 	if (is_exactly_a<numeric>(x) &&
@@ -415,7 +456,6 @@ static ex log_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(log, eval_func(log_eval).
-                       evalf_func(log_evalf).
                        derivative_func(log_deriv).
                        series_func(log_series).
                        real_part_func(log_real_part).
@@ -430,8 +470,11 @@ REGISTER_FUNCTION(log, eval_func(log_eval).
 
 static ex logb_evalf(const ex & x, const ex & base, PyObject* parent)
 {
-        if ((base - exp(_ex1).hold()).is_zero())
-                return log_evalf(x, parent);
+        if ((base - exp(_ex1).hold()).is_zero()) {
+                if (is_exactly_a<numeric>(x))
+                        return log(ex_to<numeric>(x), parent);
+                return log(x);
+        }
 	if (is_exactly_a<numeric>(x) and is_exactly_a<numeric>(base))
 		return log(ex_to<numeric>(x), ex_to<numeric>(base));
 
@@ -442,9 +485,9 @@ static ex logb_eval(const ex & x, const ex & base)
 {
 	if (is_exactly_a<numeric>(x) and not x.info(info_flags::inexact)
 	    and is_exactly_a<numeric>(base) and not base.info(info_flags::inexact)) {
-                numeric a = ex_to<numeric>(x);
-                numeric b = ex_to<numeric>(base);
-                if (b.info(info_flags::real) and a.info(info_flags::real)) {
+                const numeric& a = ex_to<numeric>(x);
+                const numeric& b = ex_to<numeric>(base);
+                if (b.is_real() and a.is_real()) {
                         bool israt;
                         numeric ret = a.ratlog(b, israt);
                         if (israt)
@@ -458,7 +501,7 @@ static ex logb_eval(const ex & x, const ex & base)
 
 	// log(base^t, base) -> t
 	if (is_exactly_a<power>(x)) {
-                if (x.op(0).is_equal(base) and x.op(1).info(info_flags::real))
+                if (x.op(0).is_equal(base) and x.op(1).is_real())
 			return x.op(1);
 	}
 
@@ -481,10 +524,10 @@ REGISTER_FUNCTION(logb, eval_func(logb_eval).
 
 static ex Li2_evalf(const ex & x, PyObject* parent)
 {
-	if (is_exactly_a<numeric>(x))
-		return Li2(ex_to<numeric>(x), parent);
-	
-	return Li2(x).hold();
+	if (not is_exactly_a<numeric>(x))
+	        return Li2(x).hold();
+
+        return Li2(ex_to<numeric>(x), parent);
 }
 
 static ex Li2_eval(const ex & x)
@@ -497,13 +540,13 @@ static ex Li2_eval(const ex & x)
 		if (x.is_zero())
 			return _ex0;
 		// Li2(1) -> Pi^2/6
-		if (x.is_equal(_ex1))
+		if (x.is_one())
 			return power(Pi,_ex2)/_ex6;
 		// Li2(1/2) -> Pi^2/12 - log(2)^2/2
 		if (x.is_equal(_ex1_2))
 			return power(Pi,_ex2)/_ex12 + power(log(_ex2),_ex2)*_ex_1_2;
 		// Li2(-1) -> -Pi^2/12
-		if (x.is_equal(_ex_1))
+		if (x.is_minus_one())
 			return -power(Pi,_ex2)/_ex12;
 		// Li2(I) -> -Pi^2/48+Catalan*I
 		if (x.is_equal(I))
@@ -554,7 +597,7 @@ static ex Li2_series(const ex &x, const relational &rel, int order, unsigned opt
 			ser = ser.subs(s==x.series(rel, order), subs_options::no_pattern);
 			// maybe that was terminating, so add a proper order term
 			epvector nseq;
-			nseq.push_back(expair(Order(_ex1), order));
+			nseq.emplace_back(Order(_ex1), order);
 			ser += pseries(rel, nseq);
 			// reexpanding it will collapse the series again
 			return ser.series(rel, order);
@@ -579,7 +622,7 @@ static ex Li2_series(const ex &x, const relational &rel, int order, unsigned opt
 			ser = ser.subs(s==x.series(rel, order), subs_options::no_pattern);
 			// maybe that was terminating, so add a proper order term
 			epvector nseq;
-			nseq.push_back(expair(Order(_ex1), order));
+			nseq.emplace_back(Order(_ex1), order);
 			ser += pseries(rel, nseq);
 			// reexpanding it will collapse the series again
 			return ser.series(rel, order);
@@ -595,13 +638,18 @@ static ex Li2_series(const ex &x, const relational &rel, int order, unsigned opt
 			const symbol foo;
 			epvector seq;
 			// zeroth order term:
-			seq.push_back(expair(Li2(x_pt), _ex0));
+			seq.emplace_back(Li2(x_pt), _ex0);
 			// compute the intermediate terms:
 			ex replarg = series(Li2(x), s==foo, order);
-			for (size_t i=1; i<replarg.nops()-1; ++i)
-				seq.push_back(expair((replarg.op(i)/power(s-foo,i)).series(foo==point,1,options).op(0).subs(foo==s, subs_options::no_pattern),i));
+			for (unsigned i=1; i < replarg.nops()-1; ++i) {
+				ex term = replarg.op(i) / power(s-foo, i);
+                                term = term.series(foo==point,1,options).op(0);
+                                term.subs(foo==s, subs_options::no_pattern);
+				seq.emplace_back(term, numeric(i));
+                        }
 			// append an order term:
-			seq.push_back(expair(Order(_ex1), replarg.nops()-1));
+			seq.emplace_back(Order(_ex1),
+                                                long(replarg.nops()-1));
 			return pseries(rel, seq);
 		}
 	}
@@ -638,35 +686,44 @@ unsigned Li2_SERIAL::serial = function::register_new(function_options("dilog", 1
 
 static ex Li_evalf(const ex& m_, const ex& x_, PyObject* parent)
 {
-	if (is_exactly_a<numeric>(m_) and is_exactly_a<numeric>(x_))
-                return Li2(ex_to<numeric>(m_), ex_to<numeric>(x_), parent);
+	if (not is_exactly_a<numeric>(m_)
+            or not is_exactly_a<numeric>(x_))
+                return Li(m_,x_).hold();
 
-        return Li(m_,x_).hold();
+        const numeric& num_m = ex_to<numeric>(m_);
+        const numeric& num_x = ex_to<numeric>(x_);
+        
+        return Li2(num_m, num_x, parent);
 }
 
 
 static ex Li_eval(const ex& m_, const ex& x_)
 {
-	// classical polylogs
-	if (x_.is_zero()) {
-		return _ex0;
-	}
-	if (x_.is_integer_one()) {
-		return zeta(m_);
-	}
-	if ((-x_).is_integer_one()) {
-		return (pow(2,1-m_)-1) * zeta(m_);
-	}
-	if (m_.is_integer_one()) {
-		return -log(1-x_);
-	}
-	if (m_.is_equal(_ex2)) 
-                return Li2_eval(x_);
-
         if ((is_exactly_a<numeric>(x_) and not ex_to<numeric>(x_).is_exact())
             or (is_exactly_a<numeric>(m_) and not ex_to<numeric>(m_).is_exact())) {
 	        return Li_evalf(m_, x_, nullptr);
 	}
+
+	// classical polylogs
+        if ((is_exactly_a<numeric>(x_) and not ex_to<numeric>(x_).is_exact())
+            or (is_exactly_a<numeric>(m_) and not ex_to<numeric>(m_).is_exact())) {
+	        return Li_evalf(m_, x_, nullptr);
+	}
+
+	if (x_.is_zero()) {
+		return _ex0;
+	}
+	if (x_.is_one()) {
+		return zeta(m_);
+	}
+	if (x_.is_minus_one()) {
+		return (pow(2,1-m_)-1) * zeta(m_);
+	}
+	if (m_.is_one()) {
+		return -log(1-x_);
+	}
+	if (m_.is_equal(_ex2)) 
+                return Li2_eval(x_);
 
 	return Li(m_, x_).hold();
 }
@@ -688,7 +745,7 @@ static ex Li_series(const ex& m, const ex& x, const relational& rel, int order, 
 			ser = ser.subs(s==x.series(rel, order), subs_options::no_pattern);
 			// maybe that was terminating, so add a proper order term
 			epvector nseq;
-			nseq.push_back(expair(Order(_ex1), order));
+			nseq.emplace_back(Order(_ex1), order);
 			ser += pseries(rel, nseq);
 			// reexpanding it will collapse the series again
 			return ser.series(rel, order);
@@ -707,13 +764,12 @@ static ex Li_deriv(const ex& m_, const ex& x_, unsigned deriv_param)
 	if (deriv_param == 0) {
 		return _ex0;
 	}
-	ex m = m_;
-	ex x = x_;
+	const ex& m = m_;
+	const ex& x = x_;
 	if (m > 0) {
 		return Li(m-1, x) / x;
-	} else {
-		return 1/(1-x);
-	}
+	} 
+	return 1/(1-x);
 }
 
 

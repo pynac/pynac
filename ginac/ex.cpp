@@ -20,11 +20,12 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <Python.h>
 #include "ex.h"
+#include "ex_utils.h"
 #include "symbol.h"
 #include "add.h"
 #include "mul.h"
-#include "ncmul.h"
 #include "numeric.h"
 #include "power.h"
 #include "lst.h"
@@ -79,8 +80,8 @@ ex ex::expand(unsigned options) const
 {
 	if (options == 0 && ((bp->flags & status_flags::expanded) != 0u)) // The "expanded" flag only covers the standard options; someone might want to re-expand with different options
 		return *this;
-	else
-		return bp->expand(options);
+
+        return bp->expand(options);
 }
 
 /** Compute partial derivative of an expression.
@@ -92,8 +93,8 @@ ex ex::diff(const symbol & s, unsigned nth) const
 {
 	if (nth == 0u)
 		return *this;
-	else
-		return bp->diff(s, nth);
+
+	return bp->diff(s, nth);
 }
 
 /** Check whether expression matches a specified pattern. */
@@ -164,12 +165,14 @@ ex ex::subs(const ex & e, unsigned options) const
 
 		return bp->subs(m, options);
 
-	} else if (e.info(info_flags::list)) {
+	}
+        
+        if (e.info(info_flags::list)) {
 
 		// Argument is a list: convert it to a map
 		exmap m;
 		GINAC_ASSERT(is_a<lst>(e));
-		for (auto r : ex_to<lst>(e)) {
+		for (const auto& r : ex_to<lst>(e)) {
 			
 			if (!r.info(info_flags::relation_equal))
 				throw(std::invalid_argument("basic::subs(ex): argument must be a list of equations"));
@@ -303,8 +306,8 @@ bool ex::is_polynomial(const ex & vars) const
 				return false;
 		return true;
 	}
-	else
-		return bp->is_polynomial(vars);
+
+	return bp->is_polynomial(vars);
 }
 
 bool ex::is_zero() const {
@@ -316,22 +319,20 @@ bool ex::is_zero() const {
         return ex_to<numeric>(*this).is_zero();
 }
 
-bool ex::is_integer_one() const
+bool ex::is_one() const
 {
-    if (!is_exactly_a<numeric>(*this))
-        return false;
-    return ex_to<numeric>(*this).is_integer()
-        and ex_to<numeric>(*this).is_one();
+        if (!is_exactly_a<numeric>(*this))
+                return false;
+        const numeric& num = ex_to<numeric>(*this);
+        return num.is_one();
 }
   
-bool ex::is_integer_pmone() const
+bool ex::is_minus_one() const
 {
-    if (!is_exactly_a<numeric>(*this))
-        return false;
-    numeric num = ex_to<numeric>(*this);
-    return ((ex_to<numeric>(*this).is_integer())
-        and (ex_to<numeric>(*this).is_one()
-            or ex_to<numeric>(*this).is_minus_one()));
+        if (!is_exactly_a<numeric>(*this))
+                return false;
+        const numeric& num = ex_to<numeric>(*this);
+        return num.is_minus_one();
 }
 
 void ex::set_domain(unsigned d)
@@ -371,7 +372,8 @@ bool ex::get_first_symbol(ex &x) const
 	if (is_exactly_a<symbol>(*this)) {
 		x = *this;
 		return true;
-	} else if (is_exactly_a<add>(*this) || is_exactly_a<mul>(*this)) {
+	} 
+        if (is_exactly_a<add>(*this) || is_exactly_a<mul>(*this)) {
 		for (size_t i=0; i<nops(); i++)
 			if (sorted_op(i).get_first_symbol(x))
 				return true;
@@ -402,6 +404,7 @@ static void collect_bound_symbols(const ex& e, symbolset& syms)
 {
         static unsigned int sum_serial = function::find_function("sum", 4);
         static unsigned int integral_serial = function::find_function("integrate", 4);
+        static unsigned int limit_serial = function::find_function("limit", 0);
 	if (is_exactly_a<function>(e)) {
                 const function& f = ex_to<function>(e);
                 if (f.get_serial() == sum_serial
@@ -410,6 +413,11 @@ static void collect_bound_symbols(const ex& e, symbolset& syms)
                         return collect_bound_symbols(f.op(0), syms);
                 }
                 if (f.get_serial() == integral_serial
+                    and is_exactly_a<symbol>(f.op(1))) {
+                        syms.insert(ex_to<symbol>(f.op(1)));
+                        return collect_bound_symbols(f.op(0), syms);
+                }
+                if (f.get_serial() == limit_serial
                     and is_exactly_a<symbol>(f.op(1))) {
                         syms.insert(ex_to<symbol>(f.op(1)));
                         return collect_bound_symbols(f.op(0), syms);
@@ -440,12 +448,46 @@ symbolset ex::free_symbols() const
 	return the_set;
 }
 
+static void collect_functions(const ex& e, std::unordered_set<unsigned>& funs)
+{
+	if (is_exactly_a<function>(e)) {
+                const function& f = ex_to<function>(e);
+                funs.insert(f.get_serial());
+        }
+        for (size_t i=0; i < e.nops(); i++)
+                collect_functions(e.op(i), funs);
+}
+
+std::unordered_set<unsigned> ex::functions() const
+{
+        std::unordered_set<unsigned> the_set;
+        collect_functions(*this, the_set);
+        return the_set;
+}
+
 ex ex::sorted_op(size_t i) const
 {
 	if (is_a<expairseq>(*this))
 		return dynamic_cast<const expairseq&>(*bp).stable_op(i);
-	else
-		return bp->op(i);
+
+        return bp->op(i);
+}
+
+static bool has_nonposint_power(const ex& x, const symbol& symb)
+{
+        if (is_exactly_a<power>(x)) {
+                const power& p = ex_to<power>(x);
+                if (is_exactly_a<add>(p.op(0))
+                    and has_symbol(p.op(0), symb)
+                    and (not is_exactly_a<numeric>(p.op(1))
+                    or not ex_to<numeric>(p.op(1)).is_pos_integer()))
+                return true;
+        }
+        for (size_t i=0; i<x.nops(); ++i)
+        if (has_nonposint_power(x.op(i), symb))
+                return true;
+
+	return false;
 }
 
 // Helper function: Return True if term is a monomial in symb.
@@ -467,20 +509,19 @@ static bool match_monom(const ex& term, const symbol& symb,
                         vec.push_back(std::make_pair(_ex1, expo.subs(map)));
                         return true;
                 }
-                else {
-                        // of form (...+...)^expo
-                        // we expand only those with integer exponent
-                        if (is_exactly_a<numeric>(expo)
-                                        and has_free_symbol(p.op(0), symb)) {
-                                numeric ee = ex_to<numeric>(expo);
-                                if (ee.is_integer() and ee.to_int() > 1) {
-                                        expairvec tmpvec;
-                                        expand(term).coefficients(symb, tmpvec);
-                                        for (const auto& pair : tmpvec)
-                                                vec.push_back(std::make_pair(pair.first.subs(map),
-                                                                        pair.second.subs(map)));
-                                        return true;
-                                }
+
+                // of form (...+...)^expo
+                // we expand only those with integer exponent
+                if (is_exactly_a<numeric>(expo)
+                                and has_free_symbol(p.op(0), symb)) {
+                        const numeric& ee = ex_to<numeric>(expo);
+                        if (ee.is_integer() and ee.to_int() > 1) {
+                                expairvec tmpvec;
+                                expand(term).coefficients(symb, tmpvec);
+                                for (const auto& pair : tmpvec)
+                                        vec.push_back(std::make_pair(pair.first.subs(map),
+                                                                pair.second.subs(map)));
+                                return true;
                         }
                 }
         }
@@ -513,7 +554,10 @@ static bool match_monom(const ex& term, const symbol& symb,
                                 numeric ee = ex_to<numeric>(mterm.op(1));
                                 if (ee.is_integer() and ee.to_int() > 1) {
                                         expairvec tmpvec;
-                                        expand(term).coefficients(symb, tmpvec);
+                                        ex e = expand(term);
+                                        if (not is_exactly_a<add>(e))
+                                                return false;
+                                        e.coefficients(symb, tmpvec);
                                         for (const auto& pair : tmpvec)
                                                 vec.push_back(std::make_pair(pair.first.subs(map),
                                                         pair.second.subs(map)));
@@ -532,6 +576,16 @@ static bool match_monom(const ex& term, const symbol& symb,
                 }
         }
         return false;
+}
+
+numeric ex::degree(const ex & s) const
+{
+        return bp->degree(s);
+}
+
+numeric ex::ldegree(const ex & s) const
+{
+        return bp->ldegree(s);
 }
 
 /**
@@ -556,17 +610,19 @@ void ex::coefficients(const ex & s, expairvec & vec) const
 
         if (is_exactly_a<add>(sub)) {
                 const add& addref = ex_to<add>(sub);
-                const ex& oc = addref.op(addref.nops()+1);
+                const numeric& oc = addref.get_overall_coeff();
                 if (not oc.is_zero())
-                        vec.push_back(std::make_pair(oc, _ex0));
+                        vec.emplace_back(std::make_pair(oc, _ex0));
                 for (const auto& term : addref.seq) {
                         ex tmp = addref.recombine_pair_to_ex(term);
-                        if (not match_monom(tmp, symb, vec, revmap))
+                        if (has_nonposint_power(tmp, symb)
+                            or not match_monom(tmp, symb, vec, revmap))
                                 vec.push_back(std::make_pair(tmp.subs(revmap), _ex0));
                 }
         }
         else {
-                if (not match_monom(sub, symb, vec, revmap)) {
+                if (has_nonposint_power(sub, symb)
+                    or not match_monom(sub, symb, vec, revmap)) {
                         vec.clear();
                         vec.push_back(std::make_pair(*this, _ex0));
                 }
@@ -601,6 +657,16 @@ void ex::coefficients(const ex & s, expairvec & vec) const
 
 }
 
+ex ex::lcoeff(const ex & s) const
+{
+        return coeff(s, degree(s));
+}
+
+ex ex::tcoeff(const ex & s) const
+{
+        return coeff(s, ldegree(s));
+}
+
 ex ex::deep_combine_fractions(ex e)
 {
         if (is_a<expairseq>(e)) {
@@ -612,29 +678,27 @@ ex ex::deep_combine_fractions(ex e)
                                 is_exactly_a<constant>(e) or
                                 is_exactly_a<numeric>(e))
                         return e;
-                else
-                        for (unsigned int i=0; i<e.nops(); ++i) {
-                                e.let_op(i) = deep_combine_fractions(e.op(i));
-                        }
+                
+                for (unsigned int i=0; i<e.nops(); ++i) {
+                        e.let_op(i) = deep_combine_fractions(e.op(i));
+                }
         }
 
         if (is_exactly_a<add>(e)) {
                 ex t = ex_to<add>(e).combine_fractions();
                 return t;
         }
-        else
-                return e;
+
+        return e;
 }
 
 ex ex::combine_fractions(bool deep) const
 {
-        if (not deep) {
-                if (is_exactly_a<add>(*this))
-                        return ex_to<add>(*this).combine_fractions();
-                else
-                        return *this;
-        }
-        return deep_combine_fractions(*this);
+        if (deep)
+                return deep_combine_fractions(*this);
+        if (is_exactly_a<add>(*this))
+                return ex_to<add>(*this).combine_fractions();
+        return *this;
 }
 
 // private
@@ -666,7 +730,7 @@ void ex::share(const ex & other) const
  *  @see ex::ex(const basic &) */
 ptr<basic> ex::construct_from_basic(const basic & other)
 {
-	if ((other.flags & status_flags::evaluated) == 0u) {
+	if (not other.is_evaluated()) {
 
 		// The object is not yet evaluated, so call eval() to evaluate
 		// the top level. This will return either
@@ -700,26 +764,22 @@ ptr<basic> ex::construct_from_basic(const basic & other)
 		// soon as we leave the function, which would deallocate the
 		// evaluated object.
 		return tmpex.bp;
+	} 
 
-	} else {
+        // The easy case: making an "ex" out of an evaluated object.
+        if ((other.flags & status_flags::dynallocated) != 0u) {
 
-		// The easy case: making an "ex" out of an evaluated object.
-		if ((other.flags & status_flags::dynallocated) != 0u) {
+                // The object is already heap-allocated, so we can just make
+                // another reference to it.
+                return ptr<basic>(const_cast<basic &>(other));
+        } 
 
-			// The object is already heap-allocated, so we can just make
-			// another reference to it.
-			return ptr<basic>(const_cast<basic &>(other));
-
-		} else {
-
-			// The object is not heap-allocated, so we create a duplicate
-			// on the heap.
-			basic *bp = other.duplicate();
-			bp->setflag(status_flags::dynallocated);
-			GINAC_ASSERT(bp->get_refcount() == 0);
-			return bp;
-		}
-	}
+        // The object is not heap-allocated, so we create a duplicate
+        // on the heap.
+        basic *bp = other.duplicate();
+        bp->setflag(status_flags::dynallocated);
+        GINAC_ASSERT(bp->get_refcount() == 0);
+        return bp;
 }
 
 basic & ex::construct_from_int(int i)
@@ -847,43 +907,6 @@ basic & ex::construct_from_long(long i)
 		return *const_cast<numeric *>(_num_2_p);
 	case -1:
 		return *const_cast<numeric *>(_num_1_p);
-	case 0:
-		return *const_cast<numeric *>(_num0_p);
-	case 1:
-		return *const_cast<numeric *>(_num1_p);
-	case 2:
-		return *const_cast<numeric *>(_num2_p);
-	case 3:
-		return *const_cast<numeric *>(_num3_p);
-	case 4:
-		return *const_cast<numeric *>(_num4_p);
-	case 5:
-		return *const_cast<numeric *>(_num5_p);
-	case 6:
-		return *const_cast<numeric *>(_num6_p);
-	case 7:
-		return *const_cast<numeric *>(_num7_p);
-	case 8:
-		return *const_cast<numeric *>(_num8_p);
-	case 9:
-		return *const_cast<numeric *>(_num9_p);
-	case 10:
-		return *const_cast<numeric *>(_num10_p);
-	case 11:
-		return *const_cast<numeric *>(_num11_p);
-	case 12:
-		return *const_cast<numeric *>(_num12_p);
-	default:
-		basic *bp = new numeric(i);
-		bp->setflag(status_flags::dynallocated);
-		GINAC_ASSERT(bp->get_refcount() == 0);
-		return *bp;
-	}
-}
-	
-basic & ex::construct_from_ulong(unsigned long i)
-{
-	switch (i) {  // prefer flyweights over new objects
 	case 0:
 		return *const_cast<numeric *>(_num0_p);
 	case 1:

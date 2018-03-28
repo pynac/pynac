@@ -22,6 +22,7 @@
 
 #include "inifcns.h"
 #include "ex.h"
+#include "ex_utils.h"
 #include "constant.h"
 #include "infinity.h"
 #include "symbol.h"
@@ -48,17 +49,34 @@ static bool has_pi(const ex & the_ex) {
                         return true;
         return false;
 }
+
+// helper function: returns whether the expression is a multiple of I
+static bool is_multiple_of_I(const ex & the_ex)
+{
+
+	if (is_exactly_a<numeric>(the_ex)
+	    and the_ex.real_part().is_zero())
+		return true;
+
+	if (is_exactly_a<mul>(the_ex)) {
+		for (size_t i=0; i < the_ex.nops(); ++i)
+			if (is_multiple_of_I(the_ex.op(i)))
+				return true;
+	}
+
+	if (is_exactly_a<add>(the_ex)) {
+		for (size_t i=0; i < the_ex.nops(); ++i)
+			if (!is_multiple_of_I(the_ex.op(i)))
+				return false;
+		return true;
+	}
+	return false;
+};
+
+
 //////////
 // sine (trigonometric function)
 //////////
-
-static ex sin_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return sin(ex_to<numeric>(x));
-	
-	return sin(x).hold();
-}
 
 static ex sin_eval(const ex & x)
 {
@@ -79,15 +97,15 @@ static ex sin_eval(const ex & x)
         ex x_red;
         if (has_pi(x)) {
 
-                ex coef_pi = x.coeff(Pi).expand();
+                ex coef_pi = x.coeff(Pi,_ex1).expand();
                 ex rem = _ex0;
                 if (is_exactly_a<add>(coef_pi)) {
                         for (size_t i=0; i < coef_pi.nops(); i++) {
-                                if ((coef_pi.op(i) / _ex2).info(info_flags::integer))
+                                if ((coef_pi.op(i) / _ex2).is_integer())
                                         rem += Pi * coef_pi.op(i);
                         }
                 }
-                else if ((coef_pi / _ex2).info(info_flags::integer))
+                else if ((coef_pi / _ex2).is_integer())
                         rem = Pi * coef_pi;
                 x_red = (x - rem).expand();
 
@@ -95,7 +113,7 @@ static ex sin_eval(const ex & x)
                 const ex SixtyExOverPi = _ex60*x_red/Pi;
                 ex sign = _ex1;
                 if (is_exactly_a<numeric>(SixtyExOverPi)
-                        and SixtyExOverPi.info(info_flags::integer)) {
+                        and SixtyExOverPi.is_integer()) {
                         numeric z = mod(ex_to<numeric>(SixtyExOverPi),*_num120_p);
                         if (z>=*_num60_p) {
                                 // wrap to interval [0, Pi)
@@ -146,7 +164,7 @@ static ex sin_eval(const ex & x)
                 const ex TwentyforExOverPi = _ex24*x_red/Pi;
                 sign = _ex1;
                 if (is_exactly_a<numeric>(TwentyforExOverPi)
-                        and TwentyforExOverPi.info(info_flags::integer)) {
+                        and TwentyforExOverPi.is_integer()) {
                         numeric z = mod(ex_to<numeric>(TwentyforExOverPi),*_num48_p);
                         if (z>=*_num24_p) {
                                 // wrap to interval [0, Pi)
@@ -173,10 +191,10 @@ static ex sin_eval(const ex & x)
                 
                 // Reflection at Pi/2
                 const ex ExOverPi = x_red/Pi;
-                if (ExOverPi.info(info_flags::integer))
+                if (ExOverPi.is_integer())
                         return _ex0;
                 if (is_exactly_a<numeric>(ExOverPi)) {
-                        const numeric c = ex_to<numeric>(ExOverPi);
+                        const numeric& c = ex_to<numeric>(ExOverPi);
                         if (c.is_rational()) {
                                 numeric den = c.denom();
                                 numeric num = c.numer().mod(den * *_num2_p);
@@ -187,13 +205,16 @@ static ex sin_eval(const ex & x)
                                 }
                                 if (num*(*_num2_p) > den)
                                         return fac*sin_eval((den-num)*Pi/den);
-                                else
-                                        return fac*sin((num*Pi)/den).hold();
+                                return fac*sin((num*Pi)/den).hold();
                         }
                 }
         }
         else
                 x_red = x;
+
+	// simplify sin(I*x) --> I*sinh(x)
+	if (is_multiple_of_I(x_red.expand()))
+		return I*sinh(x_red/I);
 
 	if (is_exactly_a<function>(x_red)) {
 		const ex &t = x_red.op(0);
@@ -261,7 +282,6 @@ static ex sin_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(sin, eval_func(sin_eval).
-                       evalf_func(sin_evalf).
                        derivative_func(sin_deriv).
                        real_part_func(sin_real_part).
                        imag_part_func(sin_imag_part).
@@ -271,14 +291,6 @@ REGISTER_FUNCTION(sin, eval_func(sin_eval).
 //////////
 // cosine (trigonometric function)
 //////////
-
-static ex cos_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return cos(ex_to<numeric>(x));
-	
-	return cos(x).hold();
-}
 
 static ex cos_eval(const ex & x)
 {
@@ -299,15 +311,15 @@ static ex cos_eval(const ex & x)
         ex x_red;
         if (has_pi(x)) {
 
-                ex coef_pi = x.coeff(Pi).expand();
+                ex coef_pi = x.coeff(Pi,_ex1).expand();
                 ex rem = _ex0;
                 if (is_exactly_a<add>(coef_pi)) {
                         for (size_t i=0; i < coef_pi.nops(); i++) {
-                                if ((coef_pi.op(i) / _ex2).info(info_flags::integer))
+                                if ((coef_pi.op(i) / _ex2).is_integer())
                                         rem += Pi * coef_pi.op(i);
                         }
                 }
-                else if ((coef_pi / _ex2).info(info_flags::integer))
+                else if ((coef_pi / _ex2).is_integer())
                         rem = Pi * coef_pi;
                 x_red = (x - rem).expand();
 
@@ -315,7 +327,7 @@ static ex cos_eval(const ex & x)
                 const ex SixtyExOverPi = _ex60*x_red/Pi;
                 ex sign = _ex1;
                 if (is_exactly_a<numeric>(SixtyExOverPi)
-                        and SixtyExOverPi.info(info_flags::integer)) {
+                        and SixtyExOverPi.is_integer()) {
                         numeric z = mod(ex_to<numeric>(SixtyExOverPi),*_num120_p);
                         if (z>=*_num60_p) {
                                 // wrap to interval [0, Pi)
@@ -361,7 +373,7 @@ static ex cos_eval(const ex & x)
                 const ex TwentyforExOverPi = _ex24*x_red/Pi;
                 sign = _ex1;
                 if (is_exactly_a<numeric>(TwentyforExOverPi)
-                                and TwentyforExOverPi.info(info_flags::integer)) {
+                                and TwentyforExOverPi.is_integer()) {
                         numeric z = mod(ex_to<numeric>(TwentyforExOverPi),*_num48_p);
                         if (z>=*_num24_p) {
                                 // wrap to interval [0, Pi)
@@ -390,9 +402,9 @@ static ex cos_eval(const ex & x)
                 // Reflection at Pi/2
                 const ex ExOverPi = x_red/Pi;
                 if (is_exactly_a<numeric>(ExOverPi)) {
-                        const numeric c = ex_to<numeric>(ExOverPi);
+                        const numeric& c = ex_to<numeric>(ExOverPi);
                         // cos(integer*pi) --> (-1)^integer
-                        if (c.info(info_flags::integer))
+                        if (c.is_integer())
                                 return pow(*_num_1_p, c);
                         if (c.is_rational()) {
                                 numeric den = c.denom();
@@ -401,13 +413,17 @@ static ex cos_eval(const ex & x)
                                         num = den * *_num2_p - num;
                                 if (num*(*_num2_p) > den)
                                         return mul(_ex_1, cos_eval((den-num)*Pi/den));
-                                else
+                                
                                         return cos((num*Pi)/den).hold();
                         }
                 }
 	}
         else
                 x_red = x;
+
+	// simplify cos(I*x) --> cosh(x)
+	if (is_multiple_of_I(x_red.expand()))
+		return cosh(x_red/I);
 
 	if (is_exactly_a<function>(x_red)) {
 		const ex &t = x_red.op(0);
@@ -476,7 +492,6 @@ static ex cos_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(cos, eval_func(cos_eval).
-                       evalf_func(cos_evalf).
                        derivative_func(cos_deriv).
                        real_part_func(cos_real_part).
                        imag_part_func(cos_imag_part).
@@ -486,14 +501,6 @@ REGISTER_FUNCTION(cos, eval_func(cos_eval).
 //////////
 // tangent (trigonometric function)
 //////////
-
-static ex tan_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return tan(ex_to<numeric>(x));
-	
-	return tan(x).hold();
-}
 
 static ex tan_eval(const ex & x)
 {
@@ -514,15 +521,15 @@ static ex tan_eval(const ex & x)
         ex x_red;
         if (has_pi(x)) {
 
-                ex coef_pi = x.coeff(Pi).expand();
+                ex coef_pi = x.coeff(Pi,_ex1).expand();
                 ex rem = _ex0;
                 if (is_exactly_a<add>(coef_pi)) {
                         for (size_t i=0; i < coef_pi.nops(); i++) {
-                                if (coef_pi.op(i).info(info_flags::integer))
+                                if (coef_pi.op(i).is_integer())
                                         rem += Pi * coef_pi.op(i);
                         }
                 }
-                else if (coef_pi.info(info_flags::integer))
+                else if (coef_pi.is_integer())
                         rem = Pi * coef_pi;
                 x_red = (x - rem).expand();
 
@@ -531,7 +538,7 @@ static ex tan_eval(const ex & x)
                 const ex SixtyExOverPi = _ex60*x_red/Pi;
                 ex sign = _ex1;
                 if (is_exactly_a<numeric>(SixtyExOverPi)
-                        and SixtyExOverPi.info(info_flags::integer)) {
+                        and SixtyExOverPi.is_integer()) {
                         numeric z = mod(ex_to<numeric>(SixtyExOverPi),*_num60_p);
                         if (z>=*_num60_p) {
                                 // wrap to interval [0, Pi)
@@ -578,7 +585,7 @@ static ex tan_eval(const ex & x)
                 const ex FortyeightExOverPi = _ex48*x_red/Pi;
                 sign = _ex1;
                 if (is_exactly_a<numeric>(FortyeightExOverPi)
-                                and FortyeightExOverPi.info(info_flags::integer)) {
+                                and FortyeightExOverPi.is_integer()) {
                         numeric z = mod(ex_to<numeric>(FortyeightExOverPi),*_num48_p);
                         if (z>=*_num48_p) {
                                 // wrap to interval [0, Pi)
@@ -614,19 +621,21 @@ static ex tan_eval(const ex & x)
                 // Reflection at Pi/2
                 const ex ExOverPi = x_red/Pi;
                 if (is_exactly_a<numeric>(ExOverPi)) {
-                        const numeric c = ex_to<numeric>(ExOverPi);
+                        const numeric& c = ex_to<numeric>(ExOverPi);
                         if (c.is_rational()) {
                                 numeric den = c.denom();
                                 numeric num = c.numer().mod(den);
                                 if (num*(*_num2_p) > den)
                                         return mul(_ex_1, tan((den-num)*Pi/den).hold());
-                                else
-                                        return tan((num*Pi)/den).hold();
+                                return tan((num*Pi)/den).hold();
                         }
                 }
         }
         else
                 x_red = x;
+
+	if (is_multiple_of_I(x_red.expand()))
+		return I*tanh(x_red/I);
 
 	if (is_exactly_a<function>(x_red)) {
 		const ex &t = x_red.op(0);
@@ -716,7 +725,6 @@ static ex tan_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(tan, eval_func(tan_eval).
-                       evalf_func(tan_evalf).
                        derivative_func(tan_deriv).
                        series_func(tan_series).
                        real_part_func(tan_real_part).
@@ -728,19 +736,16 @@ REGISTER_FUNCTION(tan, eval_func(tan_eval).
 // cotangent (trigonometric function)
 //////////
 
-static ex cot_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x)) {
-                if (ex_to<numeric>(x).is_zero())
-                        return UnsignedInfinity;
-		return tan(ex_to<numeric>(x)).inverse();
-        }
-
-	return cot(x).hold();
-}
-
 static ex cot_eval(const ex & x)
 {
+	// This should be before the tests below, since multiplying infinity
+	// with other values raises runtime_errors
+	if (x.is_zero())
+		return UnsignedInfinity;
+
+	if (is_multiple_of_I(x.expand()))
+		return -I*coth(x/I);
+
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
                    
@@ -787,15 +792,15 @@ static ex cot_eval(const ex & x)
                 if (not res.is_zero()) {     
 			return tan_eval(Pi/2-x);
                 }
-                else
+                
                         return UnsignedInfinity;
         }
         // Reflection at Pi/2
         const ex ExOverPi = x/Pi;
         if(is_exactly_a<numeric>(ExOverPi)) {
-		ex coef_pi = x.coeff(Pi).expand();
+		ex coef_pi = x.coeff(Pi,_ex1).expand();
 		if (is_exactly_a<numeric>(coef_pi)) {
-			const numeric c = ex_to<numeric>(coef_pi);
+			const numeric& c = ex_to<numeric>(coef_pi);
 		        if (c.is_rational()) {
 	                        const numeric num = c.numer();
 		                const numeric den = c.denom();
@@ -860,7 +865,6 @@ static ex cot_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(cot, eval_func(cot_eval).
-                       evalf_func(cot_evalf).
                        derivative_func(cot_deriv).
                        series_func(cot_series).
                        real_part_func(cot_real_part).
@@ -872,16 +876,11 @@ REGISTER_FUNCTION(cot, eval_func(cot_eval).
 // secant (trigonometric function)
 //////////
 
-static ex sec_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return cos(ex_to<numeric>(x)).inverse();
-
-	return sec(x).hold();
-}
-
 static ex sec_eval(const ex & x)
 {
+	if (is_multiple_of_I(x.expand()))
+		return sech(x/I);
+
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
 
@@ -931,13 +930,12 @@ static ex sec_eval(const ex & x)
         if (not is_ex_the_function(res, cos) && not is_ex_the_function(_ex_1*res, cos)) {
                 if (res.is_zero())
                         return UnsignedInfinity;
-                else
-                        return power(res, _ex_1);
+                return power(res, _ex_1);
         }
         // cos has reflected also the argument so take it
         if (is_ex_the_function(res, cos))
                 return sec(res.op(0)).hold();
-        else
+        
                 return -sec((-res).op(0)).hold();
 }
 
@@ -981,7 +979,6 @@ static ex sec_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(sec, eval_func(sec_eval).
-                       evalf_func(sec_evalf).
                        derivative_func(sec_deriv).
                        series_func(sec_series).
                        real_part_func(sec_real_part).
@@ -993,19 +990,11 @@ REGISTER_FUNCTION(sec, eval_func(sec_eval).
 // cosecant (trigonometric function)
 //////////
 
-static ex csc_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x)) {
-                if (ex_to<numeric>(x).is_zero())
-                        return UnsignedInfinity;
-		return sin(ex_to<numeric>(x)).inverse();
-        }
-
-	return csc(x).hold();
-}
-
 static ex csc_eval(const ex & x)
 {
+
+	if (is_multiple_of_I(x.expand()))
+		return -I*csch(x/I);
 
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
@@ -1054,14 +1043,13 @@ static ex csc_eval(const ex & x)
         if (not is_ex_the_function(res, sin) && not is_ex_the_function(_ex_1*res, sin)) {
                 if (res.is_zero())
                         return UnsignedInfinity;
-                else
+                
                         return power(res, _ex_1);
         }
         // sin has reflected also the argument so take it
         if (is_ex_the_function(res, sin))
                 return csc(res.op(0)).hold();
-        else
-                return -csc((-res).op(0)).hold();
+        return -csc((-res).op(0)).hold();
 }
 
 static ex csc_deriv(const ex & x, unsigned deriv_param)
@@ -1104,7 +1092,6 @@ static ex csc_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(csc, eval_func(csc_eval).
-                       evalf_func(csc_evalf).
                        derivative_func(csc_deriv).
                        series_func(csc_series).
                        real_part_func(csc_real_part).
@@ -1116,18 +1103,22 @@ REGISTER_FUNCTION(csc, eval_func(csc_eval).
 // inverse sine (arc sine)
 //////////
 
+// Needed because there is no RR member
 static ex asin_evalf(const ex & x, PyObject* parent)
 {
 	if (is_exactly_a<numeric>(x))
-		return asin(ex_to<numeric>(x));
-	
+		return asin(ex_to<numeric>(x), parent);
+
 	return asin(x).hold();
 }
 
 static ex asin_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
+        // asin() is odd
+        if (x.info(info_flags::negative))
+                return -asin(-x);
 
+	if (is_exactly_a<numeric>(x)) {
 		// asin(0) -> 0
 		if (x.is_zero())
 			return x;
@@ -1137,24 +1128,16 @@ static ex asin_eval(const ex & x)
 			return numeric(1,6)*Pi;
 
 		// asin(1) -> Pi/2
-		if (x.is_equal(_ex1))
+		if (x.is_one())
 			return _ex1_2*Pi;
 
-		// asin(-1/2) -> -Pi/6
-		if (x.is_equal(_ex_1_2))
-			return numeric(-1,6)*Pi;
+		if (x.info(info_flags::inexact)) {
+                        const numeric& num = ex_to<numeric>(x);
 
-		// asin(-1) -> -Pi/2
-		if (x.is_equal(_ex_1))
-			return _ex_1_2*Pi;
+                        // asin(float) -> float
+                        return asin(num);
+                }
 
-		// asin(float) -> float
-		if (x.info(info_flags::inexact))
-			return asin(ex_to<numeric>(x));
-
-		// asin() is odd
-		if (x.info(info_flags::negative))
-			return -asin(-x);
 	}
 	
 	// asin(oo) -> error
@@ -1164,6 +1147,12 @@ static ex asin_eval(const ex & x)
 			return UnsignedInfinity;
 		throw (std::runtime_error("arcsin_eval(): arcsin(infinity) encountered"));
 	}
+
+        if (x.is_equal(mul(pow(_ex2, _ex1_2), _ex1_2)))
+                return mul(Pi, _ex1_4);
+
+        if (x.is_equal(mul(pow(_ex3, _ex1_2), _ex1_2)))
+                return mul(Pi, _ex1_3);
 
 	return asin(x).hold();
 }
@@ -1197,20 +1186,12 @@ REGISTER_FUNCTION(asin, eval_func(asin_eval).
 // inverse cosine (arc cosine)
 //////////
 
-static ex acos_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return acos(ex_to<numeric>(x));
-	
-	return acos(x).hold();
-}
-
 static ex acos_eval(const ex & x)
 {
 	if (is_exactly_a<numeric>(x)) {
 
 		// acos(1) -> 0
-		if (x.is_equal(_ex1))
+		if (x.is_one())
 			return _ex0;
 
 		// acos(1/2) -> Pi/3
@@ -1226,12 +1207,15 @@ static ex acos_eval(const ex & x)
 			return numeric(2,3)*Pi;
 
 		// acos(-1) -> Pi
-		if (x.is_equal(_ex_1))
+		if (x.is_minus_one())
 			return Pi;
 
-		// acos(float) -> float
-		if (x.info(info_flags::inexact))
-			return acos(ex_to<numeric>(x));
+		if (x.info(info_flags::inexact)) {
+                        const numeric& num = ex_to<numeric>(x);
+
+                        // acos(float) -> float
+                        return acos(num);
+                }
 
 		// acos(-x) -> Pi-acos(x)
 		if (x.info(info_flags::negative))
@@ -1269,7 +1253,6 @@ static ex acos_conjugate(const ex & x)
 
  
 REGISTER_FUNCTION(acos, eval_func(acos_eval).
-                        evalf_func(acos_evalf).
                         derivative_func(acos_deriv).
                         conjugate_func(acos_conjugate).
 			set_name("arccos", "\\arccos"));
@@ -1278,47 +1261,34 @@ REGISTER_FUNCTION(acos, eval_func(acos_eval).
 // inverse tangent (arc tangent)
 //////////
 
-static ex atan_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return atan(ex_to<numeric>(x));
-	
-	return atan(x).hold();
-}
-
 static ex atan_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
+        // atan() is odd
+        if (x.info(info_flags::negative))
+                return -atan(-x);
 
+        if (is_exactly_a<numeric>(x)) {
 		// atan(0) -> 0
 		if (x.is_zero())
 			return _ex0;
 
 		// atan(1) -> Pi/4
-		if (x.is_equal(_ex1))
+		if (x.is_one())
 			return _ex1_4*Pi;
 
-		// atan(-1) -> -Pi/4
-		if (x.is_equal(_ex_1))
-			return _ex_1_4*Pi;
-
-		if (x.is_equal(I) || x.is_equal(-I))
+		if (x.is_equal(I))
 			throw (pole_error("atan_eval(): logarithmic pole",0));
 
 		// atan(float) -> float
 		if (x.info(info_flags::inexact))
 			return atan(ex_to<numeric>(x));
-
-		// atan() is odd
-		if (x.info(info_flags::negative))
-			return -atan(-x);
 	}
 	
 	// arctan(oo) -> Pi/2
 	// arctan(-oo) -> -Pi/2
 	// arctan(UnsignedInfinity) -> error
 	if (is_exactly_a<infinity>(x)) {
-	        infinity xinf = ex_to<infinity>(x);
+	        const infinity& xinf = ex_to<infinity>(x);
 		if (xinf.is_plus_infinity())
 		        return _ex1_2*Pi;
 		if (xinf.is_minus_infinity())
@@ -1326,7 +1296,13 @@ static ex atan_eval(const ex & x)
 		// x is UnsignedInfinity
 		throw (std::runtime_error("arctan_eval(): arctan(unsigned_infinity) encountered"));
 	}
-		
+
+        if (x.is_equal(pow(_ex3, _ex1_2)))
+                return mul(Pi, _ex1_3);
+
+        if (x.is_equal(mul(pow(_ex3, _ex1_2), _ex1_3)))
+                return mul(Pi, numeric(1,6));
+
 	return atan(x).hold();
 }
 
@@ -1353,9 +1329,9 @@ static ex atan_series(const ex &arg,
 	//     (log(1+I*x)-log(1-I*x))/(2*I)
 	// instead.
 	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
-	if (!(I*arg_pt).info(info_flags::real))
+	if (not (I*arg_pt).is_real())
 		throw do_taylor();     // Re(x) != 0
-	if ((I*arg_pt).info(info_flags::real) && abs(I*arg_pt)<_ex1)
+	if ((I*arg_pt).is_real() && abs(I*arg_pt)<_ex1)
 		throw do_taylor();     // Re(x) == 0, but abs(x)<1
 	// care for the poles, using the defining formula for atan()...
 	if (arg_pt.is_equal(I) || arg_pt.is_equal(-I))
@@ -1374,8 +1350,8 @@ static ex atan_series(const ex &arg,
 		else
 			Order0correction += log((I*arg_pt+_ex1)/(I*arg_pt+_ex_1))*I*_ex1_2;
 		epvector seq;
-		seq.push_back(expair(Order0correction, _ex0));
-		seq.push_back(expair(Order(_ex1), order));
+		seq.emplace_back(Order0correction, _ex0);
+		seq.emplace_back(Order(_ex1), order);
 		return series(replarg - pseries(rel, seq), rel, order);
 	}
 	throw do_taylor();
@@ -1385,7 +1361,7 @@ static ex atan_conjugate(const ex & x)
 {
 	// conjugate(atan(x))==atan(conjugate(x)) unless on the branch cuts which
 	// run along the imaginary axis outside the interval [-I, +I].
-	if (x.info(info_flags::real))
+	if (x.is_real())
 		return atan(x);
 	if (is_exactly_a<numeric>(x)) {
 		const numeric x_re = ex_to<numeric>(x.real_part());
@@ -1398,7 +1374,6 @@ static ex atan_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(atan, eval_func(atan_eval).
-                        evalf_func(atan_evalf).
                         derivative_func(atan_deriv).
                         series_func(atan_series).
                         conjugate_func(atan_conjugate).
@@ -1410,7 +1385,7 @@ REGISTER_FUNCTION(atan, eval_func(atan_eval).
 
 static ex atan2_evalf(const ex &y, const ex &x, PyObject* parent)
 {
-	if (is_exactly_a<numeric>(y) && is_exactly_a<numeric>(x))
+	if (is_exactly_a<numeric>(y) and is_exactly_a<numeric>(x))
 		return atan(ex_to<numeric>(y), ex_to<numeric>(x));
 	
 	return atan2(y, x).hold();
@@ -1425,7 +1400,7 @@ static ex atan2_eval(const ex & y, const ex & x)
 			return NaN;
 
 		// atan2(0, x), x real and positive -> 0
-		if (x.info(info_flags::positive))
+		if (x.is_positive())
 			return _ex0;
 
 		// atan2(0, x), x real and negative -> Pi
@@ -1436,7 +1411,7 @@ static ex atan2_eval(const ex & y, const ex & x)
 	if (x.is_zero()) {
 
 		// atan2(y, 0), y real and positive -> Pi/2
-		if (y.info(info_flags::positive))
+		if (y.is_positive())
 			return _ex1_2*Pi;
 
 		// atan2(y, 0), y real and negative -> -Pi/2
@@ -1447,7 +1422,7 @@ static ex atan2_eval(const ex & y, const ex & x)
 	if (y.is_equal(x)) {
 
 		// atan2(y, y), y real and positive -> Pi/4
-		if (y.info(info_flags::positive))
+		if (y.is_positive())
 			return _ex1_4*Pi;
 
 		// atan2(y, y), y real and negative -> -3/4*Pi
@@ -1458,7 +1433,7 @@ static ex atan2_eval(const ex & y, const ex & x)
 	if (y.is_equal(-x)) {
 
 		// atan2(y, -y), y real and positive -> 3*Pi/4
-		if (y.info(info_flags::positive))
+		if (y.is_positive())
 			return numeric(3, 4)*Pi;
 
 		// atan2(y, -y), y real and negative -> -Pi/4
@@ -1467,8 +1442,9 @@ static ex atan2_eval(const ex & y, const ex & x)
 	}
 
 	// atan2(float, float) -> float
-	if (is_exactly_a<numeric>(y) && y.info(info_flags::inexact) &&
-	    is_exactly_a<numeric>(x) && x.info(info_flags::inexact))
+	if (is_exactly_a<numeric>(x)
+            and is_exactly_a<numeric>(y)
+            and (x.info(info_flags::inexact) or y.info(info_flags::inexact)))
 		return atan(ex_to<numeric>(y), ex_to<numeric>(x));
 
 	// handle infinities
@@ -1489,12 +1465,12 @@ static ex atan2_eval(const ex & y, const ex & x)
 	}
 
 	// atan2(real, real) -> atan(y/x) +/- Pi
-	if (y.info(info_flags::real) && x.info(info_flags::real)) {
-		if (x.info(info_flags::positive))
+	if (y.is_real() && x.is_real()) {
+		if (x.is_positive())
 			return atan(y/x);
 
 		if (x.info(info_flags::negative)) {
-			if (y.info(info_flags::positive))
+			if (y.is_positive())
 				return atan(y/x)+Pi;
 			if (y.info(info_flags::negative))
 				return atan(y/x)-Pi;
@@ -1525,6 +1501,7 @@ REGISTER_FUNCTION(atan2, eval_func(atan2_eval).
 // inverse cotangent (arc cotangent)
 //////////
 
+// Needed because there is no Python RR equivalent
 static ex acot_evalf(const ex & x, PyObject* parent)
 {
 	if (is_exactly_a<numeric>(x))
@@ -1540,10 +1517,10 @@ static ex acot_eval(const ex & x)
 		if (x.is_zero())
 			return _ex1_2*Pi;
 
-		if (x.is_equal(_ex1))
+		if (x.is_one())
 			return _ex1_4*Pi;
 
-		if (x.is_equal(_ex_1))
+		if (x.is_minus_one())
 			return _ex_1_4*Pi;
 
 		if (x.is_equal(I) || x.is_equal(-I))
@@ -1593,10 +1570,14 @@ REGISTER_FUNCTION(acot, eval_func(acot_eval).
 // inverse secant (arc secant)
 //////////
 
+// Needed because there is no Python RR equivalent
 static ex asec_evalf(const ex & x, PyObject* parent)
 {
 	if (is_exactly_a<numeric>(x))
-		return acos(ex_to<numeric>(x).inverse());
+        {
+                const numeric& num = ex_to<numeric>(x);
+                return acos(num.inverse());
+        }
 
 	return asec(x).hold();
 }
@@ -1604,7 +1585,7 @@ static ex asec_evalf(const ex & x, PyObject* parent)
 static ex asec_eval(const ex & x)
 {
 	if (is_exactly_a<numeric>(x)) {
-                numeric num = ex_to<numeric>(x);
+                const numeric& num = ex_to<numeric>(x);
                 if (num.is_zero())
                         return NaN;
                 if (num.is_equal(*_num1_p))
@@ -1612,7 +1593,7 @@ static ex asec_eval(const ex & x)
                 if (num.is_equal(*_num_1_p))
                         return Pi;
                 if (num.info(info_flags::inexact))
-                        return acos(num.inverse());
+                        return asec_evalf(x, nullptr);
 	}
 
 	if (x.info(info_flags::infinity)) {
@@ -1657,10 +1638,13 @@ REGISTER_FUNCTION(asec, eval_func(asec_eval).
 // inverse cosecant (arc cosecant)
 //////////
 
+// Needed because there is no Python RR equivalent
 static ex acsc_evalf(const ex & x, PyObject* parent)
 {
-	if (is_exactly_a<numeric>(x))
-		return asin(ex_to<numeric>(x).inverse());
+	if (is_exactly_a<numeric>(x)) {
+                const numeric& num = ex_to<numeric>(x);
+		return asin(num.inverse());
+        }
 
 	return acsc(x).hold();
 }
@@ -1668,7 +1652,7 @@ static ex acsc_evalf(const ex & x, PyObject* parent)
 static ex acsc_eval(const ex & x)
 {
 	if (is_exactly_a<numeric>(x)) {
-                numeric num = ex_to<numeric>(x);
+                const numeric& num = ex_to<numeric>(x);
                 if (num.is_zero())
                         return NaN;
                 if (num.is_equal(*_num1_p))

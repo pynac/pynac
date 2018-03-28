@@ -20,6 +20,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <Python.h>
 #include "py_funcs.h"
 #include "fderivative.h"
 #include "operators.h"
@@ -32,7 +33,6 @@ namespace GiNaC {
 
 GINAC_IMPLEMENT_REGISTERED_CLASS_OPT(fderivative, function,
   print_func<print_context>(&fderivative::do_print).
-  print_func<print_csrc>(&fderivative::do_print_csrc).
   print_func<print_tree>(&fderivative::do_print_tree))
 
 //////////
@@ -134,17 +134,6 @@ void fderivative::do_print(const print_context & c, unsigned /*unused*/) const
 	*/
 }
 
-void fderivative::do_print_csrc(const print_csrc & c, unsigned /*unused*/) const
-{
-	c.s << "D_";
-	auto i = parameter_set.begin(), iend = parameter_set.end();
-	--iend;
-	while (i != iend)
-		c.s << *i++ << "_";
-	c.s << *i << "_" << registered_functions()[serial].name;
-	printseq(c, "(", ',', ")", exprseq::precedence(), function::precedence());
-}
-
 void fderivative::do_print_tree(const print_tree & c, unsigned level) const
 {
 	c.s << std::string(level, ' ') << class_name() << " "
@@ -227,8 +216,8 @@ int fderivative::compare_same_type(const basic & other) const
 
 	if (parameter_set != o.parameter_set)
 		return parameter_set < o.parameter_set ? -1 : 1;
-	else
-		return inherited::compare_same_type(o);
+
+	return inherited::compare_same_type(o);
 }
 
 bool fderivative::is_equal_same_type(const basic & other) const
@@ -238,8 +227,8 @@ bool fderivative::is_equal_same_type(const basic & other) const
 
 	if (parameter_set != o.parameter_set)
 		return false;
-	else
-		return inherited::is_equal_same_type(o);
+
+        return inherited::is_equal_same_type(o);
 }
 
 bool fderivative::match_same_type(const basic & other) const
@@ -263,7 +252,7 @@ long fderivative::calchash() const
 	}
 
 	res=h^res;
-	if ((flags & status_flags::evaluated) != 0u) {
+	if (is_evaluated()) {
 		setflag(status_flags::hash_calculated);
 		hashvalue = res;
 	}

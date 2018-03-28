@@ -34,7 +34,6 @@
 #include "add.h"
 #include "constant.h"
 #include "expairseq.h"
-#include "fail.h"
 #include "inifcns.h"
 #include "lst.h"
 #include "mul.h"
@@ -77,8 +76,6 @@ namespace GiNaC {
 // Statistics variables
 static int gcd_called = 0;
 static int sr_gcd_called = 0;
-static int heur_gcd_called = 0;
-static int heur_gcd_failed = 0;
 
 // Print statistics at end of program
 static struct _stat_print {
@@ -86,13 +83,11 @@ static struct _stat_print {
 	~_stat_print() {
 		std::cout << "gcd() called " << gcd_called << " times\n";
 		std::cout << "sr_gcd() called " << sr_gcd_called << " times\n";
-		std::cout << "heur_gcd() called " << heur_gcd_called << " times\n";
-		std::cout << "heur_gcd() failed " << heur_gcd_failed << " times\n";
 	}
 } stat_print;
 #endif
 
-
+#if 0
 /*
  *  Statistical information about symbols in polynomials
  */
@@ -203,8 +198,9 @@ static void get_symbol_stats(const ex &a, const ex &b, sym_desc_vec &v)
 	}
 #endif
 }
+#endif
 
-
+#if 0
 /** Exact polynomial division of a(X) by b(X) in Z[X].
  *  This functions works like divide() but the input and output polynomials are
  *  in Z[X] instead of Q[X] (i.e. they have integer coefficients). Unlike
@@ -212,7 +208,7 @@ static void get_symbol_stats(const ex &a, const ex &b, sym_desc_vec &v)
  *  polynomials, so be careful of what you pass in. Also, you have to run
  *  get_symbol_stats() over the input polynomials before calling this function
  *  and pass an iterator to the first element of the sym_desc vector. This
- *  function is used internally by the heur_gcd().
+ *  function was used internally by the heur_gcd().
  *  
  *  @param a  first multivariate polynomial (dividend)
  *  @param b  second multivariate polynomial (divisor)
@@ -220,7 +216,7 @@ static void get_symbol_stats(const ex &a, const ex &b, sym_desc_vec &v)
  *  @param var  iterator to first element of vector of sym_desc structs
  *  @return "true" when exact division succeeds (the quotient is returned in
  *          q), "false" otherwise.
- *  @see get_symbol_stats, heur_gcd */
+ *  @see get_symbol_stats */
 static bool divide_in_z(const ex &a, const ex &b, ex &q, sym_desc_vec::const_iterator var)
 {
 	q = _ex0;
@@ -388,95 +384,7 @@ static ex interpolate(const ex &gamma, const numeric &xi, const ex &x, int degre
 	}
 	return (new add(g))->setflag(status_flags::dynallocated);
 }
-
-
-/** Exception thrown by heur_gcd() to signal failure. */
-class gcdheu_failed {};
-
-/** Compute GCD of multivariate polynomials using the heuristic GCD algorithm.
- *  get_symbol_stats() must have been called previously with the input
- *  polynomials and an iterator to the first element of the sym_desc vector
- *  passed in. This function is used internally by gcd().
- *
- *  @param a  first multivariate polynomial (expanded)
- *  @param b  second multivariate polynomial (expanded)
- *  @param ca  cofactor of polynomial a (returned), NULL to suppress
- *             calculation of cofactor
- *  @param cb  cofactor of polynomial b (returned), NULL to suppress
- *             calculation of cofactor
- *  @param var iterator to first element of vector of sym_desc structs
- *  @return the GCD as a new expression
- *  @see gcd
- *  @exception gcdheu_failed() */
-static ex heur_gcd(const ex &a, const ex &b, ex *ca, ex *cb, sym_desc_vec::const_iterator var)
-{
-#if STATISTICS
-	heur_gcd_called++;
 #endif
-
-	// Algorithm only works for non-vanishing input polynomials
-	if (a.is_zero() || b.is_zero())
-		return (new fail())->setflag(status_flags::dynallocated);
-
-	// GCD of two numeric values -> CLN
-	if (is_exactly_a<numeric>(a) && is_exactly_a<numeric>(b)) {
-		numeric g = gcd(ex_to<numeric>(a), ex_to<numeric>(b));
-		if (ca != nullptr)
-			*ca = ex_to<numeric>(a) / g;
-		if (cb != nullptr)
-			*cb = ex_to<numeric>(b) / g;
-		return g;
-	}
-
-	// The first symbol is our main variable
-	const ex &x = var->sym;
-
-	// Remove integer content
-	numeric gc = gcd(a.integer_content(), b.integer_content());
-	numeric rgc = gc.inverse();
-	ex p = a * rgc;
-	ex q = b * rgc;
-	int maxdeg =  std::max(p.degree(x), q.degree(x));
-	
-	// Find evaluation point
-	numeric mp = p.max_coefficient();
-	numeric mq = q.max_coefficient();
-	numeric xi;
-	if (mp > mq)
-		xi = mq * (*_num2_p) + (*_num2_p);
-	else
-		xi = mp * (*_num2_p) + (*_num2_p);
-
-	// 6 tries maximum
-	for (int t=0; t<6; t++) {
-		if (xi.int_length() * maxdeg > 100000) {
-			throw gcdheu_failed();
-		}
-
-		// Apply evaluation homomorphism and calculate GCD
-		ex cp, cq;
-		ex gamma = heur_gcd(p.subs(x == xi, subs_options::no_pattern), q.subs(x == xi, subs_options::no_pattern), &cp, &cq, var+1).expand();
-		if (!is_exactly_a<fail>(gamma)) {
-
-			// Reconstruct polynomial from GCD of mapped polynomials
-			ex g = interpolate(gamma, xi, x, maxdeg);
-
-			// Remove integer content
-			g /= g.integer_content();
-
-			// If the calculated polynomial divides both p and q, this is the GCD
-			ex dummy;
-			if (divide_in_z(p, g, ca != nullptr ? *ca : dummy, var) && divide_in_z(q, g, cb != nullptr ? *cb : dummy, var)) {
-				g *= gc;
-				return g;
-			}
-		}
-
-		// Next evaluation point
-		xi = iquo(xi * isqrt(isqrt(xi)) * numeric(73794), numeric(27011));
-	}
-	return (new fail())->setflag(status_flags::dynallocated);
-}
 
 
 /** Compute LCM (Least Common Multiple) of multivariate polynomials in Z[X].
@@ -498,7 +406,7 @@ ex lcm(const ex &a, const ex &b, bool check_args)
 	return ca * cb * g;
 }
 
-
+#if 0
 /*
  *  Square-free factorization
  */
@@ -664,12 +572,12 @@ ex sqrfree_parfrac(const ex & a, const symbol & x)
 	size_t num_yun = yun.size();
 	exvector factor; factor.reserve(num_yun);
 	exvector cofac; cofac.reserve(num_yun);
-	for (size_t i=0; i<num_yun; i++) {
-		if (!yun[i].is_equal(_ex1)) {
-			for (size_t j=0; j<=i; j++) {
+	for (unsigned i=0; i<num_yun; i++) {
+		if (!yun[i].is_one()) {
+			for (unsigned j=0; j<=i; j++) {
 				factor.push_back(pow(yun[i], j+1));
 				ex prod = _ex1;
-				for (size_t k=0; k<num_yun; k++) {
+				for (unsigned k=0; k<num_yun; k++) {
 					if (k == i)
 						prod *= pow(yun[k], i-j);
 					else
@@ -708,6 +616,7 @@ ex sqrfree_parfrac(const ex & a, const symbol & x)
 
 	return red_poly + sum;
 }
+#endif
 
 #endif // HAVE_LIBGIAC
 

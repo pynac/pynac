@@ -8,6 +8,8 @@
 #ifndef ASSUME_H
 #define	ASSUME_H
 
+#include <string>
+
 namespace GiNaC {
 
 void assume(ex rel);

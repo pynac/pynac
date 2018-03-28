@@ -40,9 +40,12 @@ DECLARE_FUNCTION_1P(imag_part_function)
 	
 /** Absolute value. */
 DECLARE_FUNCTION_1P(abs)
-	
+
 /** Step function. */
-DECLARE_FUNCTION_1P(step)
+DECLARE_FUNCTION_1P(unit_step)
+	
+/** Heaviside function. */
+DECLARE_FUNCTION_1P(heaviside)
 	
 /** Complex sign. */
 DECLARE_FUNCTION_1P(csgn)
@@ -197,7 +200,7 @@ DECLARE_FUNCTION_2P(H)
 
 /** Gamma-function. */
 DECLARE_FUNCTION_1P(lgamma)
-DECLARE_FUNCTION_1P(tgamma)
+DECLARE_FUNCTION_1P(gamma)
 
 /** Beta-function. */
 DECLARE_FUNCTION_2P(beta)
@@ -233,6 +236,15 @@ DECLARE_FUNCTION_2P(rising_factorial)
 /** Falling factorial function. */
 DECLARE_FUNCTION_2P(falling_factorial)
 
+/** Chebyshev T polynomial. */
+DECLARE_FUNCTION_2P(chebyshev_T)
+
+/** Chebyshev U polynomial. */
+DECLARE_FUNCTION_2P(chebyshev_U)
+
+/** Legendre P polynomial. */
+DECLARE_FUNCTION_2P(legendre_P)
+
 /** Hermite polynomial. */
 DECLARE_FUNCTION_2P(hermite)
 
@@ -244,6 +256,12 @@ DECLARE_FUNCTION_6P(appell_F1)
 
 /** Order term function (for truncated power series). */
 DECLARE_FUNCTION_1P(Order)
+
+/** Formal piecewise function */
+DECLARE_FUNCTION_1P(cases)
+
+/** Formal set-of-all function */
+DECLARE_FUNCTION_2P(set_of_all)
 
 ex lsolve(const ex &eqns, const ex &symbols, unsigned options = solve_algo::automatic);
 

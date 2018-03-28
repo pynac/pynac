@@ -31,7 +31,6 @@
 #include "relational.h"
 #include "pseries.h"
 #include "symbol.h"
-#include "symmetry.h"
 #include "utils.h"
 
 #include <vector>
@@ -47,14 +46,6 @@ namespace GiNaC {
 static ex factorial_evalf(const ex & x, PyObject* parent)
 {
 	return factorial(x).hold();
-}
-
-static ex factorial_eval(const ex & x)
-{
-	if (is_exactly_a<numeric>(x))
-		return factorial(ex_to<numeric>(x));
-	else
-		return factorial(x).hold();
 }
 
 static void factorial_print_dflt_latex(const ex & x, const print_context & c)
@@ -99,9 +90,7 @@ static ex factorial_imag_part(const ex & x)
 	return 0;
 }
 
-REGISTER_FUNCTION(factorial, eval_func(factorial_eval).
-                             evalf_func(factorial_evalf).
-                           //print_func<print_dflt>(factorial_print_dflt_latex).
+REGISTER_FUNCTION(factorial, evalf_func(factorial_evalf).
                              print_func<print_latex>(factorial_print_dflt_latex).
                              conjugate_func(factorial_conjugate).
                              real_part_func(factorial_real_part).
@@ -114,35 +103,6 @@ REGISTER_FUNCTION(factorial, eval_func(factorial_eval).
 static ex binomial_evalf(const ex & x, const ex & y, PyObject* parent)
 {
 	return binomial(x, y).hold();
-}
-
-static ex binomial_sym(const ex & x, const numeric & y)
-{
-	if (y.is_integer()) {
-		if (y.is_nonneg_integer()) {
-			const unsigned N = y.to_int();
-			if (N == 0) return _ex1;
-			if (N == 1) return x;
-			ex t = x.expand();
-			for (unsigned i = 2; i <= N; ++i)
-				t = (t * (x + i - y - 1)).expand() / i;
-			return t;
-		} else
-			return _ex0;
-	}
-
-	return binomial(x, y).hold();
-}
-
-static ex binomial_eval(const ex & x, const ex &y)
-{
-	if (is_exactly_a<numeric>(y)) {
-		if (is_exactly_a<numeric>(x) && ex_to<numeric>(x).is_integer())
-			return binomial(ex_to<numeric>(x), ex_to<numeric>(y));
-		else
-			return binomial_sym(x, ex_to<numeric>(y));
-	} else
-		return binomial(x, y).hold();
 }
 
 // At the moment the numeric evaluation of a binomail function always
@@ -174,8 +134,7 @@ static void binomial_print_latex(const ex & x, const ex & y,
 }
 
 
-REGISTER_FUNCTION(binomial, eval_func(binomial_eval).
-                            evalf_func(binomial_evalf).
+REGISTER_FUNCTION(binomial, evalf_func(binomial_evalf).
                             conjugate_func(binomial_conjugate).
                             real_part_func(binomial_real_part).
                             print_func<print_latex>(binomial_print_latex).

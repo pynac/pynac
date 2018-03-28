@@ -20,6 +20,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <Python.h>
 #include "py_funcs.h"
 #include "infinity.h"
 #include "numeric.h"
@@ -44,11 +45,11 @@ GINAC_IMPLEMENT_REGISTERED_CLASS_OPT(infinity, basic,
 
 static long hash_from_dir(const ex& direction)
 {
-        if (direction.is_integer_one())
+        if (direction.is_one())
                 return LONG_MAX;
-        if (ex_to<numeric>(direction).is_zero())
+        if (direction.is_zero())
                 return LONG_MAX-1;
-        if (direction.is_equal(_ex_1))
+        if (direction.is_minus_one())
                 return LONG_MIN;
         return 0L;
 }
@@ -111,8 +112,8 @@ ex infinity::unarchive(const archive_node &n, lst &sym_lst)
 	ex value;
 	if (n.find_ex("direction", value, sym_lst))
 		return infinity::from_direction(value);
-	else
-		throw(std::runtime_error("infinity without direction in archive"));
+
+        throw(std::runtime_error("infinity without direction in archive"));
 }
 
 void infinity::archive(archive_node &n) const
@@ -173,34 +174,39 @@ void infinity::do_print_latex(const print_latex & c, unsigned level) const
 	}
 }
 
-void infinity::do_print_python_repr(const print_python_repr & c, unsigned /*level*/) const
+void infinity::do_print_python_repr(const print_python_repr & c,
+                unsigned level) const
 {
-	c.s << class_name() << "('" << "Infinity" << "'" << direction;
+	c.s << class_name() << "('" << "Infinity" << "'";
+        direction.print(c, level);
 	c.s << ')';
 }
 
 bool infinity::info(unsigned inf) const
 {
-	if (inf==info_flags::infinity)
-		return true;
-	if (inf == info_flags::real || 
-	    inf == info_flags::positive ||
-	    inf == info_flags::negative)
-		return direction.info(inf);
-	if (inf == info_flags::nonnegative)
-		return direction.info(info_flags::positive);
-	if (inf == info_flags::nonnegative)
-		return direction.info(info_flags::positive);
-	return inherited::info(inf);
+        switch (inf) {
+        case info_flags::infinity:
+                return true;
+        case info_flags::real:
+                return not direction.is_zero()
+                and direction.is_real();
+        case info_flags::positive:
+        case info_flags::negative:
+                return direction.info(inf);
+        case info_flags::nonnegative:
+                return direction.is_positive();
+        default:
+                return inherited::info(inf);
+        }
 }
 
 ex infinity::evalf(int /*level*/, PyObject* /*parent*/) const
 {
 	if (is_unsigned_infinity())
 		return py_funcs.py_eval_unsigned_infinity();
-	else if (is_plus_infinity())
+	if (is_plus_infinity())
 		return py_funcs.py_eval_infinity();
-	else if (is_minus_infinity())
+	if (is_minus_infinity())
 		return py_funcs.py_eval_neg_infinity();
 	return *this;
 }
@@ -261,15 +267,17 @@ bool infinity::compare_other_type(const ex & other,
         const numeric& num = ex_to<numeric>(e);
         if (num.imag() > 0)
                 return false;
-        if (o == relational::not_equal)
+        switch (o) {
+        case relational::not_equal:
                 return true;
-        else if (o == relational::equal)
+        case relational::equal:
                 return false;
-        else if (o == relational::less_or_equal or
-                o == relational::less)
+        case relational::less_or_equal:
+        case relational::less:
                 return is_minus_infinity();
-        else
+        default:
                 return is_plus_infinity();
+        }
 }
 
 //////////
@@ -290,13 +298,13 @@ bool infinity::is_unsigned_infinity() const
 
 bool infinity::is_plus_infinity() const 
 { 
-	return direction.is_equal(_ex1); 
+	return direction.is_one(); 
 }
 
 
 bool infinity::is_minus_infinity() const 
 { 
-	return direction.is_equal(_ex_1); 
+	return direction.is_minus_one(); 
 }
 
 
@@ -318,15 +326,17 @@ const infinity & infinity::operator *= (const ex & rhs)
 		set_direction(mul(direction, rhs_direction));
 		return *this;
 	}
-	else if (rhs.is_zero())
+	if (rhs.is_zero())
 		throw(std::runtime_error("indeterminate expression: "
 					 "0 * infinity encountered."));
-	else if (rhs.info(info_flags::positive)) {
+	else if (rhs.is_positive()) {
 		return *this;
-	} else if (rhs.info(info_flags::negative)) {
+	}
+        if (rhs.info(info_flags::negative)) {
 		set_direction(mul(-1, direction));
 		return *this;
-	} else if (rhs.nsymbols()==0) {
+	}
+        if (rhs.nsymbols()==0) {
 		set_direction(mul(direction, rhs));
 		return *this;
 	}

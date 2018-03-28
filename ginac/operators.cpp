@@ -24,7 +24,6 @@
 #include "add.h"
 #include "mul.h"
 #include "power.h"
-#include "ncmul.h"
 #include "relational.h"
 #include "print.h"
 #include "utils.h"
@@ -39,26 +38,26 @@ namespace GiNaC {
 /** Used internally by operator+() to add two ex objects together. */
 static inline const ex exadd(const ex & lh, const ex & rh)
 {
+        if (is_exactly_a<numeric>(lh)
+            and is_exactly_a<numeric>(rh))
+                return ex_to<numeric>(lh).add(ex_to<numeric>(rh));
 	return (new add(lh,rh))->setflag(status_flags::dynallocated);
 }
 
 /** Used internally by operator*() to multiply two ex objects together. */
 static inline const ex exmul(const ex & lh, const ex & rh)
 {
-	// Check if we are constructing a mul object or a ncmul object.  Due to
-	// ncmul::eval()'s rule to pull out commutative elements we need to check
-	// only one of the elements.
-	if (rh.return_type()==return_types::commutative ||
-	    lh.return_type()==return_types::commutative) {
-		return (new mul(lh,rh))->setflag(status_flags::dynallocated);
-	} else {
-		return (new ncmul(lh,rh))->setflag(status_flags::dynallocated);
-	}
+        if (is_exactly_a<numeric>(lh)
+            and is_exactly_a<numeric>(rh))
+                return ex_to<numeric>(lh).mul(ex_to<numeric>(rh));
+        return (new mul(lh,rh))->setflag(status_flags::dynallocated);
 }
 
 /** Used internally by operator-() and friends to change the sign of an argument. */
 static inline const ex exminus(const ex & lh)
 {
+        if (is_exactly_a<numeric>(lh))
+                return ex_to<numeric>(lh).negative();
 	return (new mul(lh,_ex_1))->setflag(status_flags::dynallocated);
 }
 
@@ -131,33 +130,6 @@ ex & operator/=(ex & lh, const ex & rh)
 }
 
 
-// binary arithmetic assignment operators with numeric
-
-numeric & operator+=(numeric & lh, const numeric & rh)
-{
-	lh = lh.add(rh);
-	return lh;
-}
-
-numeric & operator-=(numeric & lh, const numeric & rh)
-{
-	lh = lh.sub(rh);
-	return lh;
-}
-
-numeric & operator*=(numeric & lh, const numeric & rh)
-{
-	lh = lh.mul(rh);
-	return lh;
-}
-
-numeric & operator/=(numeric & lh, const numeric & rh)
-{
-	lh = lh.div(rh);
-	return lh;
-}
-
-
 // unary operators
 
 const ex operator+(const ex & lh)
@@ -186,12 +158,20 @@ const numeric operator-(const numeric & lh)
 /** Expression prefix increment.  Adds 1 and returns incremented ex. */
 ex & operator++(ex & rh)
 {
+        if (is_exactly_a<numeric>(rh)) {
+                rh = numeric(ex_to<numeric>(rh) + *_num1_p);
+                return rh;
+        }
 	return rh = exadd(rh, _ex1);
 }
 
 /** Expression prefix decrement.  Subtracts 1 and returns decremented ex. */
 ex & operator--(ex & rh)
 {
+        if (is_exactly_a<numeric>(rh)) {
+                rh = numeric(ex_to<numeric>(rh) + *_num_1_p);
+                return rh;
+        }
 	return rh = exadd(rh, _ex_1);
 }
 
@@ -469,30 +449,6 @@ std::ostream & python_repr(std::ostream & os)
 std::ostream & tree(std::ostream & os)
 {
 	set_print_context(os, print_tree(os));
-	return os;
-}
-
-std::ostream & csrc(std::ostream & os)
-{
-	set_print_context(os, print_csrc_double(os));
-	return os;
-}
-
-std::ostream & csrc_float(std::ostream & os)
-{
-	set_print_context(os, print_csrc_float(os));
-	return os;
-}
-
-std::ostream & csrc_double(std::ostream & os)
-{
-	set_print_context(os, print_csrc_double(os));
-	return os;
-}
-
-std::ostream & csrc_cl_N(std::ostream & os)
-{
-	set_print_context(os, print_csrc_cl_N(os));
 	return os;
 }
 

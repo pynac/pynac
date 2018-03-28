@@ -34,7 +34,6 @@
 
 #include "constant.h"
 #include "infinity.h"
-#include "fail.h"
 #include "lst.h"
 #include "matrix.h"
 #include "numeric.h"
@@ -43,7 +42,6 @@
 #include "symbol.h"
 #include "pseries.h"
 #include "wildcard.h"
-#include "symmetry.h"
 
 #include "expair.h"
 #include "expairseq.h"
@@ -54,7 +52,6 @@
 
 #include "exprseq.h"
 #include "function.h"
-#include "ncmul.h"
 
 #include "inifcns.h"
 #include "fderivative.h"
@@ -62,11 +59,6 @@
 
 #include "assume.h"
 #include "sum.h"
-
-#include "idx.h"
-#include "indexed.h"
-#include "tensor.h"
-#include "clifford.h"
 
 #ifdef __MAKECINT__
 #pragma link C++ nestedclass;

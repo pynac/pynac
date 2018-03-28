@@ -61,9 +61,9 @@ public:
 	ex & let_op(size_t i) override;
 	ex map(map_function & f) const override;
 	bool is_polynomial(const ex & var) const override;
-	int degree(const ex & s) const override;
-	int ldegree(const ex & s) const override;
-	ex coeff(const ex & s, int n = 1) const override;
+	numeric degree(const ex & s) const override;
+	numeric ldegree(const ex & s) const override;
+	ex coeff(const ex & s, const ex & n) const override;
 	ex eval(int level=0) const override;
 	ex evalf(int level=0, PyObject* parent=nullptr) const override;
 	ex series(const relational & s, int order, unsigned options = 0) const override;
@@ -80,7 +80,6 @@ public:
 	//int compare_symbol(const symbol& other) const;
 protected:
 	ex derivative(const symbol & s) const override;
-	ex eval_ncmul(const exvector & v) const override;
 	unsigned return_type() const override;
 	tinfo_t return_type_tinfo() const override;
 	ex expand(unsigned options = 0) const override;
@@ -92,9 +91,8 @@ protected:
 	// non-virtual functions in this class
 protected:
 	void print_power(const print_context & c, const char *powersymbol, const char *openbrace, const char *closebrace, unsigned level) const;
-	void do_print_dflt(const print_dflt & c, unsigned level) const;
+	void do_print(const print_context & c, unsigned level) const override;
 	void do_print_latex(const print_latex & c, unsigned level) const;
-	void do_print_csrc(const print_csrc & c, unsigned level) const;
 	void do_print_python(const print_python & c, unsigned level) const;
 	void do_print_python_repr(const print_python_repr & c, unsigned level) const override;
 

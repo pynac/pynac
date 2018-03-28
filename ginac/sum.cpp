@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <cstdlib>
+#include <utility>
 
 #include "inifcns.h"
 #include "ex.h"
@@ -38,8 +39,7 @@ static bool is_rational_linear(const ex& the_ex)
         if (is_exactly_a<symbol>(the_ex))
                 return true;
         if (is_exactly_a<numeric>(the_ex))
-                return (ex_to<numeric>(the_ex).is_mpz()
-                                or ex_to<numeric>(the_ex).is_mpq());
+                return ex_to<numeric>(the_ex).is_rational();
 
         if (is_exactly_a<mul>(the_ex)) {
                 const mul& m = ex_to<mul>(the_ex);
@@ -48,10 +48,7 @@ static bool is_rational_linear(const ex& the_ex)
                             and not is_exactly_a<numeric>(m.op(i)))
                                 return false;
                 }
-                const ex& oc = m.op(m.nops());
-                return (is_exactly_a<numeric>(oc)
-                       and (ex_to<numeric>(oc).is_mpz()
-                            or ex_to<numeric>(oc).is_mpq()));
+                return m.get_overall_coeff().is_rational();
         }
         if (is_exactly_a<add>(the_ex)) {
                 const add& a = ex_to<add>(the_ex);
@@ -59,17 +56,14 @@ static bool is_rational_linear(const ex& the_ex)
                         if (not is_rational_linear(a.op(i)))
                                 return false;
                 }
-                const ex& oc = a.op(a.nops());
-                return (is_exactly_a<numeric>(oc)
-                       and (ex_to<numeric>(oc).is_mpz()
-                            or ex_to<numeric>(oc).is_mpq()));
+                return a.get_overall_coeff().is_rational();
         }
         return false;
 }
 
 static ex factorial_to_gamma(const function& f)
 {
-        return tgamma(f.op(0) + _ex1);
+        return gamma(f.op(0) + _ex1);
 }
 
 static ex gamma_to_gamma(const function& f) { return ex(f); }
@@ -79,38 +73,38 @@ static ex binomial_to_gamma(const function& f)
         const ex& a = f.op(0);
         const ex& k = f.op(1);
         if (is_exactly_a<numeric>(a)) {
-                numeric anum = ex_to<numeric>(a);
-                if (anum.info(info_flags::integer)
+                const numeric& anum = ex_to<numeric>(a);
+                if (anum.is_integer()
                     and anum.info(info_flags::negative))
                         return pow(_ex_1, k) * 
-                                (tgamma(k - a) / (tgamma(k+1) * (anum-*_num1_p).factorial()));
+                                (gamma(k - a) / (gamma(k+1) * (anum-*_num1_p).factorial()));
         }
         ex t = (k - a).expand();
         if (is_exactly_a<numeric>(t)
-            and ex_to<numeric>(t).info(info_flags::integer)
+            and ex_to<numeric>(t).is_integer()
             and ex_to<numeric>(t).info(info_flags::negative))
                 return _ex0;
 
-        return tgamma(a+1) / (tgamma(k+1) * tgamma(a-k+1));
+        return gamma(a+1) / (gamma(k+1) * gamma(a-k+1));
 }
 
 static ex rising_factorial_to_gamma(const function& f)
 {
-        return tgamma(f.op(0) + f.op(1)) / tgamma(f.op(0));
+        return gamma(f.op(0) + f.op(1)) / gamma(f.op(0));
 }
 
 static ex falling_factorial_to_gamma(const function& f)
 {
-        return tgamma(f.op(0) + _ex1) / tgamma(f.op(0) - f.op(1) + _ex_1);
+        return gamma(f.op(0) + _ex1) / gamma(f.op(0) - f.op(1) + _ex_1);
 }
 
 using tgfun_t = decltype(gamma_to_gamma);
 
-static bool has_suitable_form(ex the_ex)
+static bool has_suitable_form(const ex& the_ex)
 {
         static std::unordered_map<unsigned int,tgfun_t*> funcmap {{
           {factorial_SERIAL::serial, &factorial_to_gamma},
-          {tgamma_SERIAL::serial, &gamma_to_gamma},
+          {gamma_SERIAL::serial, &gamma_to_gamma},
           {binomial_SERIAL::serial, &binomial_to_gamma},
           {rising_factorial_SERIAL::serial, &rising_factorial_to_gamma},
           {falling_factorial_SERIAL::serial, &falling_factorial_to_gamma},
@@ -119,16 +113,16 @@ static bool has_suitable_form(ex the_ex)
         if (is_rational_linear(the_ex))
                 return true;
         if (is_exactly_a<power>(the_ex)) {
-                power pow = ex_to<power>(the_ex);
+                const power& pow = ex_to<power>(the_ex);
                 const ex& expo = pow.op(1);
                 if (is_exactly_a<numeric>(expo)
-                    and expo.info(info_flags::integer))
+                    and expo.is_integer())
                         return has_suitable_form(pow.op(0));
                 return (is_rational_linear(pow.op(0))
                      and is_rational_linear(pow.op(1)));
         }
         if (is_exactly_a<function>(the_ex)) {
-                function f = ex_to<function>(the_ex);
+                const function& f = ex_to<function>(the_ex);
                 if (funcmap.find(f.get_serial()) == funcmap.end())
                         return false;
                 for (unsigned int i=0; i<f.nops(); i++)
@@ -142,10 +136,7 @@ static bool has_suitable_form(ex the_ex)
                         if (not has_suitable_form(m.op(i)))
                                 return false;
                 }
-                const ex& oc = m.op(m.nops());
-                return (is_exactly_a<numeric>(oc)
-                       and (ex_to<numeric>(oc).is_mpz()
-                            or ex_to<numeric>(oc).is_mpq()));
+                return m.get_overall_coeff().is_rational();
         }
         if (is_exactly_a<add>(the_ex)) {
                 const add& m = ex_to<add>(the_ex);
@@ -153,10 +144,7 @@ static bool has_suitable_form(ex the_ex)
                         if (not has_suitable_form(m.op(i)))
                                 return false;
                 }
-                const ex& oc = m.op(m.nops());
-                return (is_exactly_a<numeric>(oc)
-                       and (ex_to<numeric>(oc).is_mpz()
-                            or ex_to<numeric>(oc).is_mpq()));
+                return m.get_overall_coeff().is_rational();
         }
         return false;
 }
@@ -165,7 +153,7 @@ ex to_gamma(const ex& the_ex)
 {
         static std::unordered_map<unsigned int,tgfun_t*> funcmap {{
           {factorial_SERIAL::serial, &factorial_to_gamma},
-          {tgamma_SERIAL::serial, &gamma_to_gamma},
+          {gamma_SERIAL::serial, &gamma_to_gamma},
           {binomial_SERIAL::serial, &binomial_to_gamma},
           {rising_factorial_SERIAL::serial, &rising_factorial_to_gamma},
           {falling_factorial_SERIAL::serial, &falling_factorial_to_gamma},
@@ -174,10 +162,10 @@ ex to_gamma(const ex& the_ex)
         if (is_rational_linear(the_ex))
                 return the_ex;
         if (is_exactly_a<power>(the_ex)) {
-                power pow = ex_to<power>(the_ex);
+                const power& pow = ex_to<power>(the_ex);
                 const ex& expo = pow.op(1);
                 if (is_exactly_a<numeric>(expo)
-                    and expo.info(info_flags::integer))
+                    and expo.is_integer())
                         return power(to_gamma(pow.op(0)), expo);
                 return the_ex;
         }
@@ -252,30 +240,27 @@ static ex combine_powers(const ex& the_ex)
 }
 
 using ex_intset_map = std::map<GiNaC::ex, std::unordered_set<int>, GiNaC::ex_is_less>;
-static void collect_gamma_args(ex the_ex, ex_intset_map& map)
+static void collect_gamma_args(const ex& the_ex, ex_intset_map& map)
 {
         if (is_exactly_a<function>(the_ex)) {
-                function f = ex_to<function>(the_ex);
-                if (f.get_serial() == tgamma_SERIAL::serial) {
+                const function& f = ex_to<function>(the_ex);
+                if (f.get_serial() == gamma_SERIAL::serial) {
                         ex arg = f.op(0).expand();
                         if (is_exactly_a<numeric>(arg))
                                 return;
-                        ex oc;
+                        numeric oc;
                         if (is_exactly_a<add>(arg)) {
                                 const add& a = ex_to<add>(arg);
-                                oc = a.op(a.nops());
-                                if (not is_exactly_a<numeric>(oc))
-                                        return;
-                                numeric noc = ex_to<numeric>(oc);
-                                if (not noc.is_mpz()) {
-                                        if (not noc.is_mpq())
+                                oc = a.get_overall_coeff();
+                                if (not oc.is_mpz() and not oc.is_long()) {
+                                        if (not oc.is_mpq())
                                                 return;
-                                        oc = numeric(noc.to_int());
+                                        oc = oc.to_int();
                                 }
                         }
                         else
-                                oc = _ex0;
-                        int ioc = ex_to<numeric>(oc).to_int();
+                                oc = *_num0_p;
+                        int ioc = oc.to_int();
                         auto search = map.find(arg - oc);
                         if (search != map.end()) {
                                 search->second.insert(ioc);
@@ -290,7 +275,7 @@ static void collect_gamma_args(ex the_ex, ex_intset_map& map)
                         collect_gamma_args(f.op(i), map);
         }
         else if (is_exactly_a<power>(the_ex)) {
-                power pow = ex_to<power>(the_ex);
+                const power& pow = ex_to<power>(the_ex);
                 collect_gamma_args(pow.op(0), map);
                 collect_gamma_args(pow.op(1), map);
         }
@@ -317,7 +302,7 @@ ex gamma_normalize(ex the_ex)
                         const ex& base = p.first;
                         for (int i=m; i<oc; ++i)
                                 prod *= (base + numeric(i));
-                        submap[tgamma(base + numeric(oc)).hold()] = tgamma(base + numeric(m)).hold() * prod;
+                        submap[gamma(base + numeric(oc)).hold()] = gamma(base + numeric(m)).hold() * prod;
                 }
         }
 
@@ -326,11 +311,10 @@ ex gamma_normalize(ex the_ex)
         bool res = factor(subsed, res_ex);
         if (res)
                 return res_ex;
-        else
-                return subsed;
+        return subsed;
 }
 
-ex hypersimp(const ex& e, const ex& k)
+ex hypersimp(ex e, ex k)
 // See Algorithm 2.1 in the Koepf reference
 {
         ex f = e.expand();
@@ -364,8 +348,9 @@ static ex binomial_poly(const exvector& syms, const ex& var)
         for (unsigned int row=0; row<n; ++row) {
                 const ex& v = power(var, row);
                 for (unsigned int col=0; col<n; ++col) {
-                        if (row+col < n)
+                        if (row+col < n) {
                                 res += v * binomial(row+col, col) * syms[n-col-row-1];
+                        }
                 }
         }
         return res;
@@ -379,7 +364,7 @@ static matrix solve_system(ex mpoly,
         if (not is_exactly_a<add>(mpoly))
                 throw gosper_domain_error();
         ex_int_map sym_idx;
-        const size_t nc = syms.size(), nr = mpoly.degree(msym) + 1;
+        const size_t nc = syms.size(), nr = mpoly.degree(msym).to_int() + 1;
         for (size_t i=0; i<nc; ++i)
                 sym_idx[syms[i]] = i;
         exmap zero_syms;
@@ -393,15 +378,15 @@ static matrix solve_system(ex mpoly,
                 const ex& expo = pair.second;
                 if (not is_exactly_a<numeric>(expo))
                         throw std::runtime_error("can't happen in solve_system()");
-                numeric nume = ex_to<numeric>(expo);
-                if (not nume.is_mpz())
+                const numeric& nume = ex_to<numeric>(expo);
+                if (not nume.is_mpz() and not nume.is_long())
                         throw std::runtime_error("can't happen in solve_system()");
                 int e = nume.to_int();
                 for (const ex& sym : syms) {
                         auto search = sym_idx.find(sym);
                         if (search == sym_idx.end())
                                 throw std::runtime_error("unknown symbol in solve_system()");
-                        ex coeff = term.coeff(sym);
+                        ex coeff = term.coeff(sym,_ex1);
                         int s = search->second;
                         mat(e, s) = coeff;
                 }
@@ -424,7 +409,7 @@ static bool check_root(const matrix& M,
         map[v] = ex(numeric(root));
         std::srand(std::time(0));
         for (int i=0; i<NCHECKS; ++i) {
-                for (const auto s : sy)
+                for (const auto& s : sy)
                         if (not v.is_equal(s))
                                 map[s] = numeric((std::rand()%9)+1);
                 for (int l = 0; l<msize; ++l)
@@ -445,10 +430,10 @@ static bool check_root(const matrix& M,
 static std::set<int> resultant_roots(const ex& ee1, const ex& ee2,
                 const ex& s, const symbol& v)
 {
-	const int h1 = ee1.degree(s);
-	const int l1 = ee1.ldegree(s);
-	const int h2 = ee2.degree(s);
-	const int l2 = ee2.ldegree(s);
+	const int h1 = ee1.degree(s).to_int();
+	const int l1 = ee1.ldegree(s).to_int();
+	const int h2 = ee2.degree(s).to_int();
+	const int l2 = ee2.ldegree(s).to_int();
         symbolset s1 = ee1.symbols();
         const symbolset& s2 = ee2.symbols();
         s1.insert(s2.begin(), s2.end());
@@ -460,7 +445,7 @@ static std::set<int> resultant_roots(const ex& ee1, const ex& ee2,
 		const ex e = ee1.coeff(s, l);
                 ex c = e.coeff(v, e.ldegree(v));
                 if (is_exactly_a<add>(c))
-                        c = c.op(c.nops());
+                        c = ex_to<add>(c).get_overall_coeff();
                 else if (not is_exactly_a<numeric>(c))
                         c = _ex0;
 		for (int k = 0; k < h2; ++k) {
@@ -472,7 +457,7 @@ static std::set<int> resultant_roots(const ex& ee1, const ex& ee2,
 		const ex e = ee2.coeff(s, l);
                 ex c = e.coeff(v, e.ldegree(v));
                 if (is_exactly_a<add>(c))
-                        c = c.op(c.nops());
+                        c = ex_to<add>(c).get_overall_coeff();
                 else if (not is_exactly_a<numeric>(c))
                         c = _ex0;
 		for (int k = 0; k < h1; ++k) {
@@ -484,6 +469,8 @@ static std::set<int> resultant_roots(const ex& ee1, const ex& ee2,
         std::set<int> roots;
         roots.insert(0);
         roots.insert(1);
+        if (msize == 0)
+                return roots;
         numeric c = ex_to<numeric>(C.determinant()).numer();
         c.divisors(roots);
         for (auto it = roots.begin(); it != roots.end(); )
@@ -491,7 +478,7 @@ static std::set<int> resultant_roots(const ex& ee1, const ex& ee2,
                         it = roots.erase(it);
                 else
                         ++it;
-        return std::move(roots);
+        return roots;
 }
 
 ex gosper_term(ex e, ex n)
@@ -502,7 +489,7 @@ ex gosper_term(ex e, ex n)
         ex cn = num.lcoeff(n);
         ex cd = den.lcoeff(n);
         ex ldq = (cn / cd).normal(0, true, false);
-        if (ldq.is_integer_one())
+        if (ldq.is_one())
                 cn = cd = _ex1;
         ex A = (num / cn).normal(0, true, false);
         ex B = (den / cd).normal(0, true, false);
@@ -510,6 +497,9 @@ ex gosper_term(ex e, ex n)
         symbol h;
         std::set<int> roots = resultant_roots(A,
                         B.subs(n == n+h).expand(), n, h);
+        if (std::any_of(roots.cbegin(), roots.cend(),
+                                [](int i){ return i < 0; }))
+                throw gosper_domain_error();
         for (int root : roots) {
                 ex d = gcd(A, B.subs(n == n+ex(root)).expand());
                 A = quo(A, d, n, false);
@@ -520,9 +510,9 @@ ex gosper_term(ex e, ex n)
         A = (A * ldq).normal(0, true, false);
         B = B.subs(n == n-1).expand();
         C = C.expand();
-        int N = A.degree(n);
-        int M = B.degree(n);
-        int K = C.degree(n);
+        int N = A.degree(n).to_int();
+        int M = B.degree(n).to_int();
+        int K = C.degree(n).to_int();
         std::unordered_set<int> D;
         if (N != M or not A.lcoeff(n).is_equal(B.lcoeff(n)))
                 D.insert(K - std::max(M,N));
@@ -534,16 +524,18 @@ ex gosper_term(ex e, ex n)
                 D.insert(K - N + 1);
                 ex t = (B.coeff(n,N-1) - A.coeff(n,N-1)) / A.lcoeff(n);
                 if (is_exactly_a<numeric>(t)
-                    and ex_to<numeric>(t).info(info_flags::integer)
+                    and ex_to<numeric>(t).is_integer()
                     and ex_to<numeric>(t) >= *_num0_p)
                                 D.insert(ex_to<numeric>(t).to_int());
         }
         if (D.empty())
                 throw gosper_domain_error();
         int d = *std::max_element(D.begin(), D.end());
+        if (d < 0)
+                throw gosper_domain_error();
         exvector syms;
         for (int i=0; i<d+1; ++i)
-                syms.push_back((new symbol)->setflag(status_flags::dynallocated));
+                syms.emplace_back((new symbol)->setflag(status_flags::dynallocated));
         ex xshifted = binomial_poly(syms, n);
         ex x = diagonal_poly(syms, n);
         ex H = A*xshifted - B*x -C;
@@ -553,10 +545,8 @@ ex gosper_term(ex e, ex n)
                 ex val = ex_to<numeric>(solution(i,0));
                 x = x.subs(sym == val);
         }
-        for (size_t i=0; i<syms.size(); ++i) {
-                ex sym = syms[i];
+        for (const auto& sym : syms)
                 x = x.subs(sym == _ex0);
-        }
         return B*x / C;
 }
 
@@ -570,8 +560,7 @@ ex gosper_sum_definite(ex f, ex s, ex a, ex b, int* success)
                 bool changed = factor(t, res);
                 if (changed)
                         return res;
-                else
-                        return t;
+                return t;
         }
         catch (gosper_domain_error) {
                 *success = 0;
@@ -582,14 +571,13 @@ ex gosper_sum_definite(ex f, ex s, ex a, ex b, int* success)
 ex gosper_sum_indefinite(ex f, ex s, int* success)
 {
         try {
-                ex t = f*gosper_term(f, s);
+                ex t = f*gosper_term(f, std::move(s));
                 *success = 1;
                 ex res;
                 bool changed = factor(t, res);
                 if (changed)
                         return res;
-                else
-                        return t;
+                return t;
         }
         catch (gosper_domain_error) {
                 *success = 0;

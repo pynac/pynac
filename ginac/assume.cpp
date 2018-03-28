@@ -18,13 +18,15 @@ namespace GiNaC {
 
 void assume(ex rel) {
         // It was already checked that rel is a relational.
-        relational r = ex_to<relational>(rel);
+        const relational& r = ex_to<relational>(rel);
         if (r.the_operator() == relational::equal
                 or r.the_operator() == relational::not_equal)
                 return;
         ex df = (r.lhs() - r.rhs()).expand();
         if (r.the_operator() == relational::greater)
                 df.set_domain(domain::positive);
+        if (r.the_operator() == relational::less)
+                df.set_domain(domain::negative);
 }
 
 void assume(ex x, char* flag_desc) {
@@ -40,7 +42,7 @@ void assume(ex x, char* flag_desc) {
 
 void forget(ex rel) {
         // It was already checked that rel is a relational.
-        relational r = ex_to<relational>(rel);
+        const relational& r = ex_to<relational>(rel);
         if (r.the_operator() == relational::equal
                 or r.the_operator() == relational::not_equal)
                 return;

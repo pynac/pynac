@@ -40,7 +40,7 @@ public:
 	enum {
 		expand_indexed = 0x0001,      ///< expands (a+b).i to a.i+b.i
 		expand_function_args = 0x0002, ///< expands the arguments of functions
-		expand_rename_idx = 0x0004, ///< used internally by mul::expand()
+		expand_rename_idx = 0x0004, ///< no longer used 
 		expand_transcendental = 0x0008, ///< expands trancendental functions like log and exp
 		expand_only_numerators = 0x0010 ///< does not expand fraction denominators
 	};
@@ -80,7 +80,9 @@ public:
 		complex,
 		real,
 		positive,
+                negative,
 		infinity,
+                rational,
 		integer,
                 even
 	};
@@ -95,7 +97,8 @@ public:
 		 *  it is passed and expansion at a point on a cut is performed, then
 		 *  the analytic continuation of the function is expanded. */
 		suppress_branchcut = 0x0001,
-                try_univariate_flint = 0x0002
+                try_univariate_flint = 0x0002,
+                truncate = 0x0004
 	};
 };
 
@@ -272,13 +275,6 @@ public:
 		crational_polynomial,
 		rational_function,
 		algebraic,
-
-		// answered by class indexed
-		indexed,      // class can carry indices
-		has_indices,  // object has at least one index
-
-		// answered by class idx
-		idx,
 
 		// answered by classes numeric, symbol, add, mul, power
 		expanded,

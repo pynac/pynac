@@ -49,8 +49,6 @@
 #include "basic.h"
 #include "constant.h"
 #include "ex.h"
-#include "py_funcs.h"
-#include <factory/factory.h>
 
 #include <gmp.h>
 #include <stdexcept>
@@ -61,6 +59,9 @@
 void ginac_pyinit_Integer(PyObject*);
 void ginac_pyinit_Float(PyObject*);
 void ginac_pyinit_I(PyObject*);
+PyObject* CC_get();
+
+class CanonicalForm;
 
 #ifdef PYNAC_HAVE_LIBGIAC
 namespace giac {
@@ -71,29 +72,31 @@ namespace giac {
 namespace GiNaC {
 
 enum Type {
-//	LONG,
-	DOUBLE=1,
+	LONG=1,
 	PYOBJECT,
 	MPZ,
 	MPQ,
 //	MPFR,
 //	MPFC,
 //	MPQC
-//	LONG,
 };
 
 union Value {
-	double _double;
+        Value() {}
+        Value(signed long int i) : _long(i) {}
+	signed long int _long;
 	mpz_t _bigint;
 	mpq_t _bigrat;
 	PyObject* _pyobject;
 };
 
+extern const ex _ex0;
+
 /** Exception class thrown when a singularity is encountered. */
 class pole_error : public std::domain_error {
 public:
 	explicit pole_error(const std::string& what_arg, int degree);
-	int degree() const;
+	numeric degree() const;
 private:
 	int deg;
 };
@@ -107,10 +110,22 @@ class numeric : public basic {
 	// other constructors
 public:
 	numeric(const numeric&);
-	numeric(int i);
-	numeric(unsigned int i);
-	numeric(long i);
-	numeric(unsigned long i);
+	numeric(int i) : basic(&numeric::tinfo_static), t(LONG), v(i)
+        {
+                hash = (i<0) ? i-1 : i;
+                setflag(status_flags::evaluated | status_flags::expanded);
+        }
+	numeric(unsigned int i) : 
+                basic(&numeric::tinfo_static), t(LONG), v(i), hash(i)
+        { setflag(status_flags::evaluated | status_flags::expanded); }
+	numeric(long i) : basic(&numeric::tinfo_static), t(LONG), v(i)
+        {
+                hash = (i<0) ? i-1 : i;
+                setflag(status_flags::evaluated | status_flags::expanded);
+        }
+	numeric(unsigned long i) : 
+                basic(&numeric::tinfo_static), t(LONG), v(i), hash(i)
+        { setflag(status_flags::evaluated | status_flags::expanded); }
 	numeric(long numer, long denom);
 	numeric(double d);
 	numeric(mpz_t bigint);
@@ -120,58 +135,77 @@ public:
 	~numeric();
 
 	friend std::ostream& operator<<(std::ostream& os, const numeric& s);
-	friend void coerce(numeric& new_left, numeric& new_right, const numeric& left, const numeric& right);
-	// functions overriding virtual functions from base classes
+	friend void coerce(numeric& new_left, numeric& new_right,
+                        const numeric& left, const numeric& right);
+        friend numeric & operator+=(numeric & lh, const numeric & rh);
+        friend numeric & operator-=(numeric & lh, const numeric & rh);
+        friend numeric & operator*=(numeric & lh, const numeric & rh);
+        friend numeric & operator/=(numeric & lh, const numeric & rh);
+        friend void rational_power_parts(const numeric& a, const numeric& b,
+                        numeric& c, numeric& d, bool& c_unit);
 public:
 
-	int compare_same_type(const numeric& right) const;
-	unsigned precedence() const override
-	{
-		return 30;
-	}
+	unsigned precedence() const override { return 30; }
 	bool info(unsigned inf) const override;
 	bool is_polynomial(const ex & var) const override;
-	int degree(const ex & s) const override;
-	int ldegree(const ex & s) const override;
-	ex coeff(const ex & s, int n = 1) const override;
+        bool is_long() const     { return t == LONG; }
+	bool is_mpz() const      { return t == MPZ; }
+	bool is_mpq() const      { return t == MPQ; }
+        bool is_pyobject() const { return t == PYOBJECT; }
+	bool is_zero() const;
+	bool is_inexact_one() const;
+	bool is_one() const;
+	bool is_minus_one() const;
+	bool is_positive() const override;
+	bool is_negative() const;
+	bool is_integer() const override;
+	bool is_pos_integer() const;
+	bool is_nonneg_integer() const;
+	bool is_even() const;
+	bool is_odd() const;
+	bool is_prime() const;
+	bool is_rational() const;
+	bool is_real() const override;
+	bool is_cinteger() const;
+	bool is_crational() const;
+	bool is_exact() const;
+        bool is_small_power(std::pair<int,int>& p) const;
+
+	// functions overriding virtual functions from base classes
+        numeric degree(const ex & s) const override;
+	numeric ldegree(const ex & s) const override;
+	ex coeff(const ex & s, const ex & n) const override;
 	bool has(const ex &other, unsigned options = 0) const override;
 	ex eval(int level = 0) const override;
 	ex evalf(int level = 0, PyObject* parent = nullptr) const override;
 
-	ex subs(const exmap & m, unsigned options = 0) const override
-	{
-		return subs_one_level(m, options);
-	} // overwrites basic::subs() for performance reasons
+	ex subs(const exmap & m, unsigned options = 0) const override;
 	ex normal(exmap & repl, exmap & rev_lookup, int level = 0, unsigned options = 0) const override;
 	ex to_rational(exmap & repl) const override;
 	ex to_polynomial(exmap & repl) const override;
 	numeric integer_content() const override;
 	numeric max_coefficient() const override;
-	ex conjugate() const override;
+	numeric conj() const;
+        ex conjugate() const override { return ex(conj()); }
 	ex real_part() const override;
 	ex imag_part() const override;
-protected:
+        ex series(const relational & r, int order, unsigned options) const override;
 
 	/** Implementation of ex::diff for a numeric always returns 0.
 	 *  @see ex::diff */
-	ex derivative(const symbol &s) const override
-	{
-		return 0;
-	}
+	ex derivative(const symbol &s) const override { return _ex0; }
         void useries(flint_series_t& fp, int order) const override;
 	bool is_equal_same_type(const basic &other) const override;
+	int compare_same_type(const numeric& right) const;
 	long calchash() const override;
 
-	// new virtual functions which can be overridden by derived classes
-	// (none)
-
-	// non-virtual functions in this class
-public:
 	const numeric add(const numeric &other) const;
 	const numeric sub(const numeric &other) const;
 	const numeric mul(const numeric &other) const;
 	const numeric div(const numeric &other) const;
-	const numeric power(const numeric &other) const;
+	const ex power(const numeric &other) const;
+	const numeric power(signed long other) const;
+        const numeric pow_intexp(const numeric &exponent) const;
 	const numeric & add_dyn(const numeric &other) const;
 	const numeric & sub_dyn(const numeric &other) const;
 	const numeric & mul_dyn(const numeric &other) const;
@@ -180,54 +214,32 @@ public:
 	const numeric & operator=(int i);
 	const numeric & operator=(unsigned int i);
 	const numeric & operator=(long i);
-	const numeric & operator=(unsigned long i);
 	const numeric & operator=(double d);
 	const numeric & operator=(const numeric& x);
+        void swap(numeric& other);
 	const numeric negative() const;
 	const numeric inverse() const;
 	const numeric step() const;
 	int csgn() const;
 	bool is_equal(const numeric &other) const;
-	bool is_zero() const;
-	bool is_one() const;
-	bool is_minus_one() const;
-	bool is_positive() const;
-	bool is_negative() const;
-	bool is_integer() const;
-	bool is_pos_integer() const;
-	bool is_nonneg_integer() const;
-	bool is_even() const;
-	bool is_odd() const;
-	bool is_prime() const;
-	bool is_rational() const;
-	bool is_real() const;
-	bool is_cinteger() const;
-	bool is_crational() const;
-	bool is_exact() const;
 	bool operator==(const numeric &other) const;
 	bool operator!=(const numeric &other) const;
 	bool operator<(const numeric &other) const;
 	bool operator<=(const numeric &other) const;
 	bool operator>(const numeric &other) const;
 	bool operator>=(const numeric &other) const;
-	bool is_parent_pos_char() const;
-	int get_parent_char() const;
-	int to_int() const
-	{
-		return (int)to_long();
-	}
+	int to_int() const;
 	long to_long() const;
 	double to_double() const;
-	bool is_mpz() const { return t == MPZ; }
-	bool is_mpq() const { return t == MPQ; }
         const numeric to_bigint() const;
         const mpz_t& as_mpz() const;
         const mpq_t& as_mpq() const;
+        void canonicalize();
         PyObject* to_pyobject() const;
-        bool is_pyobject() const
-        {
-                return t == PYOBJECT;
-        }
+        const numeric try_py_method(const std::string& s) const;
+        const numeric try_py_method(const std::string& s,
+                        const numeric& x2) const;
+        const numeric to_dict_parent(PyObject* dict) const;
 #ifdef PYNAC_HAVE_LIBGIAC
         giac::gen* to_giacgen(giac::context*) const;
 #endif
@@ -240,30 +252,31 @@ public:
         const numeric floor() const;
         const numeric frac() const;
 
-	const numeric exp() const;
-	const numeric log() const;
-	const numeric log(const numeric &b) const;
+        const numeric arbfunc_0arg(const char* name, PyObject* parent) const;
+	const numeric exp(PyObject*) const;
+	const numeric log(PyObject*) const;
+	const numeric log(const numeric &b, PyObject*) const;
 	const numeric ratlog(const numeric &b, bool& israt) const;
 	const numeric sin() const;
 	const numeric cos() const;
 	const numeric tan() const;
-	const numeric asin() const;
-	const numeric acos() const;
-	const numeric atan() const;
-	const numeric atan(const numeric &y) const;
-	const numeric sinh() const;
-	const numeric cosh() const;
-	const numeric tanh() const;
-	const numeric asinh() const;
-	const numeric acosh() const;
-	const numeric atanh() const;
+	const numeric asin(PyObject*) const;
+	const numeric acos(PyObject*) const;
+	const numeric atan(PyObject*) const;
+	const numeric atan(const numeric &y, PyObject*) const;
+	const numeric sinh(PyObject*) const;
+	const numeric cosh(PyObject*) const;
+	const numeric tanh(PyObject*) const;
+	const numeric asinh(PyObject*) const;
+	const numeric acosh(PyObject*) const;
+	const numeric atanh(PyObject*) const;
 	const numeric Li2(const numeric &n, PyObject* parent) const;
 	const numeric zeta() const;
 	const numeric stieltjes() const;
-	const numeric lgamma() const;
-	const numeric tgamma(PyObject* parent) const;
+	const numeric lgamma(PyObject* parent) const;
+	const numeric gamma(PyObject* parent) const;
 	const numeric rgamma(PyObject* parent) const;
-	const numeric psi() const;
+	const numeric psi(PyObject* parent) const;
 	const numeric psi(const numeric &n) const;
 	const numeric factorial() const;
 	const numeric doublefactorial() const;
@@ -284,26 +297,26 @@ public:
 	const numeric iquo(const numeric &b, numeric &r) const;
 	const numeric gcd(const numeric &b) const;
 	const numeric lcm(const numeric &b) const;
-        void factor(std::vector<std::pair<long, int>>& factors) const;
+        void factor(std::vector<std::pair<numeric, int>>& factors, long range=0) const;
+        void factorsmall(std::vector<std::pair<long, int>>& factors, long range=0) const;
         void divisors(std::set<int>& divs) const;
 	
-	int int_length() const;
-
 protected:
 	void print_numeric(const print_context & c, const char *par_open,
 		const char *par_close, const char *imag_sym,
 		const char *mul_sym, unsigned level, bool latex) const;
 	void do_print(const print_context & c, unsigned level) const override;
 	void do_print_latex(const print_latex & c, unsigned level) const;
-	void do_print_csrc(const print_csrc & c, unsigned level) const;
 	void do_print_tree(const print_tree & c, unsigned level) const override;
 	void do_print_python_repr(const print_python_repr & c, unsigned level) const override;
+        void dbgprint() const override;
 
-//	numeric operator()(const int& x);
+        static bool integer_rational_power(numeric& res,
+                const numeric& a, const numeric& b);
 
-	// member variables
+public:
+        static const numeric binomial(unsigned long n, unsigned long k);
 
-protected:
     Type t;
     Value v;
     long hash;
@@ -314,40 +327,37 @@ protected:
 // global constants
 
 extern numeric I;
-extern PyObject *RR, *CC;
 
 // global functions
 
-void coerce(numeric& new_left, numeric& new_right, const numeric& left, const numeric& right);
-
-const numeric exp(const numeric &x);
-const numeric log(const numeric &x);
-const numeric log(const numeric &x, const numeric &b);
+const numeric exp(const numeric &x, PyObject* parent=nullptr);
+const numeric log(const numeric &x, PyObject* parent=nullptr);
+const numeric log(const numeric &x, const numeric &b, PyObject* parent=nullptr);
 const numeric sin(const numeric &x);
 const numeric cos(const numeric &x);
 const numeric tan(const numeric &x);
-const numeric asin(const numeric &x);
-const numeric acos(const numeric &x);
-const numeric atan(const numeric &x);
-const numeric atan(const numeric &y, const numeric &x);
-const numeric sinh(const numeric &x);
-const numeric cosh(const numeric &x);
-const numeric tanh(const numeric &x);
-const numeric asinh(const numeric &x);
-const numeric acosh(const numeric &x);
-const numeric atanh(const numeric &x);
+const numeric asin(const numeric &x, PyObject* parent=nullptr);
+const numeric acos(const numeric &x, PyObject* parent=nullptr);
+const numeric atan(const numeric &x, PyObject* parent=nullptr);
+const numeric atan(const numeric &y, const numeric &x, PyObject* parent=nullptr);
+const numeric sinh(const numeric &x, PyObject* parent=nullptr);
+const numeric cosh(const numeric &x, PyObject* parent=nullptr);
+const numeric tanh(const numeric &x, PyObject* parent=nullptr);
+const numeric asinh(const numeric &x, PyObject* parent=nullptr);
+const numeric acosh(const numeric &x, PyObject* parent=nullptr);
+const numeric atanh(const numeric &x, PyObject* parent=nullptr);
 const numeric Li2(const numeric &x, PyObject* parent=nullptr);
 const numeric Li2(const numeric &x, const numeric &n, PyObject* parent=nullptr);
 const numeric stieltjes(const numeric &x);
 const numeric zeta(const numeric &x);
-const numeric lgamma(const numeric &x);
-const numeric tgamma(const numeric &x, PyObject* parent=nullptr);
-const numeric rgamma(const numeric &x, PyObject* parent);
-const numeric psi(const numeric &x);
+const numeric lgamma(const numeric &x, PyObject* parent=nullptr);
+const numeric gamma(const numeric &x, PyObject* parent=nullptr);
+const numeric rgamma(const numeric &x, PyObject* parent=nullptr);
+const numeric psi(const numeric &x, PyObject* parent=nullptr);
 const numeric psi(const numeric &n, const numeric &x);
+const numeric beta(const numeric &x, const numeric &y, PyObject* parent=nullptr);
 const numeric factorial(const numeric &n);
 const numeric doublefactorial(const numeric &n);
-const numeric binomial(unsigned long n, unsigned long k);
 const numeric binomial(const numeric &n, const numeric &k);
 const numeric bernoulli(const numeric &n);
 const numeric hypergeometric_pFq(const std::vector<numeric>& a, const std::vector<numeric>& b, const numeric &z, PyObject* parent);
@@ -365,7 +375,7 @@ const numeric lcm(const numeric &a, const numeric &b);
 
 // wrapper functions around member functions
 
-inline const numeric pow(const numeric &x, const numeric &y)
+inline ex pow(const numeric &x, const numeric &y)
 {
 	return x.power(y);
 }
@@ -497,6 +507,11 @@ inline bool is_a_python_object(const ex & x)
         return (is_exactly_a<numeric>(x)
                 and ex_to<numeric>(x).is_pyobject());
 }
+
+class conversion_error : public std::runtime_error {
+    public:
+        conversion_error() : std::runtime_error("") {}
+};
 
 } // namespace GiNaC
 

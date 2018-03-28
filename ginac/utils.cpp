@@ -39,7 +39,7 @@ pole_error::pole_error(const std::string& what_arg, int a_degree)
 	: domain_error(what_arg), deg(a_degree) { }
 
 /** Return the degree of the pole_error exception class. */
-int pole_error::degree() const
+numeric pole_error::degree() const
 {
 	return deg;
 }
@@ -62,6 +62,8 @@ unsigned log2(unsigned n)
  *  the static flyweights on the heap. */
 int library_init::count = 0;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wuninitialized"
 // static numeric -120
 const numeric *_num_120_p;
 const ex _ex_120 = _ex_120;
@@ -298,6 +300,7 @@ const ex _ex120 = _ex120;
 // static numeric 144
 const numeric *_num144_p;
 const ex _ex144 = _ex144;
+#pragma clang diagnostic pop
 
 /** Ctor of static initialization helpers.  The fist call to this is going
  *  to initialize the library, the others do nothing. */
@@ -435,10 +438,6 @@ library_init::library_init()
 		print_python::get_class_info_static();
 		print_python_repr::get_class_info_static();
 		print_tree::get_class_info_static();
-		print_csrc::get_class_info_static();
-		print_csrc_float::get_class_info_static();
-		print_csrc_double::get_class_info_static();
-		print_csrc_cl_N::get_class_info_static();
 	}
 }
 

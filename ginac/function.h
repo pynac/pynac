@@ -69,7 +69,6 @@ unsigned NAME##_SERIAL::serial = \
 namespace GiNaC {
 
 class function;
-class symmetry;
 
 typedef ex (* eval_funcp)();
 typedef ex (* evalf_funcp)(PyObject* parent);
@@ -248,7 +247,6 @@ public:
 	function_options & remember(unsigned size, unsigned assoc_size=0,
 	                            unsigned strategy=remember_strategies::delete_never);
 	function_options & overloaded(unsigned o);
-	function_options & set_symmetry(const symmetry & s);
 
 	std::string get_name() const { return name; }
 	unsigned get_nparams() const { return nparams; }
@@ -281,6 +279,7 @@ public:
 
 	unsigned nparams;
 
+	eval_funcp pynac_eval_f;
 	eval_funcp eval_f;
 	evalf_funcp evalf_f;
 	conjugate_funcp conjugate_f;
@@ -354,6 +353,8 @@ public:
     function(unsigned ser, const ex & param1);
     function(unsigned ser, const ex & param1, const ex & param2);
     function(unsigned ser, const ex & param1, const ex & param2, const ex & param3);
+    function(unsigned ser, const ex & param1, const ex & param2, const ex & param3, const ex & param4);
+    function(unsigned ser, const ex & param1, const ex & param2, const ex & param3, const ex & param4, const ex & param5);
     function(unsigned ser, const ex & param1, const ex & param2, const ex & param3, const ex & param4, const ex & param5, const ex & param6);
 	// end of generated lines
 	function(unsigned ser, exprseq  es);
@@ -371,6 +372,7 @@ public:
 	ex series(const relational & r, int order, unsigned options = 0) const override;
         void useries(flint_series_t& fp, int order) const override;
         ex subs(const exmap & m, unsigned options = 0) const override;
+	ex normal(exmap & repl, exmap & rev_lookup, int level = 0, unsigned options = 0) const override;
 	ex thiscontainer(const exvector & v) const override;
 	ex thiscontainer(std::unique_ptr<exvector> vp) const override;
 	ex conjugate() const override;
@@ -427,6 +429,11 @@ inline bool is_the_function(const ex & x)
 #define is_ex_the_function(OBJ, FUNCNAME) (GiNaC::is_the_function<FUNCNAME##_SERIAL>(OBJ))
 
 bool has_function(const ex & x);
+bool has_function(const ex& x, const std::string& s);
+bool has_function(const std::vector<std::string>& v);
+bool has_function(const ex& x,
+                const std::vector<std::string>& v,
+                bool all);
 bool has_symbol_or_function(const ex & x);
 
 } // namespace GiNaC

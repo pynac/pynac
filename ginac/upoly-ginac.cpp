@@ -29,11 +29,11 @@
 #endif
 
 #include "ex.h"
+#include "ex_utils.h"
 #include "numeric.h"
 #include "upoly.h"
 #include "symbol.h"
 #include "add.h"
-#include "fail.h"
 #include "mul.h"
 #include "power.h"
 #include "operators.h"
@@ -79,18 +79,18 @@ ex quo(const ex &a, const ex &b, const ex &x, bool check_args)
 	ex r = a.expand();
 	if (r.is_zero())
 		return r;
-	int bdeg = b.degree(x);
-	int rdeg = r.degree(x);
+	numeric bdeg = b.degree(x);
+	numeric rdeg = r.degree(x);
 	ex blcoeff = b.expand().coeff(x, bdeg);
 	bool blcoeff_is_numeric = is_exactly_a<numeric>(blcoeff);
-	exvector v; v.reserve(std::max(rdeg - bdeg + 1, 0));
+	exvector v; //v.reserve(std::max(rdeg - bdeg + 1, 0));
 	while (rdeg >= bdeg) {
 		ex term, rcoeff = r.coeff(x, rdeg);
 		if (blcoeff_is_numeric)
 			term = rcoeff / blcoeff;
 		else {
 			if (!divide(rcoeff, blcoeff, term, false))
-				return (new fail())->setflag(status_flags::dynallocated);
+                                throw std::logic_error("");
 		}
 		term *= power(x, rdeg - bdeg);
 		v.push_back(term);
@@ -119,8 +119,7 @@ ex rem(const ex &a, const ex &b, const ex &x, bool check_args)
 	if (is_exactly_a<numeric>(a)) {
 		if  (is_exactly_a<numeric>(b))
 			return _ex0;
-		else
-			return a;
+		return a;
 	}
 #if FAST_COMPARE
 	if (a.is_equal(b))
@@ -133,8 +132,8 @@ ex rem(const ex &a, const ex &b, const ex &x, bool check_args)
 	ex r = a.expand();
 	if (r.is_zero())
 		return r;
-	int bdeg = b.degree(x);
-	int rdeg = r.degree(x);
+	numeric bdeg = b.degree(x);
+        numeric rdeg = r.degree(x);
 	ex blcoeff = b.expand().coeff(x, bdeg);
 	bool blcoeff_is_numeric = is_exactly_a<numeric>(blcoeff);
 	while (rdeg >= bdeg) {
@@ -143,7 +142,7 @@ ex rem(const ex &a, const ex &b, const ex &x, bool check_args)
 			term = rcoeff / blcoeff;
 		else {
 			if (!divide(rcoeff, blcoeff, term, false))
-				return (new fail())->setflag(status_flags::dynallocated);
+                                throw std::logic_error("");
 		}
 		term *= power(x, rdeg - bdeg);
 		r -= (term * b).expand();
@@ -165,11 +164,14 @@ ex decomp_rational(const ex &a, const ex &x)
 {
 	ex nd = numer_denom(a);
 	ex numer = nd.op(0), denom = nd.op(1);
-	ex q = quo(numer, denom, x);
-	if (is_exactly_a<fail>(q))
+        ex q;
+        try {
+        	q = quo(numer, denom, x);
+        }
+        catch (std::logic_error) {
 		return a;
-	else
-		return q + rem(numer, denom, x) / denom;
+        }
+	return q + rem(numer, denom, x) / denom;
 }
 
 
@@ -188,8 +190,7 @@ ex prem(const ex &a, const ex &b, const ex &x, bool check_args)
 	if (is_exactly_a<numeric>(a)) {
 		if (is_exactly_a<numeric>(b))
 			return _ex0;
-		else
-			return b;
+		return b;
 	}
 	if (check_args && (!a.info(info_flags::rational_polynomial) || !b.info(info_flags::rational_polynomial)))
 		throw(std::invalid_argument("prem: arguments must be polynomials over the rationals"));
@@ -197,8 +198,8 @@ ex prem(const ex &a, const ex &b, const ex &x, bool check_args)
 	// Polynomial long division
 	ex r = a.expand();
 	ex eb = b.expand();
-	int rdeg = r.degree(x);
-	int bdeg = eb.degree(x);
+	numeric rdeg = r.degree(x);
+	numeric bdeg = eb.degree(x);
 	ex blcoeff;
 	if (bdeg <= rdeg) {
 		blcoeff = eb.coeff(x, bdeg);
@@ -209,7 +210,7 @@ ex prem(const ex &a, const ex &b, const ex &x, bool check_args)
 	} else
 		blcoeff = _ex1;
 
-	int delta = rdeg - bdeg + 1, i = 0;
+	numeric delta = rdeg - bdeg + 1, i = 0;
 	while (rdeg >= bdeg && !r.is_zero()) {
 		ex rlcoeff = r.coeff(x, rdeg);
 		ex term = (power(x, rdeg - bdeg) * eb * rlcoeff).expand();
@@ -240,8 +241,7 @@ ex sprem(const ex &a, const ex &b, const ex &x, bool check_args)
 	if (is_exactly_a<numeric>(a)) {
 		if (is_exactly_a<numeric>(b))
 			return _ex0;
-		else
-			return b;
+		return b;
 	}
 	if (check_args && (!a.info(info_flags::rational_polynomial) || !b.info(info_flags::rational_polynomial)))
 		throw(std::invalid_argument("prem: arguments must be polynomials over the rationals"));
@@ -249,8 +249,8 @@ ex sprem(const ex &a, const ex &b, const ex &x, bool check_args)
 	// Polynomial long division
 	ex r = a.expand();
 	ex eb = b.expand();
-	int rdeg = r.degree(x);
-	int bdeg = eb.degree(x);
+	numeric rdeg = r.degree(x);
+	numeric bdeg = eb.degree(x);
 	ex blcoeff;
 	if (bdeg <= rdeg) {
 		blcoeff = eb.coeff(x, bdeg);
@@ -295,7 +295,8 @@ bool divide(const ex &a, const ex &b, ex &q, bool check_args)
 	if (is_exactly_a<numeric>(b)) {
 		q = a / b;
 		return true;
-	} else if (is_exactly_a<numeric>(a))
+	}
+        if (is_exactly_a<numeric>(a))
 		return false;
 #if FAST_COMPARE
 	if (a.is_equal(b)) {
@@ -326,7 +327,8 @@ bool divide(const ex &a, const ex &b, ex &q, bool check_args)
 		}
 		q = rem_new;
 		return true;
-	} else if (is_exactly_a<power>(b)) {
+	}
+        if (is_exactly_a<power>(b)) {
 		const ex& bb(b.op(0));
 		int exp_b = ex_to<numeric>(b.op(1)).to_int();
 		ex rem_new, rem_old = a;
@@ -388,11 +390,11 @@ bool divide(const ex &a, const ex &b, ex &q, bool check_args)
 		q = _ex0;
 		return true;
 	}
-	int bdeg = b.degree(x);
-	int rdeg = r.degree(x);
+	numeric bdeg = b.degree(x);
+	numeric rdeg = r.degree(x);
 	ex blcoeff = b.expand().coeff(x, bdeg);
 	bool blcoeff_is_numeric = is_exactly_a<numeric>(blcoeff);
-	exvector v; v.reserve(std::max(rdeg - bdeg + 1, 0));
+	exvector v; //v.reserve(std::max(rdeg - bdeg + 1, 0));
 	while (rdeg >= bdeg) {
 		ex term, rcoeff = r.coeff(x, rdeg);
 		if (blcoeff_is_numeric)

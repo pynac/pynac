@@ -66,24 +66,28 @@ symbol::symbol()
 symbol::symbol(std::string  initname, unsigned a_domain)
  : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(default_TeX_name()), domain(a_domain), ret_type(return_types::commutative), ret_type_tinfo(&symbol::tinfo_static)
 {
+        set_domain(a_domain);
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
 symbol::symbol(std::string  initname, unsigned rt, tinfo_t rtt, unsigned a_domain)
  : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(default_TeX_name()), domain(a_domain), ret_type(rt), ret_type_tinfo(rtt)
 {
+        set_domain(a_domain);
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
 symbol::symbol(std::string  initname, std::string  texname, unsigned a_domain)
  : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(std::move(texname)), domain(a_domain), ret_type(return_types::commutative), ret_type_tinfo(&symbol::tinfo_static)
 {
+        set_domain(a_domain);
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
 symbol::symbol(std::string  initname, std::string  texname, unsigned rt, tinfo_t rtt, unsigned a_domain)
  : inherited(&symbol::tinfo_static), serial(next_serial++), name(std::move(initname)), TeX_name(std::move(texname)), domain(a_domain), ret_type(rt), ret_type_tinfo(rtt)
 {
+        set_domain(a_domain);
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
@@ -103,6 +107,7 @@ symbol::symbol(const archive_node &n, lst &sym_lst)
 		domain = domain::complex;
 	if (!n.find_unsigned("return_type", ret_type))
 		ret_type = return_types::commutative;
+        set_domain(domain);
 	setflag(status_flags::evaluated | status_flags::expanded);
 }
 
@@ -170,106 +175,84 @@ void symbol::do_print_python_repr(const print_python_repr & c, unsigned level) c
 
 void symbol::set_domain(unsigned d)
 {
-        domain = d;
+        infoflagbase nb;
+        if (not (d == domain::complex))
+                nb = iflags;
         switch (d) {
-                case domain::complex:
-                        iflags.set(info_flags::real, false);
-                        iflags.set(info_flags::positive, false);
-                        iflags.set(info_flags::nonnegative, false);
-                        iflags.set(info_flags::integer, false);
-                        iflags.set(info_flags::even, false);
-                        break;
-                case domain::real:
-                        iflags.set(info_flags::real, true);
-                        if(iflags.get(info_flags::positive)) {
-                                iflags.set(info_flags::positive, true);
-                                iflags.set(info_flags::nonnegative, true);
-                        }  
-                        else {
-                                iflags.set(info_flags::positive, false);
-                                iflags.set(info_flags::nonnegative, false);
-                        }
-                        if(iflags.get(info_flags::integer)) {
-                                iflags.set(info_flags::integer, true);
-                        }
-                        else {
-                                iflags.set(info_flags::integer, false);
-                        }
-                        break;
-                        if(iflags.get(info_flags::even)) {
-                                iflags.set(info_flags::even, true);
-                        }
-                        else {
-                                iflags.set(info_flags::even, false);
-                        }
-                        break;
-                case domain::positive:
-                        iflags.set(info_flags::real, true);
-                        iflags.set(info_flags::positive, true);
-                        iflags.set(info_flags::nonnegative, true);
-                        if(iflags.get(info_flags::integer)) {
-                                iflags.set(info_flags::integer, true);
-                        }
-                        else {
-                                iflags.set(info_flags::integer, false);
-                        }
-                        break;
-                        if(iflags.get(info_flags::even)) {
-                                iflags.set(info_flags::even, true);
-                        }
-                        else {
-                                iflags.set(info_flags::even, false);
-                        }
-                        break;
-                case domain::integer:
-                        if(iflags.get(info_flags::positive)) {
-                                iflags.set(info_flags::positive, true);
-                        }
-                        else {
-                                iflags.set(info_flags::positive, false);
-                        }
-                        iflags.set(info_flags::integer, true);
-                        if(iflags.get(info_flags::even)) {
-                                iflags.set(info_flags::even, true);
-                        }
-                        else {
-                                iflags.set(info_flags::even, false);
-                        }
-                        break;
-                case domain::even:
-                        if(iflags.get(info_flags::positive)) {
-                                iflags.set(info_flags::positive, true);
-                        }
-                        else {
-                                iflags.set(info_flags::positive, false);
-                        }
-                        iflags.set(info_flags::integer, true);
-                        iflags.set(info_flags::even, true);
-                        break;
+        case domain::complex:
+                break;
+        case domain::real:
+                nb.set(info_flags::real, true);
+                break;
+        case domain::positive:
+                nb.set(info_flags::real, true);
+                nb.set(info_flags::positive, true);
+                nb.set(info_flags::nonzero, true);
+                break;
+        case domain::negative:
+                nb.set(info_flags::real, true);
+                nb.set(info_flags::negative, true);
+                nb.set(info_flags::nonzero, true);
+                break;
+        case domain::rational:
+                nb.set(info_flags::real, true);
+                nb.set(info_flags::rational, true);
+                break;
+        case domain::integer:
+                nb.set(info_flags::real, true);
+                nb.set(info_flags::rational, true);
+                nb.set(info_flags::integer, true);
+                break;
+        case domain::even:
+                nb.set(info_flags::real, true);
+                nb.set(info_flags::rational, true);
+                nb.set(info_flags::integer, true);
+                nb.set(info_flags::even, true);
+                break;
         }
+        iflags = nb;
+}
+
+void symbol::set_domain_from_ex(const ex& expr)
+{
+        iflags.clear();
+        if (expr.info(info_flags::even))
+                set_domain(domain::even);
+        else if (expr.is_integer())
+                set_domain(domain::integer);
+        else if (expr.info(info_flags::rational))
+                set_domain(domain::rational);
+        else if (expr.is_real())
+                set_domain(domain::real);
+
+        if (expr.is_positive())
+                set_domain(domain::positive);
+        else if (expr.info(info_flags::negative))
+                set_domain(domain::negative);
 }
 
 bool symbol::info(unsigned inf) const
 {
-	switch (inf) {
-		case info_flags::symbol:
-		case info_flags::polynomial:
-		case info_flags::integer_polynomial: 
-		case info_flags::cinteger_polynomial: 
-		case info_flags::rational_polynomial: 
-		case info_flags::crational_polynomial: 
-		case info_flags::rational_function: 
-		case info_flags::expanded:
-			return true;
-                case info_flags::nonzero:
-                        return iflags.get(info_flags::positive)
-                            or iflags.get(info_flags::negative);
-                case info_flags::infinity:
-                        return false;
-                default:
-                        return iflags.get(inf);
-	}
-	return false;
+        switch (inf) {
+        case info_flags::symbol:
+        case info_flags::polynomial:
+        case info_flags::integer_polynomial:
+        case info_flags::cinteger_polynomial:
+        case info_flags::rational_polynomial:
+        case info_flags::crational_polynomial:
+        case info_flags::rational_function:
+        case info_flags::expanded:
+                return true;
+        case info_flags::nonzero:
+                return iflags.get(info_flags::nonzero)
+                or iflags.get(info_flags::positive)
+                or iflags.get(info_flags::negative);
+        case info_flags::infinity:
+                return false;
+        default:
+                return iflags.get(inf);
+        }
+        return false;
 }
 
 ex symbol::eval(int level) const
@@ -282,23 +265,21 @@ ex symbol::eval(int level) const
 
 ex symbol::conjugate() const
 {
-	if (this->domain == domain::complex) {
-		return conjugate_function(*this).hold();
-	} else {
+	if (iflags.get(info_flags::real))
 		return *this;
-	}
+        return conjugate_function(*this).hold();
 }
 
 ex symbol::real_part() const
 {
-	if (domain==domain::real || domain==domain::positive)
+	if (iflags.get(info_flags::real))
 		return *this;
 	return real_part_function(*this).hold();
 }
 
 ex symbol::imag_part() const
 {
-	if (domain==domain::real || domain==domain::positive)
+	if (iflags.get(info_flags::real))
 		return _ex0;
 	return imag_part_function(*this).hold();
 }
@@ -318,34 +299,8 @@ ex symbol::derivative(const symbol & s) const
 {
 	if (compare_same_type(s) != 0)
 		return _ex0;
-	else
-		return _ex1;
+	return _ex1;
 }
-
-/*
-int symbol::compare(const basic& other) const
-{
-	static const tinfo_t pow_id = find_tinfo_key("power");
-	static const tinfo_t mul_id = find_tinfo_key("mul");
-	static const tinfo_t function_id = find_tinfo_key("function");
-	static const tinfo_t fderivative_id = find_tinfo_key("fderivative");
-	const tinfo_t typeid_this = tinfo();
-	const tinfo_t typeid_other = other.tinfo();
-	if (typeid_this==typeid_other) {
-		GINAC_ASSERT(typeid(*this)==typeid(other));
-		return compare_same_type(other);
-	} else if (typeid_other == pow_id) {
-		return -static_cast<const power&>(other).compare_symbol(*this);
-	} else if (typeid_other == mul_id) {
-		return -static_cast<const mul&>(other).compare_symbol(*this);
-	} else if (typeid_other == function_id ||
-			typeid_other == fderivative_id) {
-		return -1;
-	} else {
-		return (typeid_this<typeid_other ? -1 : 1);
-	}
-}
-*/
 
 int symbol::compare_same_type(const basic & other) const
 {
@@ -410,8 +365,8 @@ std::string symbol::default_TeX_name() const
 	 || name=="Sigma"        || name=="Upsilon"      || name=="Phi"
 	 || name=="Psi"          || name=="Omega")
 		return "\\" + name;
-	else
-		return name;
+	
+	return name;
 }
 
 //////////
@@ -430,9 +385,7 @@ const symbol & get_symbol(const std::string & s)
 	if (i != directory.end()) {
 		return i->second;
 	}
-	else {
-		return directory.insert(make_pair(s, symbol(s))).first->second;
-	}
+	return directory.insert(make_pair(s, symbol(s))).first->second;
 }
 
 bool has_symbol(const ex & x)

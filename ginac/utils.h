@@ -54,7 +54,7 @@ inline int compare_pointers(const T * a, const T * b)
 	// but std::less is.
 	if (std::less<const T *>()(a, b))
 		return -1;
-	else if (std::less<const T *>()(b, a))
+	if (std::less<const T *>()(b, a))
 		return 1;
 	return 0;
 }
@@ -343,7 +343,6 @@ extern const ex _ex_1_3;
 extern const numeric *_num_1_4_p;
 extern const ex _ex_1_4;
 extern const numeric *_num0_p;
-extern const basic *_num0_bp;
 extern const ex _ex0;
 extern const numeric *_num1_4_p;
 extern const ex _ex1_4;
@@ -393,8 +392,6 @@ extern const numeric *_num24_p;
 extern const ex _ex24;
 extern const numeric *_num25_p;
 extern const ex _ex25;
-extern const numeric *_num26_p;
-extern const ex _ex26;
 extern const numeric *_num26_p;
 extern const ex _ex26;
 extern const numeric *_num27_p;
@@ -454,6 +451,65 @@ DEFAULT_PRINT(classname, text) \
 void classname::do_print_latex(const print_latex & c, unsigned level) const \
 { \
 	c.s << latex; \
+}
+
+template<typename Key, typename Value>
+std::ostream& operator<<(std::ostream& os, const std::pair<const Key, Value>& p)
+{
+        os << p.first << " => " << p.second;
+        return os;
+}
+
+template<typename Container>
+void Log(const Container& c, std::string str="") {
+        if (not str.empty())
+                std::cerr << str << ":";
+        std::cerr << "{" << c.size() << "}\n";
+        for(const auto& elem : c)
+                std::cerr << elem << '\n';
+}
+
+inline
+void Log(const exmap& c, std::string str="") {
+        if (not str.empty())
+                std::cerr << str << ":";
+        std::cerr << "{" << c.size() << "}\n";
+        for(const auto& elem : c) {
+                std::cerr << "key:";
+                elem.first.dbgprint();
+                std::cerr << "val:";
+                elem.second.dbgprint();
+        }
+}
+
+template<typename K, typename V>
+void Log(const std::map<K,V>& c, std::string str="") {
+        if (not str.empty())
+                std::cerr << str << ":";
+        std::cerr << "{" << c.size() << "}\n";
+        for(const auto& elem : c)
+                std::cerr << "(" << elem.first << "," << elem.second << ")\n";
+}
+
+template <typename T>
+struct range_t
+{
+    T b, e;
+    range_t(T x, T y) : b(x), e(y) {}
+    T begin()
+    {
+        return b;
+    }
+    T end()
+    {
+        return e;
+    }
+};
+
+template <typename T>
+range_t<T> range(T b, T e)
+{
+    return range_t<T>(b, e);
 }
 
 } // namespace GiNaC

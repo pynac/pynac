@@ -25,7 +25,6 @@
 #define __GINAC_EXPAIRSEQ_H__
 
 #include "expair.h"
-#include "indexed.h"
 
 #include <vector>
 #include <list>
@@ -74,8 +73,8 @@ class expairseq : public basic
 public:
 	expairseq(const ex & lh, const ex & rh);
 	expairseq(const exvector & v);
-	expairseq(const epvector & v, ex  oc, bool do_index_renaming = false);
-	expairseq(std::unique_ptr<epvector>, ex  oc, bool do_index_renaming = false);
+	expairseq(const epvector & v, const numeric& oc, bool do_index_renaming = false);
+	expairseq(std::unique_ptr<epvector>, const numeric& oc, bool do_index_renaming = false);
 	
 	// functions overriding virtual functions from base classes
 public:
@@ -84,6 +83,7 @@ public:
 	size_t nops() const override;
 	const ex op(size_t i) const override;
 	virtual ex stable_op(size_t i) const;
+	const numeric & get_overall_coeff() const { return overall_coeff; }
 	ex map(map_function & f) const override;
 	ex eval(int level=0) const override;
 	ex to_rational(exmap & repl) const override;
@@ -101,8 +101,8 @@ protected:
 	
 	// new virtual functions which can be overridden by derived classes
 protected:
-	virtual ex thisexpairseq(const epvector & v, const ex & oc, bool do_index_renaming = false) const;
-	virtual ex thisexpairseq(std::unique_ptr<epvector> vp, const ex & oc, bool do_index_renaming = false) const;
+	virtual ex thisexpairseq(const epvector & v, const numeric& oc, bool do_index_renaming = false) const;
+	virtual ex thisexpairseq(std::unique_ptr<epvector> vp, const numeric& oc, bool do_index_renaming = false) const;
 	virtual void printseq(const print_context & c, char delim,
 	                      unsigned this_precedence,
 	                      unsigned upper_precedence) const;
@@ -110,14 +110,14 @@ protected:
 	                       unsigned upper_precedence) const;
 	virtual expair split_ex_to_pair(const ex & e) const;
 	virtual expair combine_ex_with_coeff_to_pair(const ex & e,
-	                                             const ex & c) const;
+	                                             const numeric & c) const;
 	virtual expair combine_pair_with_coeff_to_pair(const expair & p,
-	                                               const ex & c) const;
+	                                               const numeric & c) const;
 	virtual ex recombine_pair_to_ex(const expair & p) const;
 	virtual bool expair_needs_further_processing(epp it);
-	virtual ex default_overall_coeff() const;
-	virtual void combine_overall_coeff(const ex & c);
-	virtual void combine_overall_coeff(const ex & c1, const ex & c2);
+	virtual numeric default_overall_coeff() const;
+	virtual void combine_overall_coeff(const numeric & c);
+	virtual void combine_overall_coeff(const numeric & c1, const numeric & c2);
 	virtual bool can_make_flat(const expair & p) const;
 	
 	// non-virtual functions in this class
@@ -168,7 +168,7 @@ protected:
 protected:
 	epvector seq;
 	mutable epvector seq_sorted;
-	ex overall_coeff;
+	numeric overall_coeff;
 #if EXPAIRSEQ_USE_HASHTAB
 	epplistvector hashtab;
 	unsigned hashtabsize;
@@ -186,53 +186,16 @@ protected:
 class make_flat_inserter
 {
 	public:
-		make_flat_inserter(const epvector &epv, bool b): do_renaming(b)
-		{
-			if (!do_renaming)
-				return;
-			for (const auto & elem : epv)
-				if(are_ex_trivially_equal(elem.coeff, 1))
-					combine_indices(elem.rest.get_free_indices());
-		}
-		make_flat_inserter(const exvector &v, bool b): do_renaming(b)
-		{
-			if (!do_renaming)
-				return;
-			for (const auto & elem : v)
-				combine_indices(elem.get_free_indices());
-		}
+		make_flat_inserter(const epvector &epv, bool b)
+		{}
+		make_flat_inserter(const exvector &v, bool b)
+                {}
 		ex handle_factor(const ex &x, const ex &coeff)
 		{
 			if (is_exactly_a<numeric>(coeff) and coeff.is_zero())
 				return coeff;
-			if (!do_renaming)
-				return x;
-			exvector dummies_of_factor;
-			if (is_exactly_a<numeric>(coeff) && coeff.is_equal(GiNaC::numeric(1)))
-				dummies_of_factor = get_all_dummy_indices_safely(x);
-			else if (is_exactly_a<numeric>(coeff) && coeff.is_equal(GiNaC::numeric(2)))
-				dummies_of_factor = x.get_free_indices();
-			else
-				return x;
-			if (dummies_of_factor.size() == 0)
-				return x;
-			sort(dummies_of_factor.begin(), dummies_of_factor.end(), ex_is_less());
-			ex new_factor = rename_dummy_indices_uniquely(used_indices,
-				dummies_of_factor, x);
-			combine_indices(dummies_of_factor);
-			return new_factor;
+		        return x;
 		}
-	private:
-		void combine_indices(const exvector &dummies_of_factor)
-		{
-			exvector new_dummy_indices;
-			set_union(used_indices.begin(), used_indices.end(),
-				dummies_of_factor.begin(), dummies_of_factor.end(),
-				std::back_insert_iterator<exvector>(new_dummy_indices), ex_is_less());
-			used_indices.swap(new_dummy_indices);
-		}
-		bool do_renaming;
-		exvector used_indices;
 };
 
 } // namespace GiNaC

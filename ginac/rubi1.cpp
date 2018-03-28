@@ -1,4 +1,4 @@
-
+#include <Python.h>
 #include "numeric.h"
 #include "power.h"
 #include "add.h"
@@ -11,6 +11,7 @@
 #include "operators.h"
 #include "inifcns.h"
 #include "py_funcs.h"
+#include "ex_utils.h"
 
 #ifdef PYNAC_HAVE_LIBGIAC
 #undef _POSIX_C_SOURCE
@@ -114,7 +115,7 @@ ex rubi(ex e, ex xe)
                                 throw rubi_exception();
                 int bdeg = 0;
                 for (const auto& bterm : bvec)
-                        bdeg = bdeg + bterm.degree(x);
+                        bdeg = bdeg + ex_to<numeric>(bterm.degree(x)).to_int();
 
                 if (xvec.size() == 2) {
                         if (bdeg == 2) {
@@ -149,7 +150,7 @@ ex rubi(ex e, ex xe)
 
 static ex rubi111(ex a, ex b, ex m, ex x)
 {
-        if (b.is_integer_one() and a.is_zero())
+        if (b.is_one() and a.is_zero())
                 if (is_exactly_a<numeric>(m)) {
                         if (ex_to<numeric>(m).is_minus_one())
                                 return log(x);
@@ -488,7 +489,7 @@ static ex rubi121(ex a, ex b, ex c, ex p, ex x)
                 if (not b.is_zero()) {
                         ex d = _ex1 - _ex4*a*c/b/b;
                         if (d.info(info_flags::rational)
-                            and ((d*d).is_integer_one()
+                            and ((d*d).is_one()
                                     or not qq.info(info_flags::rational)))
                                 return _ex_2/b * rubi131(d, _ex_1, _ex2, _ex_1, x).subs(x == x*c*_ex2/b+_ex1);
                 }
@@ -528,7 +529,7 @@ static ex rubi131(ex ae, ex be, ex ne, ex pe, ex x)
         ex _ex3_2 = _ex3/_ex2;
         ex _ex3_4 = _ex3/_ex4;
         ex _ex_3_4 = _ex_3/_ex4;
-        if (ne.is_integer_one())
+        if (ne.is_one())
                 return rubi111(ae, be, pe, x);
         // Rule 0
         if (is_exactly_a<numeric>(pe)

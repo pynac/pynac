@@ -20,25 +20,24 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <Python.h>
 #include "py_funcs.h"
 #include "power.h"
 #include "expairseq.h"
 #include "add.h"
 #include "mul.h"
-#include "ncmul.h"
 #include "numeric.h"
 #include "constant.h"
 #include "infinity.h"
 #include "operators.h"
 #include "inifcns.h" // for log() in power::derivative() and exp for printing
-#include "indexed.h"
 #include "symbol.h"
 #include "lst.h"
 #include "archive.h"
 #include "utils.h"
 #include "relational.h"
 #include "compiler.h"
-#include "function.h"
+//#include "function.h"
 
 #include <vector>
 #include <stdexcept>
@@ -52,9 +51,9 @@
 namespace GiNaC {
 
 GINAC_IMPLEMENT_REGISTERED_CLASS_OPT(power, basic,
-  print_func<print_dflt>(&power::do_print_dflt).
+  print_func<print_context>(&power::do_print).
   print_func<print_latex>(&power::do_print_latex).
-  print_func<print_csrc>(&power::do_print_csrc).
+  print_func<print_tree>(&basic::do_print_tree).
   print_func<print_python>(&power::do_print_python).
   print_func<print_python_repr>(&power::do_print_python_repr))
 
@@ -118,9 +117,9 @@ void power::print_power(const print_context & c, const char *powersymbol, const 
 	c.s << closebrace;
 }
 
-void power::do_print_dflt(const print_dflt & c, unsigned level) const
+void power::do_print(const print_context & c, unsigned level) const
 {
-       if ((-exponent).is_integer_one()) {
+       if (exponent.is_minus_one()) {
 		// inverses printed in a special way
  	        if (level >= 20) c.s << "(";
 		c.s << "1/";
@@ -141,7 +140,7 @@ void power::do_print_dflt(const print_dflt & c, unsigned level) const
 	} else {
 
 		std::stringstream tstream;
-		print_dflt tcontext(tstream, c.options);
+		print_context tcontext(tstream, c.options);
 		exponent.print(tcontext, precedence());
 		std::string expstr = tstream.str();
                 if (expstr[0] == '-') {
@@ -153,13 +152,13 @@ void power::do_print_dflt(const print_dflt & c, unsigned level) const
 		// exp function prints as e^a. Printing powers of this can be
 		// confusing, so we add parenthesis if the basis is exp
 		bool exp_parenthesis = is_ex_the_function(basis, exp) and
-                        not basis.op(0).is_integer_one();
+                        not basis.op(0).is_one();
 		if (exp_parenthesis)
 			c.s << '(';
 		basis.print(c, precedence());
 		if (exp_parenthesis)
 			c.s << ')';
-		if (not (-exponent).is_integer_one()) {
+		if (not exponent.is_minus_one()) {
     		        c.s << "^" << expstr;
 		}
 		if (precedence() <= level)
@@ -186,7 +185,7 @@ void power::do_print_latex(const print_latex & c, unsigned level) const
 		// exp function prints as e^a. Printing powers of this can be
 		// confusing, so we add parenthesis if the basis is exp
 		bool base_parenthesis = is_ex_the_function(basis, exp) and
-			not basis.op(0).is_integer_one();
+			not basis.op(0).is_one();
 
 		if (precedence() <= level)
 			c.s << "{\\left(";
@@ -198,7 +197,7 @@ void power::do_print_latex(const print_latex & c, unsigned level) const
 		if (base_parenthesis)
 			c.s << "\\right)";
 
-		if (not (-exponent).is_integer_one()) {
+		if (not exponent.is_minus_one()) {
     		        c.s << "^{";
 			bool exp_parenthesis = is_exactly_a<power>(exponent);
 			if (exp_parenthesis)
@@ -211,77 +210,6 @@ void power::do_print_latex(const print_latex & c, unsigned level) const
 
 		if (precedence() <= level)
 			c.s << "\\right)"<<'}';
-	}
-}
-
-static void print_sym_pow(const print_context & c, const symbol &x, int exp)
-{
-	// Optimal output of integer powers of symbols to aid compiler CSE.
-	// C.f. ISO/IEC 14882:1998, section 1.9 [intro execution], paragraph 15
-	// to learn why such a parenthesation is really necessary.
-	if (exp == 1) {
-		x.print(c);
-	} else if (exp == 2) {
-		x.print(c);
-		c.s << "*";
-		x.print(c);
-	} else if ((exp & 1) != 0) {
-		x.print(c);
-		c.s << "*";
-		print_sym_pow(c, x, exp-1);
-	} else {
-		c.s << "(";
-		print_sym_pow(c, x, exp >> 1);
-		c.s << ")*(";
-		print_sym_pow(c, x, exp >> 1);
-		c.s << ")";
-	}
-}
-
-void power::do_print_csrc(const print_csrc & c, unsigned level) const
-{
-	if (is_a<print_csrc_cl_N>(c)) {
-		if (exponent.is_integer_one()) {
-			c.s << "recip(";
-			basis.print(c);
-			c.s << ')';
-			return;
-		}
-		c.s << "expt(";
-		basis.print(c);
-		c.s << ", ";
-		exponent.print(c);
-		c.s << ')';
-		return;
-	}
-
-	// Integer powers of symbols are printed in a special, optimized way
-	if (is_exactly_a<numeric>(exponent)
-            and exponent.info(info_flags::integer)
-	    and (is_exactly_a<symbol>(basis) or is_exactly_a<constant>(basis))) {
-		int exp = ex_to<numeric>(exponent).to_int();
-		if (exp > 0)
-			c.s << '(';
-		else {
-			exp = -exp;
-			c.s << "1.0/(";
-		}
-		print_sym_pow(c, ex_to<symbol>(basis), exp);
-		c.s << ')';
-
-	// <expr>^-1 is printed as "1.0/<expr>" or with the recip() function of CLN
-	} else if (exponent.is_integer_one()) {
-		c.s << "1.0/(";
-		basis.print(c);
-		c.s << ')';
-
-	// Otherwise, use the pow() function
-	} else {
-		c.s << "pow(";
-		basis.print(c);
-		c.s << ',';
-		exponent.print(c);
-		c.s << ')';
 	}
 }
 
@@ -301,59 +229,59 @@ void power::do_print_python_repr(const print_python_repr & c, unsigned level) co
 
 bool power::info(unsigned inf) const
 {
-	switch (inf) {
-		case info_flags::polynomial:
-		case info_flags::integer_polynomial:
-		case info_flags::cinteger_polynomial:
-		case info_flags::rational_polynomial:
-		case info_flags::crational_polynomial:
-                case info_flags::integer:
-			return exponent.info(info_flags::nonnegint) &&
-			       basis.info(inf);
-		case info_flags::rational_function:
-			return exponent.info(info_flags::integer) &&
-			       basis.info(inf);
-                case info_flags::inexact:
-                        return exponent.info(info_flags::inexact) or
-                                basis.info(info_flags::inexact);
-		case info_flags::algebraic:
-			return !exponent.info(info_flags::integer) ||
-			       basis.info(inf);
-		case info_flags::expanded:
-			return (flags & status_flags::expanded) != 0u;
-		case info_flags::positive:
-                        if (exponent.info(info_flags::even))
-                                return basis.info(info_flags::real)
-                                   and basis.info(info_flags::nonzero);
-                        if (exponent.info(info_flags::odd))
-                                return basis.info(info_flags::positive);
-			return basis.info(info_flags::positive) && exponent.info(info_flags::real);
-		case info_flags::nonnegative:
-			return (basis.info(info_flags::positive) && exponent.info(info_flags::real)) ||
-			       (basis.info(info_flags::real) && exponent.info(info_flags::integer) && exponent.info(info_flags::even));
-		case info_flags::real:
-			return ((basis.info(inf) and
-                                 (exponent.info(info_flags::integer) or
-                                 exponent.info(info_flags::positive))) or
-                                (basis.info(info_flags::positive) and
-                                 exponent.info(inf)));
-		case info_flags::has_indices: {
-			if ((flags & status_flags::has_indices) != 0u)
-				return true;
-			else if ((flags & status_flags::has_no_indices) != 0u)
-				return false;
-			else if (basis.info(info_flags::has_indices)) {
-				setflag(status_flags::has_indices);
-				clearflag(status_flags::has_no_indices);
-				return true;
-			} else {
-				clearflag(status_flags::has_indices);
-				setflag(status_flags::has_no_indices);
-				return false;
-			}
-		}
-	}
-	return inherited::info(inf);
+        switch (inf) {
+        case info_flags::polynomial:
+        case info_flags::integer_polynomial:
+        case info_flags::cinteger_polynomial:
+        case info_flags::rational_polynomial:
+        case info_flags::crational_polynomial:
+        case info_flags::integer:
+                return exponent.info(info_flags::nonnegint)
+                and basis.info(inf);
+        case info_flags::even:
+                return exponent.info(info_flags::posint)
+                and basis.is_integer();
+        case info_flags::rational_function:
+        case info_flags::rational:
+                return exponent.is_integer()
+                       and basis.info(inf);
+        case info_flags::inexact:
+                return exponent.info(inf)
+                or basis.info(inf);
+        case info_flags::algebraic:
+                return !exponent.is_integer()
+                or basis.info(inf);
+        case info_flags::expanded:
+                return (flags & status_flags::expanded) != 0u;
+        case info_flags::positive:
+                if (exponent.info(info_flags::even))
+                        return basis.is_real()
+                        and basis.info(info_flags::nonzero);
+                if (exponent.info(info_flags::odd))
+                        return basis.is_positive();
+                return basis.is_positive()
+                       and exponent.is_real();
+        case info_flags::nonnegative:
+                return (basis.is_positive()
+                        and exponent.is_real())
+                    or (basis.is_real()
+                        and exponent.is_integer()
+                        and exponent.info(info_flags::even));
+        case info_flags::negative:
+                if (exponent.info(info_flags::odd))
+                        return basis.info(inf);
+                return false;
+        case info_flags::real:
+                return ((basis.info(inf)
+                         and exponent.is_integer())
+                     or (basis.is_positive()
+                         and exponent.info(inf)));
+        case info_flags::nonzero:
+                return (basis.info(inf)
+                     or exponent.is_zero()
+                     or exponent.info(info_flags::negative));
+        }
+        return inherited::info(inf);
 }
 
 size_t power::nops() const
@@ -383,8 +311,8 @@ ex power::map(map_function & f) const
 	if (!are_ex_trivially_equal(basis, mapped_basis)
 	 || !are_ex_trivially_equal(exponent, mapped_exponent))
 		return (new power(mapped_basis, mapped_exponent))->setflag(status_flags::dynallocated);
-	else
-		return *this;
+	
+	return *this;
 }
 
 bool power::is_polynomial(const ex & var) const
@@ -393,71 +321,59 @@ bool power::is_polynomial(const ex & var) const
 		if (basis.has(var))
 			// basis is non-constant polynomial in var
 			return exponent.info(info_flags::nonnegint);
-		else
-			// basis is constant in var
-			return !exponent.has(var);
+		
+                // basis is constant in var
+                return !exponent.has(var);
 	}
 	// basis is a non-polynomial function of var
 	return false;
 }
 
-int power::degree(const ex & s) const
+numeric power::degree(const ex & s) const
 {
 	if (is_equal(ex_to<basic>(s)))
-		return 1;
-	else if (is_exactly_a<numeric>(exponent) && ex_to<numeric>(exponent).is_integer()) {
+		return *_num1_p;
+	if (is_exactly_a<numeric>(exponent)
+            and ex_to<numeric>(exponent).is_real()) {
 		if (basis.is_equal(s))
-			return ex_to<numeric>(exponent).to_int();
-		else
-			return basis.degree(s) * ex_to<numeric>(exponent).to_int();
+			return ex_to<numeric>(exponent);
+                return basis.degree(s) * ex_to<numeric>(exponent);
 	} else if (basis.has(s))
 		throw(std::runtime_error("power::degree(): undefined degree because of non-integer exponent"));
 	else
-		return 0;
+		return *_num0_p;
 }
 
-int power::ldegree(const ex & s) const 
+numeric power::ldegree(const ex & s) const 
 {
 	if (is_equal(ex_to<basic>(s)))
-		return 1;
-	else if (is_exactly_a<numeric>(exponent) && ex_to<numeric>(exponent).is_integer()) {
+		return *_num1_p;
+	if (is_exactly_a<numeric>(exponent)
+            and ex_to<numeric>(exponent).is_real()) {
 		if (basis.is_equal(s))
-			return ex_to<numeric>(exponent).to_int();
-		else
-			return basis.ldegree(s) * ex_to<numeric>(exponent).to_int();
+			return ex_to<numeric>(exponent);
+		return basis.ldegree(s) * ex_to<numeric>(exponent);
 	} else if (basis.has(s))
 		throw(std::runtime_error("power::ldegree(): undefined degree because of non-integer exponent"));
 	else
-		return 0;
+		return *_num0_p;
 }
 
-ex power::coeff(const ex & s, int n) const
+ex power::coeff(const ex & s, const ex & n) const
 {
 	if (is_equal(ex_to<basic>(s)))
-		return n==1 ? _ex1 : _ex0;
-	else if (!basis.is_equal(s)) {
+		return n.is_one() ? _ex1 : _ex0;
+	if (!basis.is_equal(s)) {
 		// basis not equal to s
-		if (n == 0)
+		if (n.is_zero())
 			return *this;
-		else
-			return _ex0;
 	} else {
 		// basis equal to s
-		if (is_exactly_a<numeric>(exponent) && ex_to<numeric>(exponent).is_integer()) {
-			// integer exponent
-			int int_exp = ex_to<numeric>(exponent).to_int();
-			if (n == int_exp)
-				return _ex1;
-			else
-				return _ex0;
-		} else {
-			// non-integer exponents are treated as zero
-			if (n == 0)
-				return *this;
-			else
-				return _ex0;
-		}
+                if (not n.is_zero()
+                    and exponent.is_equal(n))
+                        return _ex1;
 	}
+        return _ex0;
 }
 
 /** Perform automatic term rewriting rules in this class.  In the following
@@ -477,9 +393,9 @@ ex power::coeff(const ex & s, int n) const
  *  @param level cut-off in recursive evaluation */
 ex power::eval(int level) const
 {
-	if ((level==1) && ((flags & status_flags::evaluated) != 0u))
+	if (level == 1 and is_evaluated())
 		return *this;
-	else if (level == -max_recursion_level)
+	if (level == -max_recursion_level)
 		throw(std::runtime_error("max recursion level reached"));
 	
 	const ex & ebasis    = level==1 ? basis    : basis.eval(level-1);
@@ -493,6 +409,12 @@ ex power::eval(int level) const
 	if (is_exactly_a<numeric>(ebasis)) {
 		basis_is_numerical = true;
 		num_basis = ex_to<numeric>(ebasis);
+
+                // (negative num)^even --> (positive num)^even
+                if (num_basis.is_negative()
+                    and eexponent.info(info_flags::even)
+                    and eexponent.is_real())
+                        return power(-num_basis, eexponent);
 	}
 	if (is_exactly_a<numeric>(eexponent)) {
 		exponent_is_numerical = true;
@@ -508,10 +430,10 @@ ex power::eval(int level) const
 			throw(std::domain_error("power::eval(): pow(Infinity, 0) is undefined."));
 		if (eexponent.info(info_flags::negative))
 			return _ex0;
-		if (eexponent.info(info_flags::positive)) {
+		if (eexponent.is_positive()) {
 			if (basis_inf.is_unsigned_infinity())
 				return UnsignedInfinity;
-			else
+			
 				return mul(pow(basis_inf.get_direction(), eexponent), Infinity);
                 }
 		throw(std::domain_error("power::eval(): pow(Infinity, c)"
@@ -528,9 +450,9 @@ ex power::eval(int level) const
 		// x^(c*oo) --> (x^c)^(+oo)
 		const ex abs_base = abs(pow(ebasis, exp_inf.get_direction()));
 		if (abs_base > _ex1) {
-			if (ebasis.info(info_flags::positive))
+			if (ebasis.is_positive())
 				return Infinity;
-			else
+			
 				return UnsignedInfinity;
                         }
 		if (abs_base < _ex1) return _ex0;
@@ -541,18 +463,15 @@ ex power::eval(int level) const
 	}
 	
 	// ^(x,0) -> 1  (0^0 also handled here)
-	if (eexponent.is_zero() && 
-		!(basis_is_numerical && 
-			num_basis.is_parent_pos_char())) {
+	if (eexponent.is_zero())
 		return _ex1;
-	}
 	
 	// ^(x,1) -> x
-	if (eexponent.is_integer_one())
+	if (eexponent.is_one())
 		return ebasis;
 
 	// ^(0,c1) -> 0 or exception  (depending on real value of c1)
-	if (ebasis.is_zero() && exponent_is_numerical) {
+	if (exponent_is_numerical and ebasis.is_zero() ) {
 		if ((num_exponent.real()).is_zero())
 			throw (std::domain_error("power::eval(): pow(0,I) is undefined"));
 		else if ((num_exponent.real()).is_negative())
@@ -562,94 +481,68 @@ ex power::eval(int level) const
 	}
 
 	// ^(1,x) -> 1
-	if (ebasis.is_integer_one())
+	if (ebasis.is_one())
 		return _ex1;
 
 	// power of a function calculated by separate rules defined for this function
-	if (is_exactly_a<function>(ebasis))
+        if (is_exactly_a<function>(ebasis)) {
+                const function& f = ex_to<function>(ebasis);
+                if (f.get_serial() == exp_SERIAL::serial) {
+                        if (is_exactly_a<numeric>(f.op(0))
+                            or exponent_is_numerical)
+                                return exp(mul(eexponent, f.op(0)));
+                }
 		return ex_to<function>(ebasis).power(eexponent);
+        }
 
 	// Turn (x^c)^d into x^(c*d) in the case that x is positive and c is real,
         // or if d is integer (and positive to preserve fraction output).
-	if (is_exactly_a<power>(ebasis) and ((eexponent.info(info_flags::integer)
-                                          and eexponent.info(info_flags::positive))
-                                        or (ebasis.op(0).info(info_flags::positive)
-                                          and ebasis.op(1).info(info_flags::real))))
-		return power(ebasis.op(0), ebasis.op(1) * eexponent);
+        // Secondly, if both c,d are numeric negative then cancel minuses.
+	if (is_exactly_a<power>(ebasis)) {
+                if (((eexponent.is_integer()
+                      and eexponent.is_positive())
+                    or (ebasis.op(0).is_positive()
+                      and ebasis.op(1).is_real())))
+		        return power(ebasis.op(0), ebasis.op(1) * eexponent);
+        }
 
+        // (negative oc)^even --> (positive oc)^even
+        if (is_exactly_a<mul>(ebasis)
+            and ex_to<mul>(ebasis).overall_coeff.is_negative()
+            and eexponent.info(info_flags::even)
+            and eexponent.is_real())
+                return power(-ebasis, eexponent);
 
 	if (exponent_is_numerical) {
 		// ^(c1,c2) -> c1^c2  (c1, c2 numeric(),
 		// except if c1,c2 are rational, but c1^c2 is not)
-		if (basis_is_numerical) {
-			const bool basis_is_crational = num_basis.is_crational();
+                if (basis_is_numerical) {
+                        const bool basis_is_crational = num_basis.is_crational();
                         const bool exponent_is_rational = num_exponent.is_rational();
-			const bool exponent_is_crational = exponent_is_rational || num_exponent.is_crational();
-			if (!basis_is_crational || !exponent_is_crational) {
-				// return a plain float
-				return (new numeric(num_basis.power(num_exponent)))->setflag(status_flags::dynallocated |
-				                                                               status_flags::evaluated |
-				                                                               status_flags::expanded);
-			}
+                        const bool exponent_is_crational = num_exponent.is_crational();
+                        if (not basis_is_crational
+                            or not exponent_is_crational) {
+                                // return a plain float
+                                ex e = num_basis.power(num_exponent);
+                                if (not is_exactly_a<numeric>(e))
+                                        return (new power(ebasis, eexponent))->
+                                                setflag(status_flags::dynallocated
+                                                     | status_flags::evaluated);
+                                return e;
+                        }
 
-			if (exponent_is_rational) {
-				const numeric res = num_basis.power(num_exponent);
-				if (res.is_crational()) {
-					return res;
-				}
-			}
-			GINAC_ASSERT(!num_exponent->is_integer());  // has been handled by now
+                        if (exponent_is_rational)
+                                return num_basis.power(num_exponent);
+		        return this->hold();
+                }
 
-			// ^(c1,n/m) -> *(c1^q,c1^(n/m-q)), 0<(n/m-q)<1, q integer
-			if (basis_is_crational && exponent_is_rational) {
-				const numeric n = num_exponent.numer();
-				const numeric m = num_exponent.denom();
-				numeric r;
-				numeric q = iquo(n, m, r);
-				if (r.is_negative()) {
-					r += m;
-					--q;
-				}
-				if (q.is_zero()) {  // the exponent was in the allowed range 0<(n/m)<1
-					if (num_basis.is_rational()) {
-						// call rational_power_parts
-						// for a^b return c,d such that a^b = c*d^b
-						PyObject* basis_py = num_basis.to_pyobject();
-						PyObject* exponent_py = num_exponent.to_pyobject();
-						PyObject* restuple = py_funcs.py_rational_power_parts(basis_py, exponent_py);
-						if(restuple == nullptr) {
-							throw(std::runtime_error("power::eval, error in rational_power_parts"));
-						}
-						PyObject *ppower = PyTuple_GetItem(restuple,0);
-						PyObject *newbasis = PyTuple_GetItem(restuple,1);
-						const bool ppower_equals_one = PyObject_IsTrue(PyTuple_GetItem(restuple, 2)) != 0;
-						ex result = (new power(newbasis,exponent))->setflag(status_flags::dynallocated | status_flags::evaluated);
-						if (not ppower_equals_one)
-							result = (new mul(result, ppower))->setflag(status_flags::dynallocated | status_flags::evaluated);
-						Py_DECREF(restuple);
-						Py_DECREF(basis_py);
-						Py_DECREF(exponent_py);
-						return result;
-					}
-					return this->hold();
-				} else if (r.is_zero()) {
-					// if r == 0, the following else clause causes the power
-					// constructor to be called again with the same parameter
-					// leading to an infinite loop
-					return num_basis.power(q);
-				} else {
-					// assemble resulting product, but allowing for a re-evaluation,
-					// because otherwise we'll end up with something like
-					//    (7/8)^(4/3)  ->  7/8*(1/2*7^(1/3))
-					// instead of 7/16*7^(1/3).
-					ex prod = power(num_basis, r.div(m));
-					return prod * power(num_basis, q);
-				}
-			}
-		}
-	
-		// ^(^(x,c1),c2) -> ^(x,c1*c2)
-		// (c1, c2 numeric(), c2 integer or -1 < c1 <= 1 or (c1=-1 and c2>0),
+                // (2*x + 6*y)^(-4) -> 1/16*(x + 3*y)^(-4)
+                if (is_exactly_a<add>(ebasis))
+                        return ex_to<add>(ebasis).power(num_exponent);
+
+                // ^(^(x,c1),c2) -> ^(x,c1*c2)
+		// (c1, c2 numeric(), c2 integer or -1 < c1 <= 1 or
+                // (c1=-1 and c2>0),
 		// case c1==1 should not happen, see below!)
 		if (is_exactly_a<power>(ebasis)) {
 			const power & sub_power = ex_to<power>(ebasis);
@@ -657,74 +550,53 @@ ex power::eval(int level) const
 			const ex & sub_exponent = sub_power.exponent;
 			if (is_exactly_a<numeric>(sub_exponent)) {
 				const numeric & num_sub_exponent = ex_to<numeric>(sub_exponent);
+                                if (num_sub_exponent.is_negative()
+                                    and num_exponent.is_negative())
+                                        return power(power(sub_basis,
+                                                           -num_sub_exponent),
+                                                     -num_exponent);
 				GINAC_ASSERT(num_sub_exponent!=numeric(1));
 				if (num_exponent.is_integer() || (abs(num_sub_exponent) - (*_num1_p)).is_negative() 
 						|| (num_sub_exponent == *_num_1_p && num_exponent.is_positive())) {
 					return power(sub_basis,num_sub_exponent.mul(num_exponent));
 				}
+                                numeric pexp = num_sub_exponent * num_exponent;
+                                if (pexp.is_integer()
+                                    and num_sub_exponent.is_even()
+                                    and sub_basis.is_real())
+                                        return power(abs(sub_basis), pexp);
 			}
 		}
 	
-		if (num_exponent.is_integer()) {
-                        
-                        // ^(*(x,y,z),c1) -> *(x^c1,y^c1,z^c1) (c1 integer)
-                        if (is_exactly_a<mul>(ebasis)) {
-                                return expand_mul(ex_to<mul>(ebasis), num_exponent, 0);
-                        }
-
-                        // (2*x + 6*y)^(-4) -> 1/16*(x + 3*y)^(-4)
-                        if (is_exactly_a<add>(ebasis)) {
-                                numeric icont = ebasis.integer_content();
-                                const numeric lead_coeff = 
-                                        ex_to<numeric>(ex_to<add>(ebasis).\
-                                                        lead_coeff()).div(icont);
-
-                                const bool canonicalizable = lead_coeff.is_integer();
-                                const bool unit_normal = lead_coeff.is_pos_integer() || lead_coeff.is_parent_pos_char();
-                                if (canonicalizable && (! unit_normal))
-                                        icont = icont.mul(*_num_1_p);
-
-                                if (canonicalizable and not icont.is_one()) {
-                                        const add& addref = ex_to<add>(ebasis);
-                                        auto  addp = new add(addref);
-                                        addp->setflag(status_flags::dynallocated);
-                                        addp->clearflag(status_flags::hash_calculated);
-                                        addp->overall_coeff = ex_to<numeric>(addp->overall_coeff).div_dyn(icont);
-                                        addp->seq_sorted.resize(0);
-                                        for (auto & elem : addp->seq)
-                                                elem.coeff = ex_to<numeric>(elem.coeff).div_dyn(icont);
-
-                                        const numeric c = icont.power(num_exponent);
-                                        if (likely(not c.is_one()))
-                                                return (new mul(power(*addp, num_exponent), c))->setflag(status_flags::dynallocated);
-                                        else
-                                                return power(*addp, num_exponent);
-                                }
-                        }
-                }
-
-		// ^(*(...,x;c1),c2) -> *(^(*(...,x;1),c2),c1^c2)  (c1, c2 numeric(), c1>0)
-		// ^(*(...,x;c1),c2) -> *(^(*(...,x;-1),c2),(-c1)^c2)  (c1, c2 numeric(), c1<0)
+		// ^(*(...,x;c1),c2) -> *(^(*(...,x;1),c2),c1^c2)
+                // (c1, c2 numeric(), c1>0)
+		// ^(*(...,x;c1),c2) -> *(^(*(...,x;-1),c2),(-c1)^c2)
+                // (c1, c2 numeric(), c1<0)
 		if (is_exactly_a<mul>(ebasis)) {
-			GINAC_ASSERT(!num_exponent.is_integer()); // should have been handled above
+                        if (num_exponent.is_integer())
+                                // ^(*(x,y,z),c1) -> *(x^c1,y^c1,z^c1)
+                                // (c1 integer)
+                                return expand_mul(ex_to<mul>(ebasis),
+                                                  num_exponent, 0);
+
 			const mul & mulref = ex_to<mul>(ebasis);
-			if (!mulref.overall_coeff.is_equal(_ex1)) {
-				const numeric & num_coeff = ex_to<numeric>(mulref.overall_coeff);
+			if (not mulref.overall_coeff.is_one()) {
+				const numeric & num_coeff = mulref.overall_coeff;
 				if (num_coeff.is_real()) {
 					if (num_coeff.is_positive()) {
 						auto mulp = new mul(mulref);
-						mulp->overall_coeff = _ex1;
+						mulp->overall_coeff = *_num1_p;
 						mulp->setflag(status_flags::dynallocated);
 						mulp->clearflag(status_flags::evaluated);
 						mulp->clearflag(status_flags::hash_calculated);
 						mulp->seq_sorted.resize(0);
 						return (new mul(power(*mulp,exponent),
 						                power(num_coeff, num_exponent)))->setflag(status_flags::dynallocated);
-					} else {
-						GINAC_ASSERT(num_coeff.compare(*_num0_p)<0);
-						if (!num_coeff.is_equal(*_num_1_p)) {
+					} 
+						GINAC_ASSERT(num_coeff.is_negative());
+						if (not num_coeff.is_minus_one()) {
 							auto mulp = new mul(mulref);
-							mulp->overall_coeff = _ex_1;
+							mulp->overall_coeff = *_num_1_p;
 							mulp->setflag(status_flags::dynallocated);
 							mulp->clearflag(status_flags::evaluated);
 							mulp->clearflag(status_flags::hash_calculated);
@@ -732,29 +604,52 @@ ex power::eval(int level) const
 							return (new mul(power(*mulp, exponent),
 							                power(abs(num_coeff), num_exponent)))->setflag(status_flags::dynallocated);
 						}
-					}
+					
 				}
 			}
-		}
+                        else {
+                                // (x*y^(m/n)*z)^(r/s) ---> y^t*(x*z)^(r/s), if t integer
+                                exvector outer, inner;
+                                for (size_t i=0; i<mulref.nops(); ++i) {
+                                        const ex& fac = mulref.op(i);
+                                        ex pfac = power(fac, eexponent);
+                                        if (not is_exactly_a<power>(pfac)
+                                            or ex_to<power>(pfac).exponent.info(info_flags::integer))
+                                                outer.push_back(pfac);
+                                        else
+                                                inner.push_back(fac);
+                                }
+                                if (!outer.empty()) {
+                                        ex outex, innex;
+                                        if (outer.size() == 1)
+                                                outex = outer[0];
+                                        else
+                                                outex = mul(outer).hold();
+                                        if (!inner.empty()) {
+                                                if (inner.size() == 1)
+                                                        innex = inner[0];
+                                                else
+                                                        innex = mul(inner).hold();
+                                                ex p = power(innex, eexponent).hold();
+                                                return (new mul(outex, p))->setflag(status_flags::dynallocated | status_flags::evaluated);
+                                        }
+                                        return outex;
+                                }
+                        }
+                }
 	}
 
 	// Reduce x^(c/log(x)) to exp(c) if x is positive
-	if (ebasis.info(info_flags::positive)) {
+	if (ebasis.is_positive()) {
 		if (eexponent.is_equal(1/log(ebasis)))
 			return exp(log(basis)*exponent);
-		else if (is_exactly_a<mul>(eexponent) and
+		if (is_exactly_a<mul>(eexponent) and
 			 std::any_of(eexponent.begin(), eexponent.end(),
                                 [ebasis](ex e)
                                 { return e.is_equal(1/log(ebasis)); }))
 					return exp(log(basis)*exponent);
 	}
 	
-	// negative^even --> positive^even
-        if (eexponent.info(info_flags::even)
-            and eexponent.info(info_flags::real)
-            and (-ebasis).info(info_flags::positive))
-                return power(-ebasis, eexponent);
-
 	if (are_ex_trivially_equal(ebasis,basis) &&
 	    are_ex_trivially_equal(eexponent,exponent)) {
 		return this->hold();
@@ -837,23 +732,18 @@ ex power::subs(const exmap & m, unsigned options) const
 	return subs_one_level(m, options);
 }
 
-ex power::eval_ncmul(const exvector & v) const
-{
-	return inherited::eval_ncmul(v);
-}
-
 ex power::conjugate() const
 {
 	// conjugate(pow(x,y))==pow(conjugate(x),conjugate(y)) unless on the
 	// branch cut which runs along the negative real axis.
-	if (basis.info(info_flags::positive)) {
+	if (basis.is_positive()) {
 		ex newexponent = exponent.conjugate();
 		if (are_ex_trivially_equal(exponent, newexponent)) {
 			return *this;
 		}
 		return (new power(basis, newexponent))->setflag(status_flags::dynallocated);
 	}
-	if (exponent.info(info_flags::integer)) {
+	if (exponent.is_integer()) {
 		ex newbasis = basis.conjugate();
 		if (are_ex_trivially_equal(basis, newbasis)) {
 			return *this;
@@ -865,7 +755,7 @@ ex power::conjugate() const
 
 ex power::real_part() const
 {
-	if (exponent.info(info_flags::integer)) {
+	if (exponent.is_integer()) {
 		ex basis_real = basis.real_part();
 		if (basis_real == basis)
 			return *this;
@@ -929,10 +819,10 @@ ex power::derivative(const symbol & s) const
 		// D(b^r) = r * b^(r-1) * D(b) (faster than the formula below)
 		epvector newseq;
 		newseq.reserve(2);
-		newseq.push_back(expair(basis, exponent - _ex1));
-		newseq.push_back(expair(basis.diff(s), _ex1));
-		return mul(newseq, exponent);
-	} else {
+		newseq.emplace_back(basis, exponent - _ex1);
+		newseq.emplace_back(basis.diff(s), _ex1);
+		return mul(newseq, ex_to<numeric>(exponent));
+	} 
 	    // If the exponent is not a function of s, we have the following nice
 	    // looking formula.  We use this to avoid getting ugly and hard to
 	    // read output.
@@ -946,7 +836,7 @@ ex power::derivative(const symbol & s) const
 	    return mul(*this,
 		       add(mul(ediff, log(basis)),
 			   mul(mul(exponent, basis.diff(s)), power(basis, _ex_1))));
-	}
+	
 }
 
 int power::compare_same_type(const basic & other) const
@@ -957,7 +847,7 @@ int power::compare_same_type(const basic & other) const
 	int cmpval = basis.compare(o.basis);
 	if (cmpval != 0)
 		return cmpval;
-	else
+	
 		return exponent.compare(o.exponent);
 }
 
@@ -973,7 +863,8 @@ tinfo_t power::return_type_tinfo() const
 
 ex power::expand(unsigned options) const
 {
-	if (is_a<symbol>(basis) && exponent.info(info_flags::integer)) {
+	if (is_a<symbol>(basis)
+            and exponent.is_integer()) {
 		// A special case worth optimizing.
 		setflag(status_flags::expanded);
 		return *this;
@@ -981,7 +872,7 @@ ex power::expand(unsigned options) const
 
 	// (x*p)^c -> x^c * p^c, if p>0
 	// makes sense before expanding the basis
-	if (is_exactly_a<mul>(basis) && !basis.info(info_flags::indefinite)) {
+	if (is_exactly_a<mul>(basis)) {
 		const mul &m = ex_to<mul>(basis);
 		exvector prodseq;
 		epvector powseq;
@@ -992,7 +883,7 @@ ex power::expand(unsigned options) const
 		// search for positive/negative factors
                 for (const auto & elem : m.seq) {
 			const ex& e = m.recombine_pair_to_ex(elem);
-			if (e.info(info_flags::positive))
+			if (e.is_positive())
 				prodseq.push_back(pow(e, exponent).expand(options));
 			else if (e.info(info_flags::negative)) {
 				prodseq.push_back(pow(-e, exponent).expand(options));
@@ -1003,22 +894,23 @@ ex power::expand(unsigned options) const
 
 		// take care on the numeric coefficient
 		ex coef = (possign? _ex1 : _ex_1);
-		if (m.overall_coeff.info(info_flags::positive)
-                                and not m.overall_coeff.is_integer_one())
-			prodseq.push_back(power(m.overall_coeff, exponent));
-		else if (m.overall_coeff.info(info_flags::negative) && m.overall_coeff != _ex_1)
-			prodseq.push_back(power(-m.overall_coeff, exponent));
+		if (m.overall_coeff.is_positive()
+                                and not m.overall_coeff.is_one())
+			prodseq.emplace_back(power(m.overall_coeff, exponent));
+		else if (m.overall_coeff.is_negative()
+                         and not m.overall_coeff.is_minus_one())
+			prodseq.emplace_back(power(-m.overall_coeff, exponent));
 		else
 			coef *= m.overall_coeff;
 
 		// If positive/negative factors are found, then extract them.
 		// In either case we set a flag to avoid the second run on a part
 		// which does not have positive/negative terms.
-		if (prodseq.size() > 0) {
+		if (!prodseq.empty()) {
 			ex newbasis = coef*mul(powseq);
 			ex_to<basic>(newbasis).setflag(status_flags::purely_indefinite);
 			return ((new mul(prodseq))->setflag(status_flags::dynallocated)*(new power(newbasis, exponent))->setflag(status_flags::dynallocated).expand(options)).expand(options);
-		} else
+		} 
 			ex_to<basic>(basis).setflag(status_flags::purely_indefinite);
 	}
 
@@ -1031,18 +923,18 @@ ex power::expand(unsigned options) const
 		exvector distrseq;
 		distrseq.reserve(a.seq.size() + 1);
                 for (const auto & elem : a.seq)
-			distrseq.push_back(power(expanded_basis, a.recombine_pair_to_ex(elem)));
+			distrseq.emplace_back(power(expanded_basis, a.recombine_pair_to_ex(elem)));
 		
 		// Make sure that e.g. (x+y)^(2+a) expands the (x+y)^2 factor
-		if (ex_to<numeric>(a.overall_coeff).is_integer()) {
-			const numeric &num_exponent = ex_to<numeric>(a.overall_coeff);
+		if (a.overall_coeff.is_integer()) {
+			const numeric &num_exponent = a.overall_coeff;
 			int int_exponent = num_exponent.to_int();
 			if (int_exponent > 0 && is_exactly_a<add>(expanded_basis))
 				distrseq.push_back(expand_add(ex_to<add>(expanded_basis), int_exponent, options));
 			else
-				distrseq.push_back(power(expanded_basis, a.overall_coeff));
+				distrseq.emplace_back(power(expanded_basis, a.overall_coeff));
 		} else
-			distrseq.push_back(power(expanded_basis, a.overall_coeff));
+			distrseq.emplace_back(power(expanded_basis, a.overall_coeff));
 		
 		// Make sure that e.g. (x+y)^(1+a) -> x*(x+y)^a + y*(x+y)^a
 		ex r = (new mul(distrseq))->setflag(status_flags::dynallocated);
@@ -1053,9 +945,9 @@ ex power::expand(unsigned options) const
 		!ex_to<numeric>(expanded_exponent).is_integer()) {
 		if (are_ex_trivially_equal(basis,expanded_basis) && are_ex_trivially_equal(exponent,expanded_exponent)) {
 			return this->hold();
-		} else {
+		} 
 			return (new power(expanded_basis,expanded_exponent))->setflag(status_flags::dynallocated | (options == 0 ? status_flags::expanded : 0));
-		}
+		
 	}
 	
 	// integer numeric exponent
@@ -1077,7 +969,7 @@ ex power::expand(unsigned options) const
                         (options & expand_options::expand_only_numerators) != 0)
 		        return expand_add(ex_to<add>(expanded_basis),
                                         int_exponent, options);
-                else
+                
                         return dynallocate<power>(expand_add(ex_to<add>(expanded_basis),
                                         -int_exponent, options), _ex_1).
                         setflag(status_flags::expanded|status_flags::evaluated);
@@ -1090,7 +982,7 @@ ex power::expand(unsigned options) const
 	// cannot expand further
 	if (are_ex_trivially_equal(basis,expanded_basis) && are_ex_trivially_equal(exponent,expanded_exponent))
 		return this->hold();
-	else
+	
 		return (new power(expanded_basis,expanded_exponent))->setflag(status_flags::dynallocated | (options == 0 ? status_flags::expanded : 0));
 }
 
@@ -1204,7 +1096,11 @@ private:
 		explicit coolmulti(const std::vector<int>& partition)
 		  : head(nullptr), i(nullptr), after_i(nullptr)
 		{
-			for (unsigned n = 0; n < partition.size(); ++n) {
+                        if (partition.empty())
+                                throw std::runtime_error("can't happn in coolmuli");
+                        head = new element(partition[0], head);
+                        i = head;
+			for (unsigned n = 1; n < partition.size(); ++n) {
 				head = new element(partition[n], head);
 				if (n <= 1)
 					i = head;
@@ -1349,8 +1245,9 @@ ex power::expand_add(const add & a, long n, unsigned options) const
 	// i.e. the number of unordered arrangements of m nonnegative integers
 	// which sum up to n.  It is frequently written as C_n(m) and directly
 	// related with binomial coefficients: binomial(n+m-1,m-1).
-	size_t result_size = binomial(numeric(n+a.nops()-1), numeric(a.nops()-1)).to_long();
-	if (!a.overall_coeff.is_zero()) {
+        long anops = a.nops() - 1;
+	long result_size = numeric::binomial(n + anops, anops).to_long();
+	if (not a.overall_coeff.is_zero()) {
 		// the result's overall_coeff is one of the terms
 		--result_size;
 	}
@@ -1372,7 +1269,7 @@ ex power::expand_add(const add & a, long n, unsigned options) const
                         if (n == k)
                                 binomial_coefficient = *_num1_p;
                         else
-                                binomial_coefficient = binomial(numeric(n), numeric(k)) * pow(ex_to<numeric>(a.overall_coeff), numeric(n-k));
+                                binomial_coefficient = a.overall_coeff.pow_intexp(n-k) * numeric::binomial(n, k);
 		}
 
 		// Multinomial expansion of power(+(x,...,z;0),k)*c^(n-k):
@@ -1383,7 +1280,7 @@ ex power::expand_add(const add & a, long n, unsigned options) const
 			const std::vector<int>& partition = partitions.current();
 			// All monomials of this partition have the same number of terms and the same coefficient.
 			const unsigned msize = std::count_if(partition.begin(), partition.end(), [](int i) { return i > 0; });
-			const numeric coeff = multinomial_coefficient(partition) * binomial_coefficient;
+			const numeric coef = multinomial_coefficient(partition) * binomial_coefficient;
 
 			// Iterate over all compositions of the current partition.
 			composition_generator compositions(partition);
@@ -1391,7 +1288,7 @@ ex power::expand_add(const add & a, long n, unsigned options) const
 				const std::vector<int>& the_exponent = compositions.current();
 				epvector monomial;
 				monomial.reserve(msize);
-				numeric factor = coeff;
+				numeric factor = coef;
 				for (unsigned i = 0; i < the_exponent.size(); ++i) {
 					const ex & r = a.seq[i].rest;
 					GINAC_ASSERT(!is_exactly_a<add>(r));
@@ -1407,16 +1304,16 @@ ex power::expand_add(const add & a, long n, unsigned options) const
 						// optimize away
 					} else if (the_exponent[i] == 1) {
 						// optimized
-						monomial.push_back(expair(r, _ex1));
+						monomial.emplace_back(r, _ex1);
 						if (not c.is_one())
 							factor = factor.mul(c);
 					} else { // general case exponent[i] > 1
-						monomial.push_back(expair(r, the_exponent[i]));
+						monomial.emplace_back(r, the_exponent[i]);
 						if (not c.is_one())
-							factor = factor.mul(c.power(the_exponent[i]));
+							factor = factor.mul(c.pow_intexp(the_exponent[i]));
 					}
 				}
-				result.push_back(expair(mul(std::move(monomial)).expand(options), factor));
+				result.emplace_back(mul(std::move(monomial)).expand(options), factor);
 			} while (compositions.next());
 		} while (partitions.next());
 	}
@@ -1425,9 +1322,9 @@ ex power::expand_add(const add & a, long n, unsigned options) const
 	GINAC_ASSERT(result.size() == result_size);
 	if (a.overall_coeff.is_zero()) {
 		return dynallocate<add>(std::move(result)).setflag(status_flags::expanded).eval();
-	} else {
-		return dynallocate<add>(std::move(result), ex_to<numeric>(a.overall_coeff).power(n)).setflag(status_flags::expanded).eval();
-	}
+	} 
+		return dynallocate<add>(std::move(result), a.overall_coeff.power(n)).setflag(status_flags::expanded).eval();
+	
 }
 
 
@@ -1450,7 +1347,8 @@ ex power::expand_add_2(const add & a, unsigned options) const
 	for (auto cit0=a.seq.begin(); cit0!=last; ++cit0) {
 		const ex & r = cit0->rest;
 		const ex & c = cit0->coeff;
-		
+		const numeric& nc = ex_to<numeric>(c);
+
 		GINAC_ASSERT(!is_exactly_a<add>(r));
 		GINAC_ASSERT(!is_exactly_a<power>(r) ||
 		             !is_exactly_a<numeric>(ex_to<power>(r).exponent) ||
@@ -1459,45 +1357,45 @@ ex power::expand_add_2(const add & a, unsigned options) const
 		             !is_exactly_a<mul>(ex_to<power>(r).basis) ||
 		             !is_exactly_a<power>(ex_to<power>(r).basis));
 		
-		if (c.is_equal(_ex1)) {
+		if (c.is_one()) {
 			if (is_exactly_a<mul>(r)) {
-				result.push_back(expair(expand_mul(ex_to<mul>(r), *_num2_p, options, true),
-				                        _ex1));
+				result.emplace_back(expand_mul(ex_to<mul>(r), *_num2_p, options, true),
+				                        _ex1);
 			} else {
-				result.push_back(expair(dynallocate<power>(r, _ex2),
-				                        _ex1));
+				result.emplace_back(dynallocate<power>(r, _ex2),
+				                        _ex1);
 			}
 		} else {
 			if (is_exactly_a<mul>(r)) {
-				result.push_back(expair(expand_mul(ex_to<mul>(r), *_num2_p, options, true),
-				                        ex_to<numeric>(c).power_dyn(*_num2_p)));
+				result.emplace_back(expand_mul(ex_to<mul>(r), *_num2_p, options, true),
+				                        nc.pow_intexp(*_num2_p));
 			} else {
-				result.push_back(expair(dynallocate<power>(r, _ex2),
-				                        ex_to<numeric>(c).power_dyn(*_num2_p)));
+				result.emplace_back(dynallocate<power>(r, _ex2),
+				                        nc.pow_intexp(*_num2_p));
 			}
 		}
 
 		for (auto cit1=cit0+1; cit1!=last; ++cit1) {
 			const ex & r1 = cit1->rest;
 			const ex & c1 = cit1->coeff;
-			result.push_back(expair(mul(r,r1).expand(options),
-			                        _num2_p->mul(ex_to<numeric>(c)).mul_dyn(ex_to<numeric>(c1))));
+			result.emplace_back(mul(r,r1).expand(options),
+			                        _num2_p->mul(ex_to<numeric>(c)).mul_dyn(ex_to<numeric>(c1)));
 		}
 	}
 	
 	// second part: add terms coming from overall_coeff (if != 0)
 	if (!a.overall_coeff.is_zero()) {
 		for (auto & i : a.seq)
-			result.push_back(a.combine_pair_with_coeff_to_pair(i, ex_to<numeric>(a.overall_coeff).mul_dyn(*_num2_p)));
+			result.push_back(a.combine_pair_with_coeff_to_pair(i, a.overall_coeff.mul(*_num2_p)));
 	}
 
 	GINAC_ASSERT(result.size() == result_size);
 
 	if (a.overall_coeff.is_zero()) {
 		return dynallocate<add>(std::move(result)).setflag(status_flags::expanded);
-	} else {
-		return dynallocate<add>(std::move(result), ex_to<numeric>(a.overall_coeff).power(2)).setflag(status_flags::expanded);
-	}
+	} 
+		return dynallocate<add>(std::move(result), a.overall_coeff.pow_intexp(*_num2_p)).setflag(status_flags::expanded);
+	
 }
 
 /** Expand factors of m in m^n where m is a mul and n is an integer.
@@ -1508,22 +1406,6 @@ ex power::expand_mul(const mul & m, const numeric & n, unsigned options, bool fr
 
 	if (n.is_zero()) {
 		return _ex1;
-	}
-
-	// do not bother to rename indices if there are no any.
-	if (((options & expand_options::expand_rename_idx) == 0u) 
-			&& m.info(info_flags::has_indices))
-		options |= expand_options::expand_rename_idx;
-	// Leave it to multiplication since dummy indices have to be renamed
-	if (((options & expand_options::expand_rename_idx) != 0u) &&
-		(get_all_dummy_indices(m).size() > 0) && n.is_positive()) {
-		ex result = m;
-		exvector va = get_all_dummy_indices(m);
-		sort(va.begin(), va.end(), ex_is_less());
-
-		for (int i=1; i < n.to_int(); i++)
-			result *= rename_dummy_indices_uniquely(va, m);
-		return result;
 	}
 
 	epvector distrseq;
@@ -1540,7 +1422,7 @@ ex power::expand_mul(const mul & m, const numeric & n, unsigned options, bool fr
 		distrseq.push_back(p);
 	}
 
-	const mul & result = static_cast<const mul &>((new mul(distrseq, ex_to<numeric>(m.overall_coeff).power_dyn(n)))->setflag(status_flags::dynallocated));
+	const mul & result = static_cast<const mul &>((new mul(distrseq, m.overall_coeff.pow_intexp(n)))->setflag(status_flags::dynallocated));
 	if (need_reexpand)
 		return ex(result).expand(options);
 	if (from_expand)

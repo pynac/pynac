@@ -1,227 +1,257 @@
 [
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-constant.o /home/ralf/sage/pynac/ginac/constant.cpp", 
+        "command": "clang++ -c -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-constant.o /home/ralf/sage/pynac/ginac/constant.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/constant.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-basic.o /home/ralf/sage/pynac/ginac/basic.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-basic.o /home/ralf/sage/pynac/ginac/basic.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/basic.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-add.o /home/ralf/sage/pynac/ginac/add.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-add.o /home/ralf/sage/pynac/ginac/add.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/add.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-useries.o /home/ralf/sage/pynac/ginac/useries.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-useries.o /home/ralf/sage/pynac/ginac/useries.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/useries.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-clifford.o /home/ralf/sage/pynac/ginac/clifford.cpp", 
-        "directory": "/home/ralf/sage/pynac/ginac", 
-        "file": "/home/ralf/sage/pynac/ginac/clifford.cpp"
-    }, 
-    {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-ex.o /home/ralf/sage/pynac/ginac/ex.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-ex.o /home/ralf/sage/pynac/ginac/ex.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/ex.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-expair.o /home/ralf/sage/pynac/ginac/expair.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-expair.o /home/ralf/sage/pynac/ginac/expair.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/expair.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-expairseq.o /home/ralf/sage/pynac/ginac/expairseq.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-expairseq.o /home/ralf/sage/pynac/ginac/expairseq.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/expairseq.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-fderivative.o /home/ralf/sage/pynac/ginac/fderivative.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-fderivative.o /home/ralf/sage/pynac/ginac/fderivative.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/fderivative.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-idx.o /home/ralf/sage/pynac/ginac/idx.cpp", 
-        "directory": "/home/ralf/sage/pynac/ginac", 
-        "file": "/home/ralf/sage/pynac/ginac/idx.cpp"
-    }, 
-    {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-function.o /home/ralf/sage/pynac/ginac/function.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-function.o /home/ralf/sage/pynac/ginac/function.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/function.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-infinity.o /home/ralf/sage/pynac/ginac/infinity.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-infinity.o /home/ralf/sage/pynac/ginac/infinity.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/infinity.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns.o /home/ralf/sage/pynac/ginac/inifcns.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns.o /home/ralf/sage/pynac/ginac/inifcns.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-indexed.o /home/ralf/sage/pynac/ginac/indexed.cpp", 
-        "directory": "/home/ralf/sage/pynac/ginac", 
-        "file": "/home/ralf/sage/pynac/ginac/indexed.cpp"
-    }, 
-    {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns_trig.o /home/ralf/sage/pynac/ginac/inifcns_trig.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_trig.o /home/ralf/sage/pynac/ginac/inifcns_trig.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns_trig.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns_zeta.o /home/ralf/sage/pynac/ginac/inifcns_zeta.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_zeta.o /home/ralf/sage/pynac/ginac/inifcns_zeta.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns_zeta.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns_hyperb.o /home/ralf/sage/pynac/ginac/inifcns_hyperb.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_hyperb.o /home/ralf/sage/pynac/ginac/inifcns_hyperb.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns_hyperb.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns_trans.o /home/ralf/sage/pynac/ginac/inifcns_trans.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_trans.o /home/ralf/sage/pynac/ginac/inifcns_trans.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns_trans.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns_gamma.o /home/ralf/sage/pynac/ginac/inifcns_gamma.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_gamma.o /home/ralf/sage/pynac/ginac/inifcns_gamma.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns_gamma.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns_nstdsums.o /home/ralf/sage/pynac/ginac/inifcns_nstdsums.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_nstdsums.o /home/ralf/sage/pynac/ginac/inifcns_nstdsums.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns_nstdsums.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-inifcns_orthopoly.o /home/ralf/sage/pynac/ginac/inifcns_orthopoly.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_orthopoly.o /home/ralf/sage/pynac/ginac/inifcns_orthopoly.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/inifcns_orthopoly.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-integral.o /home/ralf/sage/pynac/ginac/integral.cpp", 
-        "directory": "/home/ralf/sage/pynac/ginac", 
-        "file": "/home/ralf/sage/pynac/ginac/integral.cpp"
-    }, 
-    {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-matrix.o /home/ralf/sage/pynac/ginac/matrix.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-matrix.o /home/ralf/sage/pynac/ginac/matrix.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/matrix.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-mul.o /home/ralf/sage/pynac/ginac/mul.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-mul.o /home/ralf/sage/pynac/ginac/mul.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/mul.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-ncmul.o /home/ralf/sage/pynac/ginac/ncmul.cpp", 
-        "directory": "/home/ralf/sage/pynac/ginac", 
-        "file": "/home/ralf/sage/pynac/ginac/ncmul.cpp"
-    }, 
-    {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-normal.o /home/ralf/sage/pynac/ginac/normal.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-normal.o /home/ralf/sage/pynac/ginac/normal.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/normal.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-numeric.o /home/ralf/sage/pynac/ginac/numeric.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-numeric.o /home/ralf/sage/pynac/ginac/numeric.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/numeric.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-operators.o /home/ralf/sage/pynac/ginac/operators.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-operators.o /home/ralf/sage/pynac/ginac/operators.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/operators.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-relational.o /home/ralf/sage/pynac/ginac/relational.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-relational.o /home/ralf/sage/pynac/ginac/relational.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/relational.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-power.o /home/ralf/sage/pynac/ginac/power.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-power.o /home/ralf/sage/pynac/ginac/power.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/power.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-remember.o /home/ralf/sage/pynac/ginac/remember.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-remember.o /home/ralf/sage/pynac/ginac/remember.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/remember.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-symbol.o /home/ralf/sage/pynac/ginac/symbol.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-symbol.o /home/ralf/sage/pynac/ginac/symbol.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/symbol.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-pseries.o /home/ralf/sage/pynac/ginac/pseries.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-pseries.o /home/ralf/sage/pynac/ginac/pseries.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/pseries.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-symmetry.o /home/ralf/sage/pynac/ginac/symmetry.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-symmetry.o /home/ralf/sage/pynac/ginac/symmetry.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/symmetry.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-utils.o /home/ralf/sage/pynac/ginac/utils.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-utils.o /home/ralf/sage/pynac/ginac/utils.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/utils.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-tensor.o /home/ralf/sage/pynac/ginac/tensor.cpp", 
-        "directory": "/home/ralf/sage/pynac/ginac", 
-        "file": "/home/ralf/sage/pynac/ginac/tensor.cpp"
-    }, 
-    {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-assume.o /home/ralf/sage/pynac/ginac/assume.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-assume.o /home/ralf/sage/pynac/ginac/assume.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/assume.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-wildcard.o /home/ralf/sage/pynac/ginac/wildcard.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-wildcard.o /home/ralf/sage/pynac/ginac/wildcard.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/wildcard.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-registrar.o /home/ralf/sage/pynac/ginac/registrar.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-registrar.o /home/ralf/sage/pynac/ginac/registrar.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/registrar.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-order.o /home/ralf/sage/pynac/ginac/order.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-order.o /home/ralf/sage/pynac/ginac/order.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/order.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-archive.o /home/ralf/sage/pynac/ginac/archive.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-archive.o /home/ralf/sage/pynac/ginac/archive.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/archive.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-print.o /home/ralf/sage/pynac/ginac/print.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-print.o /home/ralf/sage/pynac/ginac/print.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/print.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-exprseq.o /home/ralf/sage/pynac/ginac/exprseq.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-exprseq.o /home/ralf/sage/pynac/ginac/exprseq.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/exprseq.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-infoflagbase.o /home/ralf/sage/pynac/ginac/infoflagbase.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-infoflagbase.o /home/ralf/sage/pynac/ginac/infoflagbase.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/infoflagbase.cpp"
     }, 
     {
-        "command": "c++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -I/usr/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=gnu++11 -o libpynac_la-templates.o /home/ralf/sage/pynac/ginac/templates.cpp", 
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-templates.o /home/ralf/sage/pynac/ginac/templates.cpp", 
         "directory": "/home/ralf/sage/pynac/ginac", 
         "file": "/home/ralf/sage/pynac/ginac/templates.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-function_info.o /home/ralf/sage/pynac/ginac/function_info.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/function_info.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_comb.o /home/ralf/sage/pynac/ginac/inifcns_comb.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/inifcns_comb.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-inifcns_hyperg.o /home/ralf/sage/pynac/ginac/inifcns_hyperg.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/inifcns_hyperg.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-lst.o /home/ralf/sage/pynac/ginac/lst.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/lst.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-mpoly.o /home/ralf/sage/pynac/ginac/mpoly.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/mpoly.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-mpoly-ginac.o /home/ralf/sage/pynac/ginac/mpoly-ginac.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/mpoly-ginac.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-mpoly-giac.o /home/ralf/sage/pynac/ginac/mpoly-giac.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/mpoly-giac.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-mpoly-singular.o /home/ralf/sage/pynac/ginac/mpoly-singular.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/mpoly-singular.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-py_funcs.o /home/ralf/sage/pynac/ginac/py_funcs.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/py_funcs.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-sum.o /home/ralf/sage/pynac/ginac/sum.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/sum.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-upoly-ginac.o /home/ralf/sage/pynac/ginac/upoly-ginac.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/upoly-ginac.cpp"
+    }, 
+    {
+        "command": "clang++ -c -DHAVE_CONFIG_H -I/home/ralf/sage/pynac/ginac -I/home/ralf/sage/pynac -DGCC_INSTALL_PREFIX=/home/ralf/sage/local/lib/gcc/x86_64-pc-linux-gnu/7.2.0/ -I/home/ralf/sage/local/include -I/home/ralf/sage/local/include/python2.7 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -g -O2 -std=c++11 -stdlib=libc++ -o libpynac_la-context.o /home/ralf/sage/pynac/ginac/context.cpp", 
+        "directory": "/home/ralf/sage/pynac/ginac", 
+        "file": "/home/ralf/sage/pynac/ginac/context.cpp"
     }
 ]

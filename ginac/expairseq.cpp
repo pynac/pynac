@@ -30,7 +30,6 @@
 #include "archive.h"
 #include "operators.h"
 #include "utils.h"
-#include "indexed.h"
 #include "infinity.h"
 #include "compiler.h"
 
@@ -122,19 +121,19 @@ expairseq::expairseq(const exvector &v) : inherited(&expairseq::tinfo_static)
 	GINAC_ASSERT(is_canonical());
 }
 
-expairseq::expairseq(const epvector &v, ex oc, bool do_index_renaming)
-  : inherited(&expairseq::tinfo_static), overall_coeff(std::move(oc))
+expairseq::expairseq(const epvector &v,
+                const numeric& oc, bool do_index_renaming)
+  : inherited(&expairseq::tinfo_static), overall_coeff(oc)
 {
-	GINAC_ASSERT(is_a<numeric>(oc));
 	construct_from_epvector(v, do_index_renaming);
 	GINAC_ASSERT(is_canonical());
 }
 
-expairseq::expairseq(std::unique_ptr<epvector> vp, ex oc, bool do_index_renaming)
-  : inherited(&expairseq::tinfo_static), overall_coeff(std::move(oc))
+expairseq::expairseq(std::unique_ptr<epvector> vp,
+                const numeric& oc, bool do_index_renaming)
+  : inherited(&expairseq::tinfo_static), overall_coeff(oc)
 {
 	GINAC_ASSERT(vp.get()!=0);
-	GINAC_ASSERT(is_a<numeric>(oc));
 	construct_from_epvector(*vp, do_index_renaming);
 	GINAC_ASSERT(is_canonical());
 }
@@ -158,10 +157,12 @@ expairseq::expairseq(const archive_node &n, lst &sym_lst) : inherited(n, sym_lst
 		ex lcoeff;
 		n.find_ex_by_loc(loc++, lrest, sym_lst);
 		n.find_ex_by_loc(loc++, lcoeff, sym_lst);
-		seq.push_back(expair(lrest, lcoeff));
+		seq.emplace_back(lrest, lcoeff);
 	}
 
-	n.find_ex("overall_coeff", overall_coeff, sym_lst);
+        ex oc;
+	n.find_ex("overall_coeff", oc, sym_lst);
+        overall_coeff = ex_to<numeric>(oc);
 
 	canonicalize();
 	GINAC_ASSERT(is_canonical());
@@ -174,7 +175,7 @@ void expairseq::archive(archive_node &n) const
 		n.add_ex("rest", elem.rest);
 		n.add_ex("coeff", elem.coeff);
 	}
-	n.add_ex("overall_coeff", overall_coeff);
+	n.add_ex("overall_coeff", ex(overall_coeff));
 }
 
 DEFAULT_UNARCHIVE(expairseq)
@@ -271,22 +272,6 @@ bool expairseq::info(unsigned inf) const
 	switch(inf) {
 		case info_flags::expanded:
 			return (flags & status_flags::expanded) != 0u;
-		case info_flags::has_indices: {
-			if ((flags & status_flags::has_indices) != 0u)
-				return true;
-			else if ((flags & status_flags::has_no_indices) != 0u)
-				return false;
-			for (const auto & elem : seq) {
-				if (elem.rest.info(info_flags::has_indices)) {
-					this->setflag(status_flags::has_indices);
-					this->clearflag(status_flags::has_no_indices);
-					return true;
-				}
-			}
-			this->clearflag(status_flags::has_indices);
-			this->setflag(status_flags::has_no_indices);
-			return false;
-		}
 	}
 	return inherited::info(inf);
 }
@@ -295,8 +280,7 @@ size_t expairseq::nops() const
 {
 	if (overall_coeff_equals_default())
 		return seq.size();
-	else
-		return seq.size()+1;
+        return seq.size()+1;
 }
 
 const ex expairseq::op(size_t i) const
@@ -326,21 +310,19 @@ ex expairseq::map(map_function &f) const
 
 	if (overall_coeff_equals_default())
 		return thisexpairseq(std::move(v), default_overall_coeff(), true);
-	else {
-		ex newcoeff = f(overall_coeff);
-		if(is_exactly_a<numeric>(newcoeff))
-			return thisexpairseq(std::move(v), newcoeff, true);
-		else {
-			v->push_back(split_ex_to_pair(newcoeff));
-			return thisexpairseq(std::move(v), default_overall_coeff(), true);
-		}
-	}
+        ex newcoeff = f(overall_coeff);
+        if(is_exactly_a<numeric>(newcoeff))
+                return thisexpairseq(std::move(v),
+                                ex_to<numeric>(newcoeff), true);
+
+        v->push_back(split_ex_to_pair(newcoeff));
+        return thisexpairseq(std::move(v), default_overall_coeff(), true);
 }
 
 /** Perform coefficient-wise automatic term rewriting rules in this class. */
 ex expairseq::eval(int level) const
 {
-	if ((level==1) && ((flags &status_flags::evaluated) != 0u))
+	if ((level==1) and is_evaluated())
 		return *this;
 	
 	std::unique_ptr<epvector> vp = evalchildren(level);
@@ -377,8 +359,9 @@ epvector* conjugateepvector(const epvector& epv)
 ex expairseq::conjugate() const
 {
 	std::unique_ptr<epvector> newepv(conjugateepvector(seq));
-	ex x = overall_coeff.conjugate();
-	if (!newepv && are_ex_trivially_equal(x, overall_coeff)) {
+        // this is known to be numeric
+	const numeric& x = ex_to<numeric>(overall_coeff.conjugate());
+	if (!newepv and overall_coeff.is_equal(x)) {
 		return *this;
 	}
 	ex result = thisexpairseq(newepv ? *newepv : seq, x);
@@ -438,8 +421,7 @@ bool expairseq::match(const ex & pattern, lst & repl_lst) const
 					++next_el;
 					if(next_el == repl_lst.end())
 						break;
-					else
-						repl_lst.remove_last();
+					repl_lst.remove_last();
 				}
 				++it;
 			}
@@ -470,17 +452,15 @@ found:		;
                         repl_lst = tmp_repl;
 			repl_lst.append(global_wildcard == rest);
 			return true;
+		} 
 
-		} else {
-
-			// No global wildcard, then the match fails if there are any
-			// unmatched terms left
-			if (ops.empty()) {
-				repl_lst = tmp_repl;
-				return true;
-			}
-			return false;
-		}
+                // No global wildcard, then the match fails if there are any
+                // unmatched terms left
+                if (ops.empty()) {
+                        repl_lst = tmp_repl;
+                        return true;
+                }
+                return false;
 	}
 	return inherited::match(pattern, repl_lst);
 }
@@ -488,9 +468,18 @@ found:		;
 ex expairseq::subs(const exmap & m, unsigned options) const
 {
 	std::unique_ptr<epvector> vp = subschildren(m, options);
-	if (vp.get() != nullptr)
-		return ex_to<basic>(thisexpairseq(std::move(vp), overall_coeff, (options & subs_options::no_index_renaming) == 0));
-	else if (((options & subs_options::algebraic) != 0u) && is_exactly_a<mul>(*this))
+	if (vp != nullptr) {
+                const ex& ocs = overall_coeff.subs(m, options);
+                if (is_exactly_a<numeric>(ocs))
+                        return ex_to<basic>(thisexpairseq(std::move(vp),
+                                            ex_to<numeric>(ocs),
+                                            (options & subs_options::no_index_renaming) == 0));
+                else
+                        return ex_to<basic>(add(ocs, thisexpairseq(std::move(vp),
+                                            *_num0_p,
+                                            (options & subs_options::no_index_renaming) == 0)));
+        }
+	if (((options & subs_options::algebraic) != 0u) && is_exactly_a<mul>(*this))
 		return static_cast<const mul *>(this)->algebraic_subs_mul(m, options);
 	else
 		return subs_one_level(m, options);
@@ -518,7 +507,7 @@ int expairseq::compare_same_type(const basic &other) const
 		return (seq.size()<o.seq.size()) ? -1 : 1;
 
 	// compare overall_coeff
-	cmpval = overall_coeff.compare(o.overall_coeff);
+	cmpval = overall_coeff.compare_same_type(o.overall_coeff);
 	if (cmpval!=0)
 		return cmpval;
 
@@ -656,7 +645,7 @@ long expairseq::calchash() const
 	v ^= overall_coeff.gethash();
 
 	// store calculated hash value only if object is already evaluated
-	if ((flags &status_flags::evaluated) != 0u) {
+	if (is_evaluated()) {
 		setflag(status_flags::hash_calculated);
 		hashvalue = v;
 	}
@@ -667,12 +656,11 @@ long expairseq::calchash() const
 ex expairseq::expand(unsigned options) const
 {
 	std::unique_ptr<epvector> vp = expandchildren(options);
-	if (vp.get() != nullptr)
+	if (vp != nullptr)
 		return thisexpairseq(std::move(vp), overall_coeff);
-	else {
-		// The terms have not changed, so it is safe to declare this expanded
-		return (options == 0) ? setflag(status_flags::expanded) : *this;
-	}
+
+        // The terms have not changed, so it is safe to declare this expanded
+        return (options == 0) ? setflag(status_flags::expanded) : *this;
 }
 
 //////////
@@ -689,12 +677,12 @@ ex expairseq::expand(unsigned options) const
  *  ctor because the name (add, mul,...) is unknown on the expaiseq level.  In
  *  order for this trick to work a derived class must of course override this
  *  definition. */
-ex expairseq::thisexpairseq(const epvector &v, const ex &oc, bool do_index_renaming) const
+ex expairseq::thisexpairseq(const epvector &v, const numeric &oc, bool do_index_renaming) const
 {
 	return expairseq(v, oc, do_index_renaming);
 }
 
-ex expairseq::thisexpairseq(std::unique_ptr<epvector> vp, const ex &oc, bool do_index_renaming) const
+ex expairseq::thisexpairseq(std::unique_ptr<epvector> vp, const numeric &oc, bool do_index_renaming) const
 {
 	return expairseq(std::move(vp), oc, do_index_renaming);
 }
@@ -740,21 +728,18 @@ expair expairseq::split_ex_to_pair(const ex &e) const
 
 
 expair expairseq::combine_ex_with_coeff_to_pair(const ex &e,
-                                                const ex &c) const
+                                                const numeric &c) const
 {
-	GINAC_ASSERT(is_exactly_a<numeric>(c));
-	
 	return expair(e,c);
 }
 
 
 expair expairseq::combine_pair_with_coeff_to_pair(const expair &p,
-                                                  const ex &c) const
+                                                  const numeric &c) const
 {
 	GINAC_ASSERT(is_exactly_a<numeric>(p.coeff));
-	GINAC_ASSERT(is_exactly_a<numeric>(c));
 	
-	return expair(p.rest,ex_to<numeric>(p.coeff).mul_dyn(ex_to<numeric>(c)));
+	return expair(p.rest,ex_to<numeric>(p.coeff).mul_dyn(c));
 }
 
 
@@ -773,31 +758,25 @@ bool expairseq::expair_needs_further_processing(epp /*unused*/)
 	return false;
 }
 
-ex expairseq::default_overall_coeff() const
+numeric expairseq::default_overall_coeff() const
 {
-	return _ex0;
+	return *_num0_p;
 }
 
 bool expairseq::overall_coeff_equals_default() const
 {
-    numeric num = ex_to<numeric>(overall_coeff);
-    return (num.is_integer() && num.is_equal(ex_to<numeric>(default_overall_coeff())));
+    return (overall_coeff.is_exact()
+         and overall_coeff.is_equal(default_overall_coeff()));
 }
 
-void expairseq::combine_overall_coeff(const ex &c)
+void expairseq::combine_overall_coeff(const numeric &c)
 {
-	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
-	GINAC_ASSERT(is_exactly_a<numeric>(c));
-	overall_coeff = ex_to<numeric>(overall_coeff).add_dyn(ex_to<numeric>(c));
+         overall_coeff += c;
 }
 
-void expairseq::combine_overall_coeff(const ex &c1, const ex &c2)
+void expairseq::combine_overall_coeff(const numeric &c1, const numeric &c2)
 {
-	GINAC_ASSERT(is_exactly_a<numeric>(overall_coeff));
-	GINAC_ASSERT(is_exactly_a<numeric>(c1));
-	GINAC_ASSERT(is_exactly_a<numeric>(c2));
-	overall_coeff = ex_to<numeric>(overall_coeff).
-	                add_dyn(ex_to<numeric>(c1).mul(ex_to<numeric>(c2)));
+	overall_coeff += c1.mul(c2);
 }
 
 bool expairseq::can_make_flat(const expair & /*unused*/) const
@@ -830,36 +809,29 @@ void expairseq::construct_from_2_ex(const ex &lh, const ex &rh)
 #if EXPAIRSEQ_USE_HASHTAB
 			unsigned totalsize = ex_to<expairseq>(lh).seq.size() +
 			                     ex_to<expairseq>(rh).seq.size();
-			if (calc_hashtabsize(totalsize)!=0) {
-				construct_from_2_ex_via_exvector(lh,rh);
-			} else {
+                        construct_from_2_ex_via_exvector(lh,rh);
+                        {
+                } else {
 #endif // EXPAIRSEQ_USE_HASHTAB
-				if (is_exactly_a<mul>(lh) && lh.info(info_flags::has_indices) && 
-					rh.info(info_flags::has_indices)) {
-					ex newrh=rename_dummy_indices_uniquely(lh, rh);
-					construct_from_2_expairseq(ex_to<expairseq>(lh),
-					                           ex_to<expairseq>(newrh));
-				}
-				else
-					construct_from_2_expairseq(ex_to<expairseq>(lh),
-					                           ex_to<expairseq>(rh));
+                        construct_from_2_expairseq(ex_to<expairseq>(lh),
+                                                   ex_to<expairseq>(rh));
 #if EXPAIRSEQ_USE_HASHTAB
 			}
 #endif // EXPAIRSEQ_USE_HASHTAB
 			return;
-		} else {
+		} 
 #if EXPAIRSEQ_USE_HASHTAB
-			unsigned totalsize = ex_to<expairseq>(lh).seq.size()+1;
-			if (calc_hashtabsize(totalsize)!=0) {
-				construct_from_2_ex_via_exvector(lh, rh);
-			} else {
+                unsigned totalsize = ex_to<expairseq>(lh).seq.size()+1;
+                if (calc_hashtabsize(totalsize)!=0) {
+                        construct_from_2_ex_via_exvector(lh, rh);
+                } else {
 #endif // EXPAIRSEQ_USE_HASHTAB
-				construct_from_expairseq_ex(ex_to<expairseq>(lh), rh);
+                        construct_from_expairseq_ex(ex_to<expairseq>(lh), rh);
 #if EXPAIRSEQ_USE_HASHTAB
 			}
 #endif // EXPAIRSEQ_USE_HASHTAB
 			return;
-		}
+		
 	} else if (ex_to<basic>(rh).tinfo()==this->tinfo()) {
 #if EXPAIRSEQ_USE_HASHTAB
 		unsigned totalsize=ex_to<expairseq>(rh).seq.size()+1;
@@ -883,23 +855,25 @@ void expairseq::construct_from_2_ex(const ex &lh, const ex &rh)
 #endif // EXPAIRSEQ_USE_HASHTAB
 	
 	if (is_exactly_a<numeric>(lh)) {
+                const numeric& lhn = ex_to<numeric>(lh);
 		if (is_exactly_a<numeric>(rh)) {
-			combine_overall_coeff(lh);
-			combine_overall_coeff(rh);
+			combine_overall_coeff(lhn);
+			combine_overall_coeff(ex_to<numeric>(rh));
 		} else {
-			combine_overall_coeff(lh);
+			combine_overall_coeff(lhn);
 			seq.push_back(split_ex_to_pair(rh));
 		}
 	} else {
 		if (is_exactly_a<numeric>(rh)) {
-			combine_overall_coeff(rh);
+			combine_overall_coeff(ex_to<numeric>(rh));
 			seq.push_back(split_ex_to_pair(lh));
 		} else {
 			expair p1 = split_ex_to_pair(lh);
 			expair p2 = split_ex_to_pair(rh);
 
 			int cmpval = p1.rest.compare(p2.rest);
-			if (cmpval==0 && unlikely(!is_exactly_a<infinity>(p1.rest))) {
+			if (cmpval==0
+                            and likely(not is_exactly_a<infinity>(p1.rest))) {
 				p1.coeff = ex_to<numeric>(p1.coeff).add_dyn(ex_to<numeric>(p2.coeff));
 				if (!ex_to<numeric>(p1.coeff).is_zero()) {
 
@@ -950,7 +924,7 @@ void expairseq::construct_from_2_expairseq(const expairseq &s1,
 				const numeric &newcoeff = ex_to<numeric>(first1->coeff).
 					add(ex_to<numeric>(first2->coeff));
 				if (!newcoeff.is_zero()) {
-					seq.push_back(expair(first1->rest,newcoeff));
+					seq.emplace_back(first1->rest,newcoeff);
 					if (expair_needs_further_processing(seq.end()-1)) {
 						needs_further_processing = true;
 					}
@@ -988,7 +962,7 @@ void expairseq::construct_from_expairseq_ex(const expairseq &s,
 {
 	combine_overall_coeff(s.overall_coeff);
 	if (is_exactly_a<numeric>(e)) {
-		combine_overall_coeff(e);
+		combine_overall_coeff(ex_to<numeric>(e));
 		seq = s.seq;
 		return;
 	}
@@ -1017,14 +991,15 @@ void expairseq::construct_from_expairseq_ex(const expairseq &s,
 			const numeric &newcoeff = ex_to<numeric>(first->coeff).
 			                           add(ex_to<numeric>(p.coeff));
 			if (!newcoeff.is_zero()) {
-				seq.push_back(expair(first->rest,newcoeff));
+				seq.emplace_back(first->rest,newcoeff);
 				if (expair_needs_further_processing(seq.end()-1))
 					needs_further_processing = true;
 			}
 			++first;
 			p_pushed = true;
 			break;
-		} else if (cmpval<0) {
+		}
+                if (cmpval<0) {
 			seq.push_back(*first);
 			++first;
 		} else {
@@ -1102,9 +1077,6 @@ void expairseq::make_flat(const exvector &v, bool do_hold)
 				++nexpairseqs;
 				noperands += ex_to<expairseq>(elem).seq.size();
 			}
-			if (is_exactly_a<mul>(*this) && (!do_idx_rename) &&
-					elem.info(info_flags::has_indices))
-				do_idx_rename = true;
 		}
 	} else
 		this->hold();
@@ -1123,7 +1095,7 @@ void expairseq::make_flat(const exvector &v, bool do_hold)
 				seq.push_back(elem2);
 		} else {
 			if (is_exactly_a<numeric>(elem))
-				combine_overall_coeff(elem);
+				combine_overall_coeff(ex_to<numeric>(elem));
 			else {
 				ex newfactor = mf.handle_factor(elem, _ex1);
 				seq.push_back(split_ex_to_pair(newfactor));
@@ -1140,22 +1112,17 @@ void expairseq::make_flat(const epvector &v, bool do_index_renaming)
 	// and their cumulative number of operands
 	int nexpairseqs = 0;
 	int noperands = 0;
-	bool really_need_rename_inds = false;
 	
         for (const auto & elem : v) {
 		if (ex_to<basic>(elem.rest).tinfo()==this->tinfo()) {
 			++nexpairseqs;
 			noperands += ex_to<expairseq>(elem.rest).seq.size();
 		}
-		if ((!really_need_rename_inds) && is_exactly_a<mul>(*this) &&
-				elem.rest.info(info_flags::has_indices))
-			really_need_rename_inds = true;
 	}
-	do_index_renaming = do_index_renaming && really_need_rename_inds;
 	
 	// reserve seq and coeffseq which will hold all operands
 	seq.reserve(v.size()+noperands-nexpairseqs);
-	make_flat_inserter mf(v, do_index_renaming);
+	make_flat_inserter mf(v, false);
 	
 	// copy elements and split off numerical part
         for (const auto & elem : v) {
@@ -1164,23 +1131,23 @@ void expairseq::make_flat(const epvector &v, bool do_index_renaming)
 		    this->can_make_flat(elem)) {
 			ex newrest = mf.handle_factor(elem.rest, elem.coeff);
 			const expairseq &subseqref = ex_to<expairseq>(newrest);
-			combine_overall_coeff(ex_to<numeric>(subseqref.overall_coeff),
-			                                    ex_to<numeric>(elem.coeff));
+			combine_overall_coeff(subseqref.overall_coeff,
+			                      ex_to<numeric>(elem.coeff));
                         for (const auto & elem2 : subseqref.seq)
-				seq.push_back(expair(elem2.rest,
-                                        ex_to<numeric>(elem2.coeff).mul_dyn(ex_to<numeric>(elem.coeff))));
+				seq.emplace_back(elem2.rest,
+                                        ex_to<numeric>(elem2.coeff).mul_dyn(ex_to<numeric>(elem.coeff)));
 		} else {
 			if (elem.is_canonical_numeric())
-				combine_overall_coeff(mf.handle_factor(elem.rest, _ex1));
+				combine_overall_coeff(ex_to<numeric>(mf.handle_factor(elem.rest, _ex1)));
 			else {
 				const ex& rest = elem.rest;
 				const ex& newrest = mf.handle_factor(rest, elem.coeff);
                                 if (newrest.is_zero())
-                                        combine_overall_coeff(newrest);
+                                        combine_overall_coeff(*_num0_p);
 				else if (are_ex_trivially_equal(newrest, rest))
 					seq.push_back(elem);
 				else
-					seq.push_back(expair(newrest, elem.coeff));
+					seq.emplace_back(newrest, elem.coeff);
 			}
 		}
 	}
@@ -1211,16 +1178,15 @@ void expairseq::combine_same_terms_sorted_seq()
 	// possible from then on the sequence has changed and must be compacted
 	bool must_copy = false;
 	while (itin2!=last) {
-		if (itin1->rest.compare(itin2->rest)==0 &&
-				unlikely(!is_exactly_a<infinity>(itin1->rest))) {
+		if (itin1->rest.compare(itin2->rest)==0
+                    and likely(not is_exactly_a<infinity>(itin1->rest))) {
 			itin1->coeff = ex_to<numeric>(itin1->coeff).
                                 add_dyn(ex_to<numeric>(itin2->coeff));
 			if (expair_needs_further_processing(itin1))
 				needs_further_processing = true;
 			must_copy = true;
 		} else {
-			if (not ex_to<numeric>(itin1->coeff).is_zero()
-                                or ex_to<numeric>(itin1->coeff).is_parent_pos_char()) {
+			if (not ex_to<numeric>(itin1->coeff).is_zero()) {
 				if (must_copy)
 					*itout = *itin1;
 				++itout;
@@ -1229,8 +1195,7 @@ void expairseq::combine_same_terms_sorted_seq()
 		}
 		++itin2;
 	}
-	if (not ex_to<numeric>(itin1->coeff).is_zero()
-                or ex_to<numeric>(itin1->coeff).is_parent_pos_char()) {
+	if (not ex_to<numeric>(itin1->coeff).is_zero()) {
 		if (must_copy)
 			*itout = *itin1;
 		++itout;
@@ -1620,7 +1585,7 @@ std::unique_ptr<epvector> expairseq::expandchildren(unsigned options) const
 				                         cit->coeff));
 				++cit;
 			}
-			return std::move(s);
+			return s;
 		}
 
 		++cit;
@@ -1644,7 +1609,7 @@ std::unique_ptr<epvector> expairseq::evalchildren(int level) const
 	auto cit = seq.begin();
 	while (cit!=last) {
                 const ex evaled_rest = level==1 ? cit->rest : cit->rest.eval(level-1);
-                const expair evaled_pair = combine_ex_with_coeff_to_pair(evaled_rest, cit->coeff);
+                const expair evaled_pair = combine_ex_with_coeff_to_pair(evaled_rest, ex_to<numeric>(cit->coeff));
                 if (unlikely(!evaled_pair.is_equal(*cit))) {
 
 			// something changed: copy seq, eval, and return it
@@ -1662,10 +1627,10 @@ std::unique_ptr<epvector> expairseq::evalchildren(int level) const
 			while (cit != last) {
                                 const ex evaled_rest1 = level==1 ? cit->rest : cit->rest.eval(level-1);
 				s->push_back(combine_ex_with_coeff_to_pair(evaled_rest1,
-				                                       cit->coeff));
+				             ex_to<numeric>(cit->coeff)));
 				++cit;
 			}
-			return std::move(s);
+			return s;
 		}
 		++cit;
 	}
@@ -1722,7 +1687,7 @@ std::unique_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned opti
 					s->push_back(split_ex_to_pair(recombine_pair_to_ex(*cit).subs(m, options)));
 					++cit;
 				}
-				return std::move(s);
+				return s;
 			}
 
 			++cit;
@@ -1730,11 +1695,13 @@ std::unique_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned opti
 
 	} else {
 
-		// Substitute only in the "rest" part of the pairs
 		auto cit = seq.begin(), last = seq.end();
 		while (cit != last) {
-			const ex &subsed_ex = cit->rest.subs(m, options);
-			if (!are_ex_trivially_equal(cit->rest, subsed_ex)) {
+                        const ex &subsed_exr = cit->rest.subs(m, options);
+                        const ex &subsed_exc = ex_to<numeric>(cit->coeff).subs(m, options);
+                        if (not are_ex_trivially_equal(cit->rest, subsed_exr)
+                            or not are_ex_trivially_equal(cit->coeff,
+                                    subsed_exc)) {
 
                                 // Something changed, copy seq, subs and return it
 				std::unique_ptr<epvector> s(new epvector);
@@ -1744,15 +1711,23 @@ std::unique_ptr<epvector> expairseq::subschildren(const exmap & m, unsigned opti
 				s->insert(s->begin(), seq.begin(), cit);
 			
 				// Copy first changed element
-				s->push_back(combine_ex_with_coeff_to_pair(subsed_ex, cit->coeff));
+                                if (is_exactly_a<numeric>(subsed_exc))
+        				s->push_back(combine_ex_with_coeff_to_pair(subsed_exr, ex_to<numeric>(subsed_exc)));
+                                else
+        				s->push_back(split_ex_to_pair(mul(subsed_exr, subsed_exc)));
 				++cit;
 
 				// Copy rest
 				while (cit != last) {
-					s->push_back(combine_ex_with_coeff_to_pair(cit->rest.subs(m, options), cit->coeff));
-					++cit;
+                                        const ex &sr = cit->rest.subs(m, options);
+                                        const ex &sc = ex_to<numeric>(cit->coeff).subs(m, options);
+					if (is_exactly_a<numeric>(sc))
+                                                s->push_back(combine_ex_with_coeff_to_pair(sr, ex_to<numeric>(sc)));
+                                        else
+                                                s->push_back(split_ex_to_pair(mul(sr, sc)));
+                                        ++cit;
 				}
-				return std::move(s);
+				return s;
 			}
 
 			++cit;
@@ -1768,8 +1743,8 @@ const epvector & expairseq::get_sorted_seq() const
 {
 	if (seq_sorted.empty())
 		return seq;
-	else
-		return seq_sorted;
+
+        return seq_sorted;
 }
 
 //////////

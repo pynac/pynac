@@ -20,6 +20,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <Python.h>
 #include "py_funcs.h"
 #include "constant.h"
 #include "numeric.h"
@@ -92,24 +93,19 @@ ex constant::unarchive(const archive_node &n, lst &sym_lst)
 	if (n.find_string("name", s)) {
 		if (s == Pi.name)
 			return Pi;
-		else if (s == Catalan.name)
+		if (s == Catalan.name)
 			return Catalan;
-		else if (s == Euler.name)
+		if (s == Euler.name)
 			return Euler;
-		else if (s == NaN.name)
+		if (s == NaN.name)
 			return NaN;
-		else {
-			ans = py_funcs.py_get_constant(s.c_str());
-			if (PyErr_Occurred() != nullptr) {
-				throw std::runtime_error("error while unarchiving constant");
-			}
-		}
+                ans = py_funcs.py_get_constant(s.c_str());
 
-		
-            //throw (std::runtime_error("unknown constant '" + s + "' in archive"));
-			return ans;      
-	} else
-		throw (std::runtime_error("unnamed constant in archive"));
+                if (PyErr_Occurred() != nullptr)
+                        throw std::runtime_error("error while unarchiving constant");
+		return ans;      
+	} 
+        throw (std::runtime_error("unnamed constant in archive"));
 }
 
 void constant::archive(archive_node &n) const
@@ -153,31 +149,34 @@ bool constant::info(unsigned inf) const
 {
         if (name == "NaN")
                 return false;
-        if (inf == info_flags::polynomial)
+        switch (inf) {
+        case info_flags::polynomial:
                 return true;
-        if (inf == info_flags::inexact)
+        case info_flags::inexact:
                 return false;
-        if (inf == info_flags::real)
-                return domain==domain::real or domain==domain::positive ;
-        if (inf==info_flags::positive)
+        case info_flags::real:
+                return domain == domain::real or domain == domain::positive;
+        case info_flags::positive:
                 return domain == domain::positive;
-        if (inf==info_flags::nonnegative)
-                return domain == domain::positive and evalf(0, nullptr).is_zero();
-        if (inf==info_flags::infinity) {
+        case info_flags::nonnegative:
+                return domain == domain::positive
+                   and evalf(0, nullptr).is_zero();
+        case info_flags::nonzero:
+                return domain == domain::positive
+                or not evalf(0, nullptr).is_zero();
+        case info_flags::infinity:
                 return domain == domain::infinity;
+        default:
+                return evalf(0, nullptr).info(inf);
         }
-        else
-                return inherited::info(inf);
 }
 
 ex constant::evalf(int level, PyObject* parent) const
 {
-	if (ef!=nullptr) {
-        return ef(serial, parent);
-	} else {
-		return number.evalf(level, parent);
-	}
-	return *this;
+	if (ef!=nullptr)
+                return ef(serial, parent);
+
+        return number.evalf(level, parent);
 }
 
 bool constant::is_polynomial(const ex & var) const
@@ -223,7 +222,7 @@ int constant::compare_same_type(const basic & other) const
 
 	if (serial == o.serial)
 		return 0;
-	else
+	
 		return serial < o.serial ? -1 : 1;
 }
 
@@ -265,6 +264,11 @@ unsigned constant::next_serial = 0;
 //////////
 // global constants
 //////////
+
+// DANGER! Defining a constant here without equivalent in Sage Python
+// will inevitably lead to crashes. See alsd
+// https://github.com/pynac/pynac/wiki/%7C-constants
+// https://github.com/pynac/pynac/issues/211
 
 /**  Pi. (3.14159...) Calls python function py_eval_constant() for evalf(). */
 const constant Pi("pi", ConstantEvalf, "\\pi", domain::positive);

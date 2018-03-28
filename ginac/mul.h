@@ -36,7 +36,6 @@ class mul : public expairseq
 	friend class print_order;
 	friend class ex;
 	friend class add;
-	friend class ncmul;
 	friend class power;
 	
 	// other constructors
@@ -44,7 +43,8 @@ public:
 	mul(const ex & lh, const ex & rh);
 	mul(const exvector & v, bool hold=false);
 	mul(const epvector & v);
-	mul(const epvector & v, const ex & oc, bool do_index_renaming = false);
+	mul(const epvector & v, const numeric & oc,
+                        bool do_index_renaming = false);
 //	mul(std::unique_ptr<epvector> vp, const ex & oc, bool do_index_renaming = false);
 	mul(const ex & lh, const ex & mh, const ex & rh);
 	
@@ -53,9 +53,9 @@ public:
 	unsigned precedence() const override {return 50;}
 	bool info(unsigned inf) const override;
 	bool is_polynomial(const ex & var) const override;
-	int degree(const ex & s) const override;
-	int ldegree(const ex & s) const override;
-	ex coeff(const ex & s, int n = 1) const override;
+	numeric degree(const ex & s) const override;
+	numeric ldegree(const ex & s) const override;
+	ex coeff(const ex & s, const ex & n) const override;
 	bool has(const ex & other, unsigned options = 0) const override;
 	ex eval(int level=0) const override;
 	ex evalf(int level=0, PyObject* parent=nullptr) const override;
@@ -67,22 +67,22 @@ public:
 	numeric integer_content() const override;
 	ex smod(const numeric &xi) const override;
 	numeric max_coefficient() const override;
-	exvector get_free_indices() const override;
 	ex conjugate() const override;
 protected:
 	ex derivative(const symbol & s) const override;
-	ex eval_ncmul(const exvector & v) const override;
 	unsigned return_type() const override;
 	tinfo_t return_type_tinfo() const override;
-	ex thisexpairseq(const epvector & v, const ex & oc, bool do_index_renaming = false) const override;
-	ex thisexpairseq(std::unique_ptr<epvector> vp, const ex & oc, bool do_index_renaming = false) const override;
+	ex thisexpairseq(const epvector & v, const numeric & oc, bool do_index_renaming = false) const override;
+	ex thisexpairseq(std::unique_ptr<epvector> vp, const numeric & oc, bool do_index_renaming = false) const override;
 	expair split_ex_to_pair(const ex & e) const override;
-	expair combine_ex_with_coeff_to_pair(const ex & e, const ex & c) const override;
-	expair combine_pair_with_coeff_to_pair(const expair & p, const ex & c) const override;
+	expair combine_ex_with_coeff_to_pair(const ex & e,
+                        const numeric & c) const override;
+	expair combine_pair_with_coeff_to_pair(const expair & p,
+                        const numeric & c) const override;
 	bool expair_needs_further_processing(epp it) override;
-	ex default_overall_coeff() const override;
-	void combine_overall_coeff(const ex & c) override;
-	void combine_overall_coeff(const ex & c1, const ex & c2) override;
+	numeric default_overall_coeff() const override;
+	void combine_overall_coeff(const numeric & c) override;
+	void combine_overall_coeff(const numeric & c1, const numeric & c2) override;
 	bool can_make_flat(const expair & p) const override;
 	ex expand(unsigned options=0) const override;
 	void find_real_imag(ex&, ex&) const;
@@ -104,7 +104,7 @@ public:
 	//int compare_pow(const power &other) const;
         ex without_known_factor(const ex& f) const;
 protected:
-	void print_overall_coeff(const ex coeff_ex, const print_context & c,
+	void print_overall_coeff(const ex& coeff_ex, const print_context & c,
 			const char *mul_sym, bool latex=false) const;
 	void print_exvector(const exvector & v, const print_context & c,
 		const char* sep) const;
@@ -112,7 +112,6 @@ protected:
 	void do_print_latex(const print_latex & c, unsigned level) const;
 	void do_print_rat_func(const print_context & c, unsigned level, 
 			bool latex_tags) const;
-	void do_print_csrc(const print_csrc & c, unsigned level) const;
 	void do_print_python_repr(const print_python_repr & c, unsigned level) const override;
 	static bool can_be_further_expanded(const ex & e);
 	std::unique_ptr<epvector> expandchildren(unsigned options) const;

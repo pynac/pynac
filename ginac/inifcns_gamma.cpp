@@ -30,7 +30,7 @@
 #include "relational.h"
 #include "operators.h"
 #include "symbol.h"
-#include "symmetry.h"
+#include "constant.h"
 #include "utils.h"
 
 #include <vector>
@@ -46,7 +46,7 @@ static ex lgamma_evalf(const ex & x, PyObject* parent)
 {
 	if (is_exactly_a<numeric>(x)) {
 		try {
-			return lgamma(ex_to<numeric>(x));
+			return lgamma(ex_to<numeric>(x), parent);
 		} catch (const dunno &e) { }
 	}
 	
@@ -61,18 +61,21 @@ static ex lgamma_evalf(const ex & x, PyObject* parent)
 static ex lgamma_eval(const ex & x)
 {
 	if (x.info(info_flags::numeric)) {
-		// trap integer arguments:
-		if (x.info(info_flags::integer)) {
-			// lgamma(n) -> log((n-1)!) for postitive n
-			if (x.info(info_flags::posint))
-				return log(factorial(x + _ex_1));
-			else
-				return Infinity;
-				//throw (pole_error("lgamma_eval(): logarithmic pole",0));
-		}
-		if (!ex_to<numeric>(x).is_exact())
-			return lgamma(ex_to<numeric>(x));
-	}
+                const numeric& num = ex_to<numeric>(x);
+		
+                if (num.is_positive()) {
+                        if (num.is_integer())
+                                return log(factorial(x - _ex1));
+                        if (num.is_exact())
+                                return lgamma(x).hold();
+                        return lgamma(num);
+                }
+                if (num.is_integer())
+                        return Infinity;
+
+                if (not num.is_exact())
+			return lgamma(num);
+                }
 	
 	return lgamma(x).hold();
 }
@@ -102,10 +105,10 @@ static ex lgamma_series(const ex & arg,
 	//   series(lgamma(x+m+1)-log(x)...-log(x+m)),x==-m,order);
 	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
 	if (not is_exactly_a<numeric>(arg_pt)
-            or not arg_pt.info(info_flags::integer)
+            or not arg_pt.is_integer()
             or arg_pt.info(info_flags::positive))
 		throw do_taylor();  // caught by function::series()
-	// if we got here we have to care for a simple pole of tgamma(-m):
+	// if we got here we have to care for a simple pole of gamma(-m):
 	numeric m = -ex_to<numeric>(arg_pt);
 	ex recur;
 	for (numeric p = 0; p<=m; ++p)
@@ -140,69 +143,55 @@ REGISTER_FUNCTION(lgamma, eval_func(lgamma_eval).
 // true Gamma function
 //////////
 
-static ex tgamma_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x)) {
-		try {
-			return tgamma(ex_to<numeric>(x), parent);
-		} catch (const dunno &e) { }
-	}
-	
-	return tgamma(x).hold();
-}
-
-
-/** Evaluation of tgamma(x), the true Gamma function.  Knows about integer
+/** Evaluation of gamma(x), the true Gamma function.  Knows about integer
  *  arguments, half-integer arguments and that's it. Somebody ought to provide
  *  some good numerical evaluation some day...
  *
- *  @exception pole_error("tgamma_eval(): simple pole",0) */
-static ex tgamma_eval(const ex & x)
+ *  @exception pole_error("gamma_eval(): simple pole",0) */
+static ex gamma_eval(const ex & x)
 {
 	if (is_exactly_a<numeric>(x)) {
 		// trap integer arguments:
 		const numeric two_x = (*_num2_p)*ex_to<numeric>(x);
 		if (two_x.is_even()) {
-			// tgamma(n) -> (n-1)! for positive n
+			// gamma(n) -> (n-1)! for positive n
 			if (two_x.is_positive()) {
 				return factorial(ex_to<numeric>(x).sub(*_num1_p));
-			} else {
-				//throw (pole_error("tgamma_eval(): simple pole",1));
-				return UnsignedInfinity;
-			}
+			} 
+                        return UnsignedInfinity;
+			
 		}
 		// trap half integer arguments:
 		if (two_x.is_integer()) {
 			// trap positive x==(n+1/2)
-			// tgamma(n+1/2) -> Pi^(1/2)*(1*3*..*(2*n-1))/(2^n)
+			// gamma(n+1/2) -> Pi^(1/2)*(1*3*..*(2*n-1))/(2^n)
 			if (two_x.is_positive()) {
-				const numeric n = ex_to<numeric>(x).sub(*_num1_2_p).to_bigint();
-				return (doublefactorial(n.mul(*_num2_p).sub(*_num1_p)).div(pow(*_num2_p,n))) * sqrt(Pi);
-			} else {
-				// trap negative x==(-n+1/2)
-				// tgamma(-n+1/2) -> Pi^(1/2)*(-2)^n/(1*3*..*(2*n-1))
-				const numeric n = abs(ex_to<numeric>(x).sub(*_num1_2_p).to_bigint());
-				return (pow(*_num_2_p, n).div(doublefactorial(n.mul(*_num2_p).sub(*_num1_p))))*sqrt(Pi);
-			}
+				long n = ex_to<numeric>(x).sub(*_num1_2_p).to_long();
+				return (doublefactorial(n+n-1).div(_num2_p->pow_intexp(n))) * sqrt(Pi);
+			} 
+                        // trap negative x==(-n+1/2)
+                        // gamma(-n+1/2) -> Pi^(1/2)*(-2)^n/(1*3*..*(2*n-1))
+                        long n = std::labs(ex_to<numeric>(x).sub(*_num1_2_p).to_long());
+                        return _num_2_p->pow_intexp(n).div(doublefactorial(n+n-1))*sqrt(Pi);
 		}
 		if (!ex_to<numeric>(x).is_exact())
-			return tgamma_evalf(ex_to<numeric>(x), nullptr);
+			return gamma(ex_to<numeric>(x), nullptr);
 	}
 	
-	return tgamma(x).hold();
+	return gamma(x).hold();
 }
 
 
-static ex tgamma_deriv(const ex & x, unsigned deriv_param)
+static ex gamma_deriv(const ex & x, unsigned deriv_param)
 {
 	GINAC_ASSERT(deriv_param==0);
 	
-	// d/dx  tgamma(x) -> psi(x)*tgamma(x)
-	return psi(x)*tgamma(x);
+	// d/dx  gamma(x) -> psi(x)*gamma(x)
+	return psi(x)*gamma(x);
 }
 
 
-static ex tgamma_series(const ex & arg,
+static ex gamma_series(const ex & arg,
                         const relational & rel,
                         int order,
                         unsigned options)
@@ -211,13 +200,13 @@ static ex tgamma_series(const ex & arg,
 	// Taylor series where there is no pole falls back to psi function
 	// evaluation.
 	// On a pole at -m use the recurrence relation
-	//   tgamma(x) == tgamma(x+1) / x
+	//   gamma(x) == gamma(x+1) / x
 	// from which follows
-	//   series(tgamma(x),x==-m,order) ==
-	//   series(tgamma(x+m+1)/(x*(x+1)*...*(x+m)),x==-m,order);
+	//   series(gamma(x),x==-m,order) ==
+	//   series(gamma(x+m+1)/(x*(x+1)*...*(x+m)),x==-m,order);
 	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
 	if (not is_exactly_a<numeric>(arg_pt)
-            or not arg_pt.info(info_flags::integer)
+            or not arg_pt.is_integer()
             or arg_pt.info(info_flags::positive))
 		throw do_taylor();  // caught by function::series()
 	// if we got here we have to care for a simple pole at -m:
@@ -225,26 +214,21 @@ static ex tgamma_series(const ex & arg,
 	ex ser_denom = _ex1;
 	for (numeric p; p<=m; ++p)
 		ser_denom *= arg+p;
-	return (tgamma(arg+m+_ex1)/ser_denom).series(rel, order, options);
+	return (gamma(arg+m+_ex1)/ser_denom).series(rel, order, options);
 }
 
-static void tgamma_print_dflt(const ex & arg, const print_context & c)
-{  c.s << "gamma("; arg.print(c); c.s << ")"; }
-
-static ex tgamma_conjugate(const ex & x)
+static ex gamma_conjugate(const ex & x)
 {
-	// conjugate(tgamma(x))==tgamma(conjugate(x))
-	return tgamma(x.conjugate());
+	// conjugate(gamma(x))==gamma(conjugate(x))
+	return gamma(x.conjugate());
 }
 
 
-REGISTER_FUNCTION(tgamma, eval_func(tgamma_eval).
-                          evalf_func(tgamma_evalf).
-                          derivative_func(tgamma_deriv).
-                          series_func(tgamma_series).
-                          conjugate_func(tgamma_conjugate).
-                          latex_name("\\Gamma").
-		          print_func<print_dflt>(tgamma_print_dflt));
+REGISTER_FUNCTION(gamma, eval_func(gamma_eval).
+                          derivative_func(gamma_deriv).
+                          series_func(gamma_series).
+                          conjugate_func(gamma_conjugate).
+                          latex_name("\\Gamma"));
 
 
 //////////
@@ -256,7 +240,7 @@ static ex beta_evalf(const ex & x, const ex & y, PyObject* parent)
 	if (is_exactly_a<numeric>(x) && is_exactly_a<numeric>(y)) {
 		const numeric &nx = ex_to<numeric>(x);
 		const numeric &ny = ex_to<numeric>(y);
-                return (nx+ny).rgamma(parent) * nx.tgamma(parent) * ny.tgamma(parent);
+                return beta(nx, ny, parent);
 	}
 	
 	return beta(x,y).hold();
@@ -265,12 +249,14 @@ static ex beta_evalf(const ex & x, const ex & y, PyObject* parent)
 
 static ex beta_eval(const ex & x, const ex & y)
 {
-	if (x.is_equal(_ex1))
-		return 1/y;
-	if (y.is_equal(_ex1))
-		return 1/x;
+        if (x.is_zero() or y.is_zero())
+                return NaN;
+	if (x.is_one())
+		return power(y, _ex_1);
+	if (y.is_one())
+		return power(x, _ex_1);
 	if (is_exactly_a<numeric>(x) and is_exactly_a<numeric>(y)) {
-		// treat all problematic x and y that may not be passed into tgamma,
+		// treat all problematic x and y that may not be passed into gamma,
 		// because they would throw there although beta(x,y) is well-defined
 		// using the formula beta(x,y) == (-1)^y * beta(1-x-y, y)
 		const numeric &nx = ex_to<numeric>(x);
@@ -280,16 +266,15 @@ static ex beta_eval(const ex & x, const ex & y)
 			if (nx.is_negative()) {
 				if (nx<=-ny)
 					return pow(*_num_1_p, ny)*beta(1-x-y, y);
-				else
-					throw (pole_error("beta_eval(): simple pole",1));
+                                throw (pole_error("beta_eval(): simple pole",1));
 			}
 			if (ny.is_negative()) {
 				if (ny<=-nx)
 					return pow(*_num_1_p, nx)*beta(1-y-x, x);
-				else
+				
 					throw (pole_error("beta_eval(): simple pole",1));
 			}
-			return tgamma(x)*tgamma(y)/tgamma(x+y);
+			return gamma(x)*gamma(y)/gamma(x+y);
 		}
 		// no problem in numerator, but denominator has pole:
 		if ((nx+ny).is_real() &&
@@ -326,32 +311,32 @@ static ex beta_series(const ex & arg1,
                       unsigned options)
 {
 	// method:
-	// Taylor series where there is no pole of one of the tgamma functions
+	// Taylor series where there is no pole of one of the gamma functions
 	// falls back to beta function evaluation.  Otherwise, fall back to
-	// tgamma series directly.
+	// gamma series directly.
 	const ex arg1_pt = arg1.subs(rel, subs_options::no_pattern);
 	const ex arg2_pt = arg2.subs(rel, subs_options::no_pattern);
 	GINAC_ASSERT(is_a<symbol>(rel.lhs()));
 	const symbol &s = ex_to<symbol>(rel.lhs());
 	ex arg1_ser, arg2_ser, arg1arg2_ser;
-	if ((!arg1_pt.info(info_flags::integer) || arg1_pt.info(info_flags::positive)) &&
-	    (!arg2_pt.info(info_flags::integer) || arg2_pt.info(info_flags::positive)))
+	if ((!arg1_pt.is_integer() || arg1_pt.info(info_flags::positive)) &&
+	    (!arg2_pt.is_integer() || arg2_pt.info(info_flags::positive)))
 		throw do_taylor();  // caught by function::series()
 	// trap the case where arg1 is on a pole:
-	if (arg1.info(info_flags::integer) && !arg1.info(info_flags::positive))
-		arg1_ser = tgamma(arg1+s);
+	if (arg1.is_integer() && !arg1.info(info_flags::positive))
+		arg1_ser = gamma(arg1+s);
 	else
-		arg1_ser = tgamma(arg1);
+		arg1_ser = gamma(arg1);
 	// trap the case where arg2 is on a pole:
-	if (arg2.info(info_flags::integer) && !arg2.info(info_flags::positive))
-		arg2_ser = tgamma(arg2+s);
+	if (arg2.is_integer() && !arg2.info(info_flags::positive))
+		arg2_ser = gamma(arg2+s);
 	else
-		arg2_ser = tgamma(arg2);
+		arg2_ser = gamma(arg2);
 	// trap the case where arg1+arg2 is on a pole:
-	if ((arg1+arg2).info(info_flags::integer) && !(arg1+arg2).info(info_flags::positive))
-		arg1arg2_ser = tgamma(arg2+arg1+s);
+	if ((arg1+arg2).is_integer() && !(arg1+arg2).info(info_flags::positive))
+		arg1arg2_ser = gamma(arg2+arg1+s);
 	else
-		arg1arg2_ser = tgamma(arg2+arg1);
+		arg1arg2_ser = gamma(arg2+arg1);
 	// compose the result (expanding all the terms):
 	return (arg1_ser*arg2_ser/arg1arg2_ser).series(rel, order, options).expand();
 }
@@ -361,14 +346,14 @@ REGISTER_FUNCTION(beta, eval_func(beta_eval).
                         evalf_func(beta_evalf).
                         derivative_func(beta_deriv).
                         series_func(beta_series).
-                        latex_name("{\\rm B}").
-                        set_symmetry(sy_symm(0, 1)));
+                        latex_name("{\\rm B}"));
 
 
 //////////
 // Psi-function (aka digamma-function)
 //////////
 
+// Needed because there is no RR member function
 static ex psi1_evalf(const ex & x, PyObject* parent)
 {
 	if (is_exactly_a<numeric>(x)) {
@@ -391,33 +376,34 @@ static ex psi1_eval(const ex & x)
 			if (nx.is_positive()) {
 				// psi(n) -> 1 + 1/2 +...+ 1/(n-1) - Euler
 				numeric rat = 0;
-				for (numeric i(nx+(*_num_1_p)); i>0; --i)
+				for (numeric i(nx+(*_num_1_p)); i>0; --i) {
 					rat += i.inverse();
+                                }
 				return rat-Euler;
-			} else {
-				// for non-positive integers there is a pole:
-				throw (pole_error("psi_eval(): simple pole",1));
-			}
+			} 
+			// for non-positive integers there is a pole:
+			throw (pole_error("psi_eval(): simple pole",1));
 		}
 		if (((*_num2_p)*nx).is_integer()) {
 			// half integer case
 			if (nx.is_positive()) {
 				// psi((2m+1)/2) -> 2/(2m+1) + 2/2m +...+ 2/1 - Euler - 2log(2)
 				numeric rat = 0;
-				for (numeric i = (nx+(*_num_1_p))*(*_num2_p); i>0; i-=(*_num2_p))
+				for (numeric i = (nx+(*_num_1_p))*(*_num2_p); i>0; i-=(*_num2_p)) {
 					rat += (*_num2_p)*i.inverse();
+                                }
 				return rat-Euler-_ex2*log(_ex2);
-			} else {
-				// use the recurrence relation
-				//   psi(-m-1/2) == psi(-m-1/2+1) - 1 / (-m-1/2)
-				// to relate psi(-m-1/2) to psi(1/2):
-				//   psi(-m-1/2) == psi(1/2) + r
-				// where r == ((-1/2)^(-1) + ... + (-m-1/2)^(-1))
-				numeric recur = 0;
-				for (numeric p = nx; p<0; ++p)
-					recur -= pow(p, *_num_1_p);
-				return recur+psi(_ex1_2);
-			}
+                        }
+
+                        // use the recurrence relation
+                        //   psi(-m-1/2) == psi(-m-1/2+1) - 1 / (-m-1/2)
+                        // to relate psi(-m-1/2) to psi(1/2):
+                        //   psi(-m-1/2) == psi(1/2) + r
+                        // where r == ((-1/2)^(-1) + ... + (-m-1/2)^(-1))
+                        numeric recur = 0;
+                        for (numeric p = nx; p<0; ++p)
+                                recur -= p.inverse();
+                        return recur+psi(_ex1_2);
 		}
 		if (not nx.is_exact())
 			return psi(nx);
@@ -449,7 +435,7 @@ static ex psi1_series(const ex & arg,
 	//   series(psi(x+m+1) - 1/x - 1/(x+1) - 1/(x+m)),x==-m,order);
 	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
 	if (not is_exactly_a<numeric>(arg_pt)
-            or not arg_pt.info(info_flags::integer) 
+            or not arg_pt.is_integer() 
             or arg_pt.info(info_flags::positive))
 		throw do_taylor();  // caught by function::series()
 	// if we got here we have to care for a simple pole at -m:
@@ -491,9 +477,9 @@ static ex psi2_eval(const ex & n, const ex & x)
 	// psi(0,x) -> psi(x)
 	if (n.is_zero())
 		return psi(x);
-	// psi(-1,x) -> log(tgamma(x))
+	// psi(-1,x) -> log(gamma(x))
 	if (n.is_equal(_ex_1))
-		return log(tgamma(x));
+		return log(gamma(x));
 	if (is_exactly_a<numeric>(n)
             and n.info(info_flags::posint)
 	    and is_exactly_a<numeric>(x)) {
@@ -503,7 +489,7 @@ static ex psi2_eval(const ex & n, const ex & x)
 			// integer case 
 			if (nx.is_equal(*_num1_p))
 				// use psi(n,1) == (-)^(n+1) * n! * zeta(n+1)
-				return pow(*_num_1_p,nn+(*_num1_p))*factorial(nn)*zeta(ex(nn+(*_num1_p)));
+				return _num_1_p->pow_intexp(nn+(*_num1_p))*factorial(nn)*zeta(ex(nn+(*_num1_p)));
 			if (nx.is_positive()) {
 				// use the recurrence relation
 				//   psi(n,m) == psi(n,m+1) - (-)^n * n! / m^(n+1)
@@ -512,37 +498,35 @@ static ex psi2_eval(const ex & n, const ex & x)
 				// where r == (-)^n * n! * (1^(-n-1) + ... + (m-1)^(-n-1))
 				numeric recur = 0;
 				for (numeric p = 1; p<nx; ++p)
-					recur += pow(p, -nn+(*_num_1_p));
-				recur *= factorial(nn)*pow((*_num_1_p), nn);
+					recur += p.pow_intexp(-nn+(*_num_1_p));
+				recur *= factorial(nn)*(_num_1_p->pow_intexp(nn));
 				return recur+psi(n,_ex1);
-			} else {
-				// for non-positive integers there is a pole:
-				throw (pole_error("psi2_eval(): pole",1));
-			}
+			} 
+			// for non-positive integers there is a pole:
+			throw (pole_error("psi2_eval(): pole",1));
 		}
 		if (((*_num2_p)*nx).is_integer()) {
 			// half integer case
 			if (nx.is_equal(*_num1_2_p))
 				// use psi(n,1/2) == (-)^(n+1) * n! * (2^(n+1)-1) * zeta(n+1)
-				return pow(*_num_1_p,nn+(*_num1_p))*factorial(nn)*(pow(*_num2_p,nn+(*_num1_p)) + (*_num_1_p))*zeta(ex(nn+(*_num1_p)));
+				return _num_1_p->pow_intexp(nn+(*_num1_p))*factorial(nn)*(_num2_p->pow_intexp(nn+(*_num1_p)) + (*_num_1_p))*zeta(ex(nn+(*_num1_p)));
 			if (nx.is_positive()) {
 				const numeric m = nx - (*_num1_2_p);
 				// use the multiplication formula
 				//   psi(n,2*m) == (psi(n,m) + psi(n,m+1/2)) / 2^(n+1)
 				// to revert to positive integer case
-				return psi(n,(*_num2_p)*m)*pow((*_num2_p),nn+(*_num1_p))-psi(n,m);
-			} else {
-				// use the recurrence relation
-				//   psi(n,-m-1/2) == psi(n,-m-1/2+1) - (-)^n * n! / (-m-1/2)^(n+1)
-				// to relate psi(n,-m-1/2) to psi(n,1/2):
-				//   psi(n,-m-1/2) == psi(n,1/2) + r
-				// where r == (-)^(n+1) * n! * ((-1/2)^(-n-1) + ... + (-m-1/2)^(-n-1))
-				numeric recur = 0;
-				for (numeric p = nx; p<0; ++p)
-					recur += pow(p, -nn+(*_num_1_p));
-				recur *= factorial(nn)*pow(*_num_1_p, nn+(*_num_1_p));
-				return recur+psi(n,_ex1_2);
-			}
+				return psi(n,(*_num2_p)*m)*_num2_p->pow_intexp(nn+(*_num1_p))-psi(n,m);
+			} 
+                        // use the recurrence relation
+                        //   psi(n,-m-1/2) == psi(n,-m-1/2+1) - (-)^n * n! / (-m-1/2)^(n+1)
+                        // to relate psi(n,-m-1/2) to psi(n,1/2):
+                        //   psi(n,-m-1/2) == psi(n,1/2) + r
+                        // where r == (-)^(n+1) * n! * ((-1/2)^(-n-1) + ... + (-m-1/2)^(-n-1))
+                        numeric recur = 0;
+                        for (numeric p = nx; p<0; ++p)
+                                recur += p.pow_intexp(-nn+(*_num_1_p));
+                        recur *= factorial(nn)*_num_1_p->pow_intexp(nn+(*_num_1_p));
+                        return recur+psi(n,_ex1_2);
 		}
 		//  psi2_evalf should be called here once it becomes available
 	}
@@ -579,7 +563,7 @@ static ex psi2_series(const ex & n,
 	//                                      ... + (x+m)^(-n-1))),x==-m,order);
 	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
 	if ((not is_exactly_a<numeric>(arg_pt)
-            and not arg_pt.info(info_flags::integer))
+            and not arg_pt.is_integer())
             or arg_pt.info(info_flags::positive))
 		throw do_taylor();  // caught by function::series()
 	// if we got here we have to care for a pole of order n+1 at -m:

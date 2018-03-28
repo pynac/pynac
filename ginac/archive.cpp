@@ -182,13 +182,13 @@ static void write_unsigned(std::ostream &os, unsigned val)
 /** Read unsigned integer quantity from stream. */
 static unsigned read_unsigned(std::istream &is)
 {
-	unsigned char b;
+	unsigned char b = 0;
 	unsigned ret = 0;
 	unsigned shift = 0;
 	do {
-		char b2;
-		is.get(b2);
-		b = b2;
+		char b2 = 0;
+		if (is.get(b2))
+        		b = b2;
 		ret |= (b & 0x7f) << shift;
 		shift += 7;
 	} while ((b & 0x80) != 0);
@@ -248,7 +248,7 @@ std::istream &operator>>(std::istream &is, archive_node &n)
 	n.props.resize(num_props);
 	for (unsigned i=0; i<num_props; i++) {
 		unsigned name_type = read_unsigned(is);
-		n.props[i].type = (archive_node::property_type)(name_type & 7);
+		n.props[i].type = static_cast<archive_node::property_type>(name_type & 7);
 		n.props[i].name = name_type >> 3;
 		n.props[i].value = read_unsigned(is);
 	}
@@ -259,7 +259,7 @@ std::istream &operator>>(std::istream &is, archive_node &n)
 std::istream &operator>>(std::istream &is, archive &ar)
 {
 	// Read header
-	char c1, c2, c3, c4;
+	char c1 = 0, c2 = 0, c3 = 0, c4 = 0;
 	is.get(c1); is.get(c2); is.get(c3); is.get(c4);
 	if (c1 != 'G' || c2 != 'A' || c3 != 'R' || c4 != 'C')
 		throw (std::runtime_error("not a GiNaC archive (signature not found)"));
@@ -374,24 +374,24 @@ archive_node::archive_node_cit
 
 void archive_node::add_bool(const std::string &name, bool value)
 {
-	props.push_back(property(a.atomize(name), PTYPE_BOOL, static_cast<unsigned int>(value)));
+	props.emplace_back(a.atomize(name), PTYPE_BOOL, static_cast<unsigned int>(value));
 }
 
 void archive_node::add_unsigned(const std::string &name, unsigned value)
 {
-	props.push_back(property(a.atomize(name), PTYPE_UNSIGNED, value));
+	props.emplace_back(a.atomize(name), PTYPE_UNSIGNED, value);
 }
 
 void archive_node::add_string(const std::string &name, const std::string &value)
 {
-	props.push_back(property(a.atomize(name), PTYPE_STRING, a.atomize(value)));
+	props.emplace_back(a.atomize(name), PTYPE_STRING, a.atomize(value));
 }
 
 void archive_node::add_ex(const std::string &name, const ex &value)
 {
 	// Recursively create an archive_node and add its ID to the properties of this node
 	archive_node_id id = a.add_node(archive_node(a, value));
-	props.push_back(property(a.atomize(name), PTYPE_NODE, id));
+	props.emplace_back(a.atomize(name), PTYPE_NODE, id);
 }
 
 
@@ -496,7 +496,7 @@ void archive_node::get_properties(propinfovector &v) const
 			}
 		}
 		if (!found)
-			v.push_back(property_info(type, name));
+			v.emplace_back(type, name);
 	}	
 }
 

@@ -44,28 +44,28 @@ namespace GiNaC {
 // expression recursively (used internally by lcm_of_coefficients_denominators())
 static numeric lcmcoeff(const ex &e, const numeric &l)
 {
-	if (e.info(info_flags::rational))
+	if (is_exactly_a<numeric>(e)
+            and e.info(info_flags::rational))
 		return lcm(ex_to<numeric>(e).denom(), l);
-	else if (is_exactly_a<add>(e)) {
+	if (is_exactly_a<add>(e)) {
 		numeric c = *_num1_p;
 		for (size_t i=0; i<e.nops(); i++)
 			c = lcmcoeff(e.op(i), c);
 		return lcm(c, l);
-	} else if (is_exactly_a<mul>(e)) {
+	}
+        if (is_exactly_a<mul>(e)) {
 		numeric c = *_num1_p;
 		for (size_t i=0; i<e.nops(); i++)
 			c *= lcmcoeff(e.op(i), *_num1_p);
 		return lcm(c, l);
-	} else if (is_exactly_a<power>(e)) {
+	}
+        if (is_exactly_a<power>(e)) {
 		if (is_exactly_a<symbol>(e.op(0)))
 			return l;
-		else {
-			ex t = pow(lcmcoeff(e.op(0), l), ex_to<numeric>(e.op(1)));
-                        if (is_exactly_a<numeric>(t))
-                                return ex_to<numeric>(t);
-                        else
-                                return l;
-                }
+
+                ex t = pow(lcmcoeff(e.op(0), l), ex_to<numeric>(e.op(1)));
+                if (is_exactly_a<numeric>(t))
+                        return ex_to<numeric>(t);
 	}
 	return l;
 }
@@ -98,26 +98,29 @@ ex multiply_lcm(const ex &e, const numeric &lcm)
 			v.push_back(multiply_lcm(e.op(i), op_lcm));
 			lcm_accum *= op_lcm;
 		}
-		v.push_back(lcm / lcm_accum);
+		v.emplace_back(lcm / lcm_accum);
 		return (new mul(v))->setflag(status_flags::dynallocated);
-	} else if (is_exactly_a<add>(e)) {
+	}
+        if (is_exactly_a<add>(e)) {
 		size_t num = e.nops();
 		exvector v; v.reserve(num);
 		for (size_t i=0; i<num; i++)
 			v.push_back(multiply_lcm(e.op(i), lcm));
 		return (new add(v))->setflag(status_flags::dynallocated);
-	} else if (is_exactly_a<power>(e)) {
+	}
+        if (is_exactly_a<power>(e)) {
 		if (is_exactly_a<symbol>(e.op(0)))
 			return e * lcm;
-		else {
-			numeric root_of_lcm = lcm.power(ex_to<numeric>(e.op(1)).inverse());
-			if (root_of_lcm.is_rational())
-				return pow(multiply_lcm(e.op(0), root_of_lcm), e.op(1));
-			else
-				return e * lcm;
-		}
-	} else
-		return e * lcm;
+                if (not is_exactly_a<numeric>(e.op(1)))
+                        return e * lcm;
+                ex t = lcm.power(ex_to<numeric>(e.op(1)).inverse());
+                if (not is_exactly_a<numeric>(t))
+                        return e * lcm;
+                const numeric& root_of_lcm = ex_to<numeric>(t);
+                if (root_of_lcm.is_rational())
+                        return pow(multiply_lcm(e.op(0), root_of_lcm), e.op(1));
+	}
+        return e * lcm;
 }
 
 /*
@@ -136,13 +139,12 @@ ex ex::unit(const ex &x) const
 	ex c = expand().lcoeff(x);
 	if (is_exactly_a<numeric>(c))
 		return c.info(info_flags::negative) ?_ex_1 : _ex1;
-	else {
-		ex y;
-		if (c.get_first_symbol(y))
-			return c.unit(y);
-		else
-			throw(std::invalid_argument("invalid expression in unit()"));
-	}
+
+        ex y;
+        if (c.get_first_symbol(y))
+                return c.unit(y);
+
+        throw(std::invalid_argument("invalid expression in unit()"));
 }
 
 
@@ -158,27 +160,12 @@ ex ex::content(const ex &x) const
 	if (is_exactly_a<numeric>(*this))
 		return info(info_flags::negative) ? -*this : *this;
 
-	ex e = expand();
-	if (e.is_zero())
+	if (this->is_zero())
 		return _ex0;
 
-	// First, divide out the integer content (which we can calculate very efficiently).
-	// If the leading coefficient of the quotient is an integer, we are done.
-	ex c = e.integer_content();
-	ex r = e / c;
-	int deg = r.degree(x);
-	ex lcoef = r.coeff(x, deg);
-	if (lcoef.info(info_flags::integer))
-		return c;
-
-	// GCD of all coefficients
-	int ldeg = r.ldegree(x);
-	if (deg == ldeg)
-		return lcoef * c / lcoef.unit(x);
-	ex cont = _ex0; //???
-	for (int i=ldeg; i<=deg; i++)
-		cont = gcdpoly(r.coeff(x, i), cont, nullptr, nullptr, false);
-	return cont * c;
+	ex u, c, p;
+	unitcontprim(x, u, c, p);
+	return c;
 }
 
 
@@ -216,8 +203,7 @@ ex ex::primpart(const ex &x, const ex &c) const
 	ex u = unit(x);
 	if (is_exactly_a<numeric>(c))
 		return *this / (c * u);
-	else
-		return quo(*this, c * u, x, false);
+	return quo(*this, c * u, x, false);
 }
 
 
@@ -252,27 +238,23 @@ void ex::unitcontprim(const ex &x, ex &u, ex &c, ex &p) const
 		return;
 	}
 
-	// Expand input polynomial
-	ex e = expand();
-	if (e.is_zero()) {
-		u = _ex1;
-		c = p = _ex0;
-		return;
-	}
-
 	// Compute unit and content
 	u = unit(x);
-	c = content(x);
 
-	// Divide by unit and content to get primitive part
-	if (c.is_zero()) {
-		p = _ex0;
-		return;
-	}
-	if (is_exactly_a<numeric>(c))
-		p = *this / (c * u);
-	else
-		p = quo(e, c * u, x, false);
+        expairvec vec;
+        coefficients(x, vec);
+        c = vec[0].first;
+        for (const auto& pair : range(vec.begin()+1, vec.end())) {
+                c = gcdpoly(c, pair.first, nullptr, nullptr, false);
+        }
+
+        p = _ex0;
+        if (is_exactly_a<numeric>(c))
+                for (const auto& pair : vec)
+                        p += (pair.first / (c * u)) * pow(x, pair.second);
+        else
+                for (const auto& pair : vec)
+                        p += quo(pair.first, c * u, x, false) * pow(x, pair.second);
 }
 
 ex resultant(const ex & e1, const ex & e2, const ex & s)
@@ -294,7 +276,7 @@ ex resultant(const ex & e1, const ex & e2, const ex & s)
                         f2 = ee1;
                 ex den1 = f1.denom();
                 ex den2 = f2.denom();
-                if (not den1.is_equal(_ex1) and den1.is_equal(den2))
+                if (not den1.is_one() and den1.is_equal(den2))
                         return resultant(f1.numer(), f2.numer(), s);
 		throw(std::runtime_error("resultant(): arguments must be polynomials"));
         }

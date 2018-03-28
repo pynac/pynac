@@ -36,6 +36,7 @@ class pseries : public basic
 {
 	GINAC_DECLARE_REGISTERED_CLASS(pseries, basic)
 
+        friend class ex;
 	// other constructors
 public:
 	pseries(const ex &rel_, epvector ops_);
@@ -45,9 +46,9 @@ public:
 	unsigned precedence() const override {return 38;} // for clarity just below add::precedence
 	size_t nops() const override;
 	const ex op(size_t i) const override;
-	int degree(const ex &s) const override;
-	int ldegree(const ex &s) const override;
-	ex coeff(const ex &s, int n = 1) const override;
+	numeric degree(const ex &s) const override;
+	numeric ldegree(const ex &s) const override;
+	ex coeff(const ex &s, const ex & n) const override;
 	ex collect(const ex &s, bool distributed = false) const override;
 	ex eval(int level=0) const override;
 	ex evalf(int level=0, PyObject* parent=nullptr) const override;
@@ -58,7 +59,6 @@ public:
 	ex conjugate() const override;
 	ex real_part() const override;
 	ex imag_part() const override;
-	ex eval_integ() const override;
 protected:
 	ex derivative(const symbol & s) const override;
 
@@ -80,7 +80,7 @@ public:
 	bool is_compatible_to(const pseries &other) const {return var.is_equal(other.var) && point.is_equal(other.point);}
 
 	/** Check whether series has the value zero. */
-	bool is_zero() const {return seq.size() == 0;}
+	bool is_zero() const {return seq.empty();}
 
 	/** Returns true if there is no order term, i.e. the series terminates and
 	 *  false otherwise. */

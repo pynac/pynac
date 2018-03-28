@@ -25,10 +25,12 @@
 
 #include "inifcns.h"
 #include "ex.h"
+#include "ex_utils.h"
 #include "constant.h"
 #include "infinity.h"
 #include "numeric.h"
 #include "mul.h"
+#include "add.h"
 #include "power.h"
 #include "operators.h"
 #include "relational.h"
@@ -50,21 +52,40 @@ namespace GiNaC {
    computer algebra systems.   These print methods are registered
    below with each of the corresponding inverse trig function. */
 
+// helper function: returns whether the expression is a multiple of I
+static bool is_multiple_of_I(const ex & the_ex)
+{
+
+	if (is_exactly_a<numeric>(the_ex)
+	    and the_ex.real_part().is_zero())
+		return true;
+
+	if (is_exactly_a<mul>(the_ex)) {
+		for (size_t i=0; i < the_ex.nops(); ++i)
+			if (is_multiple_of_I(the_ex.op(i)))
+				return true;
+	}
+
+	if (is_exactly_a<add>(the_ex)) {
+		for (size_t i=0; i < the_ex.nops(); ++i)
+			if (!is_multiple_of_I(the_ex.op(i)))
+				return false;
+		return true;
+	}
+	return false;
+};
+
 
 //////////
 // hyperbolic sine (trigonometric function)
 //////////
 
-static ex sinh_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return sinh(ex_to<numeric>(x));
-	
-	return sinh(x).hold();
-}
-
 static ex sinh_eval(const ex & x)
 {
+        // sinh() is odd
+        if (x.info(info_flags::negative))
+                return -sinh(-x);
+
 	if (is_exactly_a<numeric>(x)) {
 
 		// sinh(0) -> 0
@@ -74,10 +95,6 @@ static ex sinh_eval(const ex & x)
 		// sinh(float) -> float
 		if (x.info(info_flags::inexact))
 			return sinh(ex_to<numeric>(x));
-
-		// sinh() is odd
-		if (x.info(info_flags::negative))
-			return -sinh(-x);
 	}
 
 	// sinh(oo) -> oo
@@ -88,14 +105,17 @@ static ex sinh_eval(const ex & x)
 			throw (std::runtime_error("sinh_eval(): sinh(unsigned_infinity) encountered"));
 		return x;
 	}
-	
-        ex xoverpi = x/Pi;
-	if (is_exactly_a<numeric>(xoverpi) &&
-		ex_to<numeric>(xoverpi).real().is_zero())  // sinh(I*x) -> I*sin(x)
-		return I*sin(x/I);
+
+	// sinh(I*x) --> I*sin(x/I)
+	if (is_multiple_of_I(x.expand()))
+	    return I*sin(x/I);
 	
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
+
+                // sinh(log(x)) -> (x^2 - 1)/(2x)
+		if (is_ex_the_function(x, log))
+                        return (power(t, _ex2) - _ex1)/(_ex2*t);
 
 		// sinh(asinh(x)) -> x
 		if (is_ex_the_function(x, asinh))
@@ -138,7 +158,6 @@ static ex sinh_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(sinh, eval_func(sinh_eval).
-                        evalf_func(sinh_evalf).
                         derivative_func(sinh_deriv).
                         real_part_func(sinh_real_part).
                         imag_part_func(sinh_imag_part).
@@ -159,8 +178,11 @@ static ex cosh_evalf(const ex & x, PyObject* parent)
 
 static ex cosh_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
-
+        // cosh() is even
+        if (x.info(info_flags::negative))
+                return cosh(-x);
+	
+        if (is_exactly_a<numeric>(x)) {
 		// cosh(0) -> 1
 		if (x.is_zero())
 			return _ex1;
@@ -168,10 +190,6 @@ static ex cosh_eval(const ex & x)
 		// cosh(float) -> float
 		if (x.info(info_flags::inexact))
 			return cosh(ex_to<numeric>(x));
-
-		// cosh() is even
-		if (x.info(info_flags::negative))
-			return cosh(-x);
 	}
 	
 	// cosh(oo) -> oo
@@ -183,13 +201,16 @@ static ex cosh_eval(const ex & x)
 		return Infinity;
 	}
 
-        ex xoverpi = x/Pi;
-	if (is_exactly_a<numeric>(xoverpi) &&
-		ex_to<numeric>(xoverpi).real().is_zero())  // cosh(I*x) -> cos(x)
+	// cosh(I*x) --> cos(x)
+	if (is_multiple_of_I(x.expand()))
 		return cos(x/I);
 	
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
+
+                // cosh(log(x)) -> (x + 1/x)/2
+		if (is_ex_the_function(x, log))
+                        return (power(t, _ex2) + _ex1)/(_ex2*t);
 
 		// cosh(acosh(x)) -> x
 		if (is_ex_the_function(x, acosh))
@@ -243,18 +264,13 @@ REGISTER_FUNCTION(cosh, eval_func(cosh_eval).
 // hyperbolic tangent (trigonometric function)
 //////////
 
-static ex tanh_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return tanh(ex_to<numeric>(x));
-	
-	return tanh(x).hold();
-}
-
 static ex tanh_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
+        // tanh() is odd
+        if (x.info(info_flags::negative))
+                return -tanh(-x);
 
+	if (is_exactly_a<numeric>(x)) {
 		// tanh(0) -> 0
 		if (x.is_zero())
 			return _ex0;
@@ -262,10 +278,6 @@ static ex tanh_eval(const ex & x)
 		// tanh(float) -> float
 		if (x.info(info_flags::inexact))
 			return tanh(ex_to<numeric>(x));
-
-		// tanh() is odd
-		if (x.info(info_flags::negative))
-			return -tanh(-x);
 	}
 	
 	// tanh(oo) -> 1
@@ -280,13 +292,16 @@ static ex tanh_eval(const ex & x)
 		throw (std::runtime_error("tanh_eval(): tanh(unsigned_infinity) encountered"));
 	}
 		
-        ex xoverpi = x/Pi;
-	if (is_exactly_a<numeric>(xoverpi) &&
-		ex_to<numeric>(xoverpi).real().is_zero())  // tanh(I*x) -> I*tan(x);
+	// tanh(I*x) --> I*tan(x)
+	if (is_multiple_of_I(x.expand()))
 		return I*tan(x/I);
 	
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
+
+                // tanh(log(x)) -> (x^2 - 1)/(x^2 + 1)
+		if (is_ex_the_function(x, log))
+                        return (power(t, _ex2) - _ex1)/(power(t, _ex2) + _ex1);
 
 		// tanh(atanh(x)) -> x
 		if (is_ex_the_function(x, atanh))
@@ -350,7 +365,6 @@ static ex tanh_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(tanh, eval_func(tanh_eval).
-                        evalf_func(tanh_evalf).
                         derivative_func(tanh_deriv).
                         series_func(tanh_series).
                         real_part_func(tanh_real_part).
@@ -362,18 +376,13 @@ REGISTER_FUNCTION(tanh, eval_func(tanh_eval).
 // hyperbolic cotangent (trigonometric function)
 //////////
 
-static ex coth_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return tanh(ex_to<numeric>(x)).inverse();
-
-	return tanh(x).hold();
-}
-
 static ex coth_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
+        // coth() is odd
+        if (x.info(info_flags::negative))
+                return -coth(-x);
 
+	if (is_exactly_a<numeric>(x)) {
 		// coth(0) -> zoo
 		if (x.is_zero())
 			return UnsignedInfinity;
@@ -381,10 +390,6 @@ static ex coth_eval(const ex & x)
 		// coth(float) -> float
 		if (x.info(info_flags::inexact))
 			return tanh(ex_to<numeric>(x)).inverse();
-
-		// coth() is odd
-		if (x.info(info_flags::negative))
-			return -coth(-x);
 	}
 
 	// coth(oo) -> 1
@@ -399,24 +404,16 @@ static ex coth_eval(const ex & x)
 		throw (std::runtime_error("coth_eval(): tanh(unsigned_infinity) encountered"));
 	}
 
-        ex xoverpi = x/Pi;
-	if (is_exactly_a<numeric>(xoverpi)) {
-		numeric nxopi = ex_to<numeric>(xoverpi);
-		if (nxopi.real().is_zero()) { // coth(I*x) -> I*cot(x);
-                        numeric xoverpiI = (nxopi*2)/I;
-			if (not xoverpiI.is_integer())
-				return -I*cot(x/I);
-			else if (xoverpiI.is_odd())
-				return _ex0;
-			else
-				return UnsignedInfinity;
-		}
-		else
-			return coth(x).hold();
-	}
+	// coth(I*x) --> -I*cot(x)
+	if (is_multiple_of_I(x.expand()))
+		return -I*cot(x/I);
 
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
+
+                // coth(log(x)) -> (x^2 + 1)/(x^2 - 1)
+		if (is_ex_the_function(x, log))
+                        return (power(t, _ex2) + _ex1)/(power(t, _ex2) - _ex1);
 
 		// coth(acoth(x)) -> x
 		if (is_ex_the_function(x, acoth))
@@ -478,7 +475,6 @@ static ex coth_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(coth, eval_func(coth_eval).
-                        evalf_func(coth_evalf).
                         derivative_func(coth_deriv).
                         series_func(coth_series).
                         real_part_func(coth_real_part).
@@ -490,18 +486,13 @@ REGISTER_FUNCTION(coth, eval_func(coth_eval).
 // hyperbolic secant (trigonometric function)
 //////////
 
-static ex sech_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return cosh(ex_to<numeric>(x)).inverse();
-
-	return sech(x).hold();
-}
-
 static ex sech_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
+        // sech() is even
+        if (x.info(info_flags::negative))
+                return sech(-x);
 
+	if (is_exactly_a<numeric>(x)) {
 		// sech(0) -> 1
 		if (x.is_zero())
 			return _ex1;
@@ -509,16 +500,11 @@ static ex sech_eval(const ex & x)
 		// sech(float) -> float
 		if (x.info(info_flags::inexact))
 			return cosh(ex_to<numeric>(x)).inverse();
-
-		// sech() is even
-		if (x.info(info_flags::negative))
-			return sech(-x);
 	}
 
-        ex xoverpi = x/Pi;
-	if (is_exactly_a<numeric>(xoverpi) &&
-		ex_to<numeric>(xoverpi).real().is_zero())
-		return sec(x/I);
+	// sech(x*I) --> sec(x)
+	if (is_multiple_of_I(x.expand()))
+	    return sec(x/I);
 
 	// sech(oo) -> 0
 	// sech(-oo) -> 0
@@ -532,6 +518,10 @@ static ex sech_eval(const ex & x)
 
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
+
+                // sech(log(x)) -> 2/(x + 1/x)
+		if (is_ex_the_function(x, log))
+                        return (_ex2*t) / (power(t, _ex2) + _ex1);
 
 		// sech(asech(x)) -> x
 		if (is_ex_the_function(x, asech))
@@ -593,7 +583,6 @@ static ex sech_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(sech, eval_func(sech_eval).
-                        evalf_func(sech_evalf).
                         derivative_func(sech_deriv).
                         series_func(sech_series).
                         real_part_func(sech_real_part).
@@ -605,18 +594,13 @@ REGISTER_FUNCTION(sech, eval_func(sech_eval).
 // hyperbolic secant (trigonometric function)
 //////////
 
-static ex csch_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return sinh(ex_to<numeric>(x)).inverse();
-
-	return csch(x).hold();
-}
-
 static ex csch_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
+        // csch() is odd
+        if (x.info(info_flags::negative))
+                return -csch(-x);
 
+	if (is_exactly_a<numeric>(x)) {
 		// csch(0) -> zoo
 		if (x.is_zero())
 			return UnsignedInfinity;
@@ -624,15 +608,10 @@ static ex csch_eval(const ex & x)
 		// csch(float) -> float
 		if (x.info(info_flags::inexact))
 			return sinh(ex_to<numeric>(x)).inverse();
-
-		// csch() is odd
-		if (x.info(info_flags::negative))
-			return -csch(-x);
 	}
 
-        ex xoverpi = x/Pi;
-	if (is_exactly_a<numeric>(xoverpi) &&
-		ex_to<numeric>(xoverpi).real().is_zero())
+	// csch(I*x) --> -I*csc(x)
+	if (is_multiple_of_I(x.expand()))
 		return -I*csc(x/I);
 
 	// csch(oo) -> 0
@@ -648,11 +627,15 @@ static ex csch_eval(const ex & x)
 	if (is_exactly_a<function>(x)) {
 		const ex &t = x.op(0);
 
-		// sech(asech(x)) -> x
+                // csch(log(x)) -> 2/(x - 1/x)
+		if (is_ex_the_function(x, log))
+                        return (_ex2*t) / (power(t, _ex2) - _ex1);
+
+		// csch(acsch(x)) -> x
 		if (is_ex_the_function(x, acsch))
 			return t;
 
-		// sech(acosh(x)) -> 1/sqrt(x^2-1)
+		// csch(acosh(x)) -> 1/sqrt(x^2-1)
 		if (is_ex_the_function(x, asinh))
 			return power(power(t,_ex2)-_ex1,_ex_1_2);
 
@@ -708,7 +691,6 @@ static ex csch_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(csch, eval_func(csch_eval).
-                        evalf_func(csch_evalf).
                         derivative_func(csch_deriv).
                         series_func(csch_series).
                         real_part_func(csch_real_part).
@@ -719,14 +701,6 @@ REGISTER_FUNCTION(csch, eval_func(csch_eval).
 //////////
 // inverse hyperbolic sine (trigonometric function)
 //////////
-
-static ex asinh_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return asinh(ex_to<numeric>(x));
-	
-	return asinh(x).hold();
-}
 
 static ex asinh_eval(const ex & x)
 {
@@ -767,7 +741,7 @@ static ex asinh_conjugate(const ex & x)
 {
 	// conjugate(asinh(x))==asinh(conjugate(x)) unless on the branch cuts which
 	// run along the imaginary axis outside the interval [-I, +I].
-	if (x.info(info_flags::real))
+	if (x.is_real())
 		return asinh(x);
 	if (is_exactly_a<numeric>(x)) {
 		const numeric x_re = ex_to<numeric>(x.real_part());
@@ -780,7 +754,6 @@ static ex asinh_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(asinh, eval_func(asinh_eval).
-                         evalf_func(asinh_evalf).
                          derivative_func(asinh_deriv).
                          conjugate_func(asinh_conjugate).
 			 set_name("arcsinh"));
@@ -788,14 +761,6 @@ REGISTER_FUNCTION(asinh, eval_func(asinh_eval).
 //////////
 // inverse hyperbolic cosine (trigonometric function)
 //////////
-
-static ex acosh_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return acosh(ex_to<numeric>(x));
-	
-	return acosh(x).hold();
-}
 
 static ex acosh_eval(const ex & x)
 {
@@ -806,11 +771,11 @@ static ex acosh_eval(const ex & x)
 			return Pi*I*numeric(1,2);
 
 		// acosh(1) -> 0
-		if (x.is_equal(_ex1))
+		if (x.is_one())
 			return _ex0;
 
 		// acosh(-1) -> Pi*I
-		if (x.is_equal(_ex_1))
+		if (x.is_minus_one())
 			return Pi*I;
 
 		// acosh(float) -> float
@@ -852,7 +817,6 @@ static ex acosh_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(acosh, eval_func(acosh_eval).
-                         evalf_func(acosh_evalf).
                          derivative_func(acosh_deriv).
                          conjugate_func(acosh_conjugate).
 			 set_name("arccosh"));
@@ -861,20 +825,14 @@ REGISTER_FUNCTION(acosh, eval_func(acosh_eval).
 // inverse hyperbolic tangent (trigonometric function)
 //////////
 
-static ex atanh_evalf(const ex & x, PyObject* parent)
-{
-	if (is_exactly_a<numeric>(x))
-		return atanh(ex_to<numeric>(x));
-	
-	return atanh(x).hold();
-}
-
 static ex atanh_eval(const ex & x)
 {
-	if (is_exactly_a<numeric>(x)) {
+        if (is_exactly_a<numeric>(x)) {
+
+                const numeric& num = ex_to<numeric>(x);
 
 		// atanh(0) -> 0
-		if (x.is_zero())
+		if (num.is_zero())
 			return _ex0;
 
 		/*
@@ -884,19 +842,24 @@ static ex atanh_eval(const ex & x)
 		*/
 
 		// atanh(1) -> oo
-		if (x.is_equal(_ex1))
+		if (num.is_one())
 			return Infinity;
 		// atahn(-1) -> -oo
-		if (x.is_equal(_ex_1))
+		if (num.is_minus_one())
 			return NegInfinity;
 
-		// atanh(float) -> float
-		if (x.info(info_flags::inexact))
-			return atanh(ex_to<numeric>(x));
-
 		// atanh() is odd
-		if (x.info(info_flags::negative))
+		if (num.is_negative())
 			return -atanh(-x);
+
+		// atanh(float) -> float
+		if (not num.is_exact())
+			return atanh(num);
+                
+                if (num.is_integer() or num.is_rational())
+                        return _ex1_2 * log(ex((*_num1_p + num)/(*_num1_p - num)));
+
+                return atanh(x).hold();
 	}
 	
 	// atanh(oo) -> -i*pi/2
@@ -936,9 +899,9 @@ static ex atanh_series(const ex &arg,
 	//     (log(1+x)-log(1-x))/2
 	// instead.
 	const ex arg_pt = arg.subs(rel, subs_options::no_pattern);
-	if (!(arg_pt).info(info_flags::real))
+	if (!(arg_pt).is_real())
 		throw do_taylor();     // Im(x) != 0
-	if ((arg_pt).info(info_flags::real) && abs(arg_pt)<_ex1)
+	if ((arg_pt).is_real() && abs(arg_pt)<_ex1)
 		throw do_taylor();     // Im(x) == 0, but abs(x)<1
 	// care for the poles, using the defining formula for atanh()...
 	if (arg_pt.is_equal(_ex1) || arg_pt.is_equal(_ex_1))
@@ -958,8 +921,8 @@ static ex atanh_series(const ex &arg,
 		else
 			Order0correction += log((arg_pt+_ex1)/(arg_pt+_ex_1))*_ex_1_2;
  		epvector seq;
-		seq.push_back(expair(Order0correction, _ex0));
- 		seq.push_back(expair(Order(_ex1), order));
+		seq.emplace_back(Order0correction, _ex0);
+ 		seq.emplace_back(Order(_ex1), order);
  		return series(replarg - pseries(rel, seq), rel, order);
 	}
 	throw do_taylor();
@@ -977,7 +940,6 @@ static ex atanh_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(atanh, eval_func(atanh_eval).
-                         evalf_func(atanh_evalf).
                          derivative_func(atanh_deriv).
                          series_func(atanh_series).
                          conjugate_func(atanh_conjugate).
@@ -987,29 +949,24 @@ REGISTER_FUNCTION(atanh, eval_func(atanh_eval).
 // inverse hyperbolic cotangent (trigonometric function)
 //////////
 
-static ex acoth_evalf(const ex & x, PyObject* parent)
-{
-        if (is_exactly_a<numeric>(x))
-                return atanh(ex_to<numeric>(x).inverse());
-
-        return acoth(x).hold();
-}
-
 static ex acoth_eval(const ex & x)
 {
         if (is_exactly_a<numeric>(x)) {
+                const numeric& num = ex_to<numeric>(x);
                 // acoth(1) -> oo
-                if (x.is_equal(_ex1))
+                if (num.is_one())
                         return Infinity;
                 // acoth(-1) -> -oo
-                if (x.is_equal(_ex_1))
+                if (num.is_minus_one())
                         return NegInfinity;
                 //acoth(float) -> float 
-                if (x.info(info_flags::inexact))
-                        return atanh(ex_to<numeric>(x).inverse());
+                if (not num.is_exact())
+                        return atanh(num.inverse());
                 // acoth() is odd
-                if (x.info(info_flags::negative))
-                        return -acoth(-x);
+                if (num.is_negative())
+                        return -acoth(num.negative());
+                if (num.is_integer() or num.is_rational())
+                        return _ex1_2 * log(ex((num + *_num1_p)/(num - *_num1_p)));
         }
        
 	if (is_exactly_a<function>(x)) {
@@ -1053,7 +1010,6 @@ static ex acoth_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(acoth, eval_func(acoth_eval).
-                         evalf_func(acoth_evalf).
                          derivative_func(acoth_deriv).
                          conjugate_func(acoth_conjugate).
                          set_name("arccoth"));
@@ -1061,14 +1017,6 @@ REGISTER_FUNCTION(acoth, eval_func(acoth_eval).
 //////////
 // inverse hyperbolic Cosecant (trigonometric function)
 //////////
-
-static ex acsch_evalf(const ex & x, PyObject* parent)
-{
-        if (is_exactly_a<numeric>(x))
-                return asinh(ex_to<numeric>(x).inverse());
-
-        return acsch(x).hold();
-}
 
 static ex acsch_eval(const ex & x)
 {
@@ -1107,7 +1055,7 @@ static ex acsch_conjugate(const ex & x)
 {
         // conjugate(acsch(x))==acsch(conjugate(x)) unless on the branch cuts which
         // run along the imaginary axis inside the interval [-I, +I].
-        if (x.info(info_flags::real))
+        if (x.is_real())
 		return acsch(x);
 	if (is_exactly_a<numeric>(x)) {
 		const numeric x_re = ex_to<numeric>(x.real_part());
@@ -1120,21 +1068,12 @@ static ex acsch_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(acsch, eval_func(acsch_eval).
-                         evalf_func(acsch_evalf).
                          derivative_func(acsch_deriv).
                          conjugate_func(acsch_conjugate).
                          set_name("arccsch"));
 //////////
 // inverse hyperbolic Secant (trigonometric function)
 //////////
-
-static ex asech_evalf(const ex & x, PyObject* parent)
-{
-        if (is_exactly_a<numeric>(x))
-                return acosh(ex_to<numeric>(x).inverse());
-
-        return asech(x).hold();
-}
 
 static ex asech_eval(const ex & x)
 {
@@ -1143,10 +1082,10 @@ static ex asech_eval(const ex & x)
                 if (x.is_zero())
                         return Infinity;
                 // asech(1) -> 0
-                if (x.is_equal(_ex1))
+                if (x.is_one())
                         return _ex0;
                 //asech(-1) -> I*Pi
-                if (x.is_equal(_ex_1))
+                if (x.is_minus_one())
                         return Pi*I;
                 //asech(float) -> float 
                 if (x.info(info_flags::inexact))
@@ -1190,7 +1129,6 @@ static ex asech_conjugate(const ex & x)
 }
 
 REGISTER_FUNCTION(asech, eval_func(asech_eval).
-                         evalf_func(asech_evalf).
                          derivative_func(asech_deriv).
                          conjugate_func(asech_conjugate).
                          set_name("arcsech"));

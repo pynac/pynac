@@ -20,11 +20,11 @@ dnl http://www.freesoftwaremagazine.com/articles/building_shared_libraries_once_
 dnl if you change this YOU MUST also change the libtool version below
 m4_define([ginac_major_version], [0])
 m4_define([ginac_minor_version], [7])
-m4_define([ginac_micro_version], [5])
+m4_define([ginac_micro_version], [18])
 
-m4_define([lt_current], [12])
-m4_define([lt_revision], [0])
-m4_define([lt_age], [2])
+m4_define([lt_current], [18])
+m4_define([lt_revision], [1])
+m4_define([lt_age], [1])
 
 
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
@@ -95,7 +95,7 @@ dnl Check for the compiler and all the utilities needed for the build.
 AC_PROG_CXX
 AC_PROG_CXXCPP
 AC_PROG_INSTALL
-AM_PROG_LIBTOOL
+LT_INIT
 AC_LIBTOOL_WIN32_DLL
 
 AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs gmp headers]))
@@ -133,7 +133,7 @@ AC_CHECK_SIZEOF(void *)
 
 dnl Switch to C++ language mode for the following libraries and headers.
 AC_LANG([C++])
-AX_CXX_COMPILE_STDCXX_11
+AX_CXX_COMPILE_STDCXX([11])
 
 dnl Make sure all the necessary standard headers are installed on the system.
 AC_CHECK_HEADER(iosfwd, , GINAC_ERROR([The standard <iosfwd> header file could not be found.]))
