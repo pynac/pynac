@@ -157,7 +157,7 @@ public:
 	bool is_one() const;
 	bool is_minus_one() const;
 	bool is_positive() const override;
-	bool is_negative() const;
+	bool is_negative() const override;
 	bool is_integer() const override;
 	bool is_pos_integer() const;
 	bool is_nonneg_integer() const;
