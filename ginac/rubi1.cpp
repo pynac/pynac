@@ -112,6 +112,14 @@ ex rubi(ex e, ex xe)
                 exvector bvec, evec;
                 for (const auto& term : xvec) {
                         if (is_exactly_a<power>(term)) {
+                                ex p = ex_to<power>(term);
+                                if (is_exactly_a<power>(p.op(0))) {
+                                        if (p.op(0).op(1).is_integer()
+                                            or p.op(1).is_integer()) {
+                                                bvec.push_back(p.op(0).op(0));
+                                                evec.push_back(p.op(1)*p.op(0).op(1));
+                                        }
+                                }
                                 bvec.push_back(ex_to<power>(term).op(0));
                                 evec.push_back(ex_to<power>(term).op(1));
                         }
@@ -127,6 +135,7 @@ ex rubi(ex e, ex xe)
 
                 if (xvec.size() == 2) {
                         ex a, b, c, d, j, k, m, n;
+                        DEBUG std::cerr<<bvec[0]<<","<<bvec[1]<<std::endl;
                         if (bvec[0].is_linear(x, a, b)
                             and bvec[1].is_linear(x, c, d))
                                 return rubi112(a, b, evec[0], c, d, evec[1], x);
@@ -288,15 +297,11 @@ static ex rubi111(ex a, ex b, ex m, ex x)
                 else
                         return power(x,m+1) / (m+1);
         }
-        else {
-                if (is_exactly_a<numeric>(m)) {
-                        if (ex_to<numeric>(m).is_minus_one())
-                                return log(a+b*x) / b;
-                        else
-                                return power(a+b*x,m+1) / b / (m+1);
-                }
-                else throw rubi_exception();
+        if (is_exactly_a<numeric>(m)) {
+                if (ex_to<numeric>(m).is_minus_one())
+                        return log(a+b*x) / b;
         }
+        return power(a+b*x,m+1) / b / (m+1);
 }
 
 static ex _ellE(ex p, ex m)
@@ -425,9 +430,9 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 else
                         return rubi(power(c/a, n) * power(a+b*x, m+n), x);
         }
-        else if ((e1p and not a.is_zero())
-                 or (e2p and not c.is_zero()) )
-                return rubi((power(a+b*x, m) * power(c+d*x, n)).expand(), x);
+//        else if ((e1p and not a.is_zero())
+//                 or (e2p and not c.is_zero()) )
+//                return rubi((power(a+b*x, m) * power(c+d*x, n)).expand(), x);
 
         ex bcpad = (b*c + a*d).expand();
         if (m.is_equal(n)) {
@@ -435,7 +440,7 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                         // Rule 7.1.1.1
                         if ((b+d).is_zero()
                             and (a+c).is_positive())
-                                return power(a*c - b*(a-c)*x - b*b*x*x, m);
+                                return rubi211(a*c, -b*(a-c), -b*b, _ex_1_2, x);
                         return _ex2 * (rubi(1/(b-d*power(x,_ex2)), x)).subs(x == sqrt(a+b*x)/sqrt(c+d*x));
                 }
 
@@ -488,10 +493,6 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 a.swap(c);
                 b.swap(d);
                 bcmad = _ex0 - bcmad;
-//                return rubi112(a, b, m, c, d, n, x);
-        }
-        else if (not (m-n).info(info_flags::positive)) {
-                throw rubi_exception();
         }
 
         // Rule 1.2 - neither m nor n can be -1
@@ -531,58 +532,58 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
         const ex _ex2_3 = _ex2/_ex3;
         const ex _ex_2_3 = _ex_2/_ex3;
         if (m.is_minus_one() or n.is_minus_one()) { // we know m>n
+                if (n.is_minus_one()) {
+                        a.swap(c);
+                        b.swap(d);
+                        m.swap(n);
+                        bcmad = _ex0-bcmad;
+                }
                 // Rule 4.1
-                if (n.is_minus_one() and m.is_positive())
-                        return power(a+b*x,m)/d/m - expand(bcmad/d * rubi(power(a+b*x,m-1)/(c+d*x),x));
+                if (n.is_positive())
+                        return power(c+d*x,n)/b/n + bcmad/b * rubi112(a,b,m,c,d,n-1,x);
                 // Rule 4.2
                 if ((n+_ex1).is_negative()) // we know m=-1
-                        return _ex0 - power(c+d*x,n+_ex1)/(n+_ex1)/bcmad + expand(b/bcmad * rubi(power(c+d*x,n+_ex1)/(a+b*x),x));
-                const ex bcmad_b = bcmad / d;
-                if (m.is_equal(_ex_1_3)) { // we know n=-1
+                        return _ex0 - power(c+d*x,n+_ex1)/(n+_ex1)/bcmad + b/bcmad * rubi112(a,b,m,c,d,n+1,x);
+                const ex bcmad_b = bcmad / b;
+                if (n.is_equal(_ex_1_3)) {
                         // Rule 4.3.1.1
                         if (bcmad_b.is_positive()) {
                                 ex q = power(bcmad_b, _ex1_3);
-                                return _ex0-log(c+d*x)/_ex2/d/q - _ex3_2/d/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) + _ex3_2/d * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                                return _ex0-log(a+b*x)/_ex2/b/q - _ex3_2/b/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
                         }
                         // Rule 4.3.1.2
-                        else if (bcmad_b.is_negative()) {
+                        if (bcmad_b.is_negative()) {
                                 ex q = power(_ex0-bcmad_b, _ex1_3);
-                                return log(c+d*x)/_ex2/d/q - _ex3_2/d/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) + _ex3_2/d * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                                return log(a+b*x)/_ex2/b/q - _ex3_2/b/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
                         }
                 }
-                if (m.is_equal(_ex_2_3)) { // we know n=-1
+                if (n.is_equal(_ex_2_3)) {
                         // Rule 4.3.2.1
                         if (bcmad_b.is_positive()) {
                                 ex q = power(bcmad_b, _ex1_3);
-                                return _ex0-log(c+d*x)/_ex2/d/q/q - _ex3_2/d/q/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) - _ex3_2/d/q * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                                return _ex0-log(a+b*x)/_ex2/b/q/q - _ex3_2/b/q/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) - _ex3_2/b/q * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
                         }
                         // Rule 4.3.2.2
-                        else if (bcmad_b.is_negative()) {
+                        if (bcmad_b.is_negative()) {
                                 ex q = power(_ex0-bcmad_b, _ex1_3);
-                                return _ex0-log(c+d*x)/_ex2/d/q/q + _ex3_2/d/q/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3)) + _ex3_2/d/q * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(a+b*x,_ex1_3));
+                                return _ex0-log(a+b*x)/_ex2/b/q/q + _ex3_2/b/q/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b/q * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
                         }
                 }
                 // Rule 4.3.3
-                if (is_exactly_a<numeric>(m)
-                    and m.is_negative()
-                    and ((m+_ex1).is_positive())) {
-                        numeric p = ex_to<numeric>(m).denom();
-                        return ex(p) * rubi132(_ex1, (m+_ex1)*p-_ex1, bcmad, d, p, _ex_1, x).subs(x == power(a+b*x,p.inverse()));
+                if (is_exactly_a<numeric>(n)
+                    and n.is_negative()
+                    and ((n+_ex1).is_positive())) {
+                        numeric p = ex_to<numeric>(n).denom();
+                        return ex(p) * rubi132(_ex1, (n+1)*p-1, _ex0-bcmad, b, p, _ex_1, x).subs(x == power(c+d*x,p.inverse()));
                 }
 
                 // Fallback Rules H.4
-                if (m.is_minus_one() // n < -1
-                    and not n.is_integer()) {
-                        if (a.is_zero())
+                if (not n.is_integer()) {
+                        if (bcmad.is_zero())
                                 return _ex0-power(c+d*x, n+_ex1) / (c*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, _ex1+d*x/c);
                         return _ex0-power(c+d*x, n+_ex1) / (bcmad*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, (b*(c+d*x)/bcmad).normal());
                 }
-                if (n.is_minus_one() // m > -1
-                    and not m.is_integer()) {
-                        if (c.is_zero())
-                                return _ex0-power(a+b*x, m+_ex1) / (a*(m+_ex1)) * _2F1(1, m+_ex1, m+_ex2, _ex1+b*x/a);
-                        return power(a+b*x, m+_ex1) / (bcmad*(m+_ex1)) * _2F1(1, m+_ex1, m+_ex2, (-d*(a+b*x)/bcmad).normal());
-                }
+                return power(a+b*x, m+_ex1) / (bcmad*(m+_ex1)) * _2F1(1, m+_ex1, m+_ex2, (-d*(a+b*x)/bcmad).normal());
         }
         
         // Rule 5
@@ -596,7 +597,8 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
                 if (n.is_positive())
                         return power(a+b*x,m+1)*power(c+d*x,n)/b/(m+1) - d*n/b/(m+1) * rubi112(a,b,m+1,c,d,n-1,x);
-                return power(a+b*x,m+1)*power(c+d*x,n+1)/bcmad/(m+1) - d*(m+n+2)/bcmad/(m+1) * rubi112(a,b,m+1,c,d,n,x);
+                if (n.is_negative())
+                        return power(a+b*x,m+1)*power(c+d*x,n+1)/bcmad/(m+1) - d*(m+n+2)/bcmad/(m+1) * rubi112(a,b,m+1,c,d,n,x);
         }
 
         // Rule 6
@@ -610,6 +612,18 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
                 if (n.is_positive())
                         return power(a+b*x,m+1)*power(c+d*x,n)/b/(m+n+1) + n*bcmad/b/(m+n+1) * rubi112(a,b,m,c,d,n-1,x);
+        }
+
+        // H.1
+        if (not bcmad.is_zero()) {
+                if (c.is_zero()) {
+                        m.swap(n);
+                        a.swap(c);
+                        b.swap(d);
+                        bcmad = _ex0 - bcmad;
+                }
+                if (a.is_zero())
+                        return power(c,n)*power(b*x,m+1)/b/(m+1) * _2F1(-n,m+1,m+2,-d*x/c);
         }
         throw rubi_exception();
 }
@@ -996,6 +1010,10 @@ static ex rubi142H(ex m, ex a, ex j, ex b, ex n, ex p, ex x)
 static ex rubi211(ex a, ex b, ex c, ex p, ex x)
 {
         DEBUG std::cerr<<"r211: "<<a<<","<<b<<","<<c<<","<<p<<std::endl;
+        if (b.is_zero())
+                return rubi131(a,c,_ex2,p,x);
+        if (c.is_zero())
+                return rubi111(a,b,p,x);
         ex qq = b*b - a*c*_ex4;
         ex q = power(qq, _ex1_2);
         // Rule 1
@@ -1057,8 +1075,9 @@ static ex rubi211(ex a, ex b, ex c, ex p, ex x)
         if (p.is_equal(_ex_1_2)) {
                 if (a.is_zero())
                         return _ex2 * rubi131(_ex1, -c, _ex2, _ex_1, x).subs(x == x * power(b*x + c*x*x, _ex_1_2));
-                else
-                        return _ex2 * rubi131(_ex4*c, _ex_1, _ex2, _ex_1, x).subs(x == (b+_ex2*c*x) * power(a + b*x + c*x*x, _ex_1_2));
+                if (qq.is_one())
+                        return asin(_ex2*x + b/c);
+                return _ex2 * rubi131(_ex4*c, _ex_1, _ex2, _ex_1, x).subs(x == (b+_ex2*c*x) * power(a + b*x + c*x*x, _ex_1_2));
         }
 
         // Rule 5, loops with 1.1.2.2.1.3
