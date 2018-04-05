@@ -1,3 +1,17 @@
+//////////////////////////////////////////////////////////////////////
+//
+// Partial implementation of rule based integration (Rubi)
+//
+// Ref.: Rich, Albert D., and David J. Jeffrey. "A knowledge
+//       repository for indefinite integration based on transformation
+//       rules." International Conference on Intelligent Computer
+//       Mathematics. Springer, Berlin, Heidelberg, 2009.
+//
+// Author: 2018: Ralf Stephan <ralf@ark.in-berlin.de>
+// License: GPL2+
+//
+//////////////////////////////////////////////////////////////////////
+
 #include <Python.h>
 #include "numeric.h"
 #include "power.h"
@@ -58,12 +72,13 @@ static ex rubi113(ex a, ex b, ex m, ex c, ex d, ex n, ex e, ex f, ex p, ex x);
 static ex rubi131(ex ae, ex be, ex ne, ex pe, ex x);
 static ex rubi132(ex ce, ex me, ex ae, ex be, ex ne, ex pe, ex x);
 static ex rubi133(ex a, ex b, ex c, ex d, ex n, ex p, ex q, ex x);
-static ex rubi134H(ex m, ex a, ex b, ex n, ex p, ex c, ex d, ex q, ex x);
+static ex rubi134(ex m, ex a, ex b, ex n, ex p, ex c, ex d, ex q, ex x);
 static ex rubi141H(ex a, ex j, ex b, ex n, ex p, ex x);
 static ex rubi142H(ex m, ex a, ex j, ex b, ex n, ex p, ex x);
 static ex rubi1x1(ex bas, ex exp, ex xe);
 static ex rubi211(ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x);
+static ex rubi222(ex de, ex me, ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x);
 
 bool rubi_integrate(ex e, ex x, ex& ret)
@@ -120,8 +135,10 @@ ex rubi(ex e, ex xe)
                                                 evec.push_back(p.op(1)*p.op(0).op(1));
                                         }
                                 }
-                                bvec.push_back(ex_to<power>(term).op(0));
-                                evec.push_back(ex_to<power>(term).op(1));
+                                else {
+                                        bvec.push_back(ex_to<power>(term).op(0));
+                                        evec.push_back(ex_to<power>(term).op(1));
+                                }
                         }
                         else {
                                 bvec.push_back(term);
@@ -195,6 +212,39 @@ ex rubi(ex e, ex xe)
                                 }
                                 return rubi133(a,b,c,d,n,evec[0],evec[1],x);
                         }
+
+                        // other
+                        expairvec vec1, vec2;
+                        bvec[0].coefficients(x, vec1);
+                        bvec[1].coefficients(x, vec2);
+                        exvector c1, c2, e1, e2;
+                        firsts(c1, vec1);
+                        firsts(c2, vec2);
+                        seconds(e1, vec1);
+                        seconds(e2, vec2);
+                        DEBUG for (auto e : e1)
+                              std::cerr << e << ",";
+                        DEBUG std::cerr << std::endl;  
+                        DEBUG for (auto e : e2)
+                              std::cerr << e << ",";
+                        DEBUG std::cerr << std::endl;  
+
+                        if (ex_match_int(e1, {1})
+                            and ex_match_int(e2, {0,2,4})) {
+                                return rubi222(c1[0],evec[0],c2[0],c2[1],c2[2],evec[1],x);
+                        }
+                        if (ex_match_int(e2, {1})
+                            and ex_match_int(e1, {0,2,4})) {
+                                return rubi222(c2[0],evec[1],c1[0],c1[1],c1[2],evec[0],x);
+                        }
+                        if (ex_match_int(e1, {0,2})
+                            and ex_match_int(e2, {0,2,4})) {
+                                return rubi223(c1[0],c1[1],evec[0],c2[0],c2[1],c2[2],evec[1],x);
+                        }
+                        if (ex_match_int(e2, {0,2})
+                            and ex_match_int(e1, {0,2,4})) {
+                                return rubi223(c2[0],c2[1],evec[1],c1[0],c1[1],c1[2],evec[0],x);
+                        }
                 }
                 if (xvec.size() == 3) {
                         ex a, b, c, d, ee, f;
@@ -221,7 +271,7 @@ ex rubi(ex e, ex xe)
                                         }
                                         if (not e3.is_equal(e5))
                                                 throw rubi_exception();
-                                        return rubi134H(evec[0],c,d,e4,evec[1],ee,f,evec[2],x);
+                                        return rubi134(evec[0],c,d,e4,evec[1],ee,f,evec[2],x);
                                 }
                                 if (bvec[1].is_equal(x)) {
                                         if (e2.is_zero()) {
@@ -234,7 +284,7 @@ ex rubi(ex e, ex xe)
                                         }
                                         if (not e1.is_equal(e5))
                                                 throw rubi_exception();
-                                        return rubi134H(evec[1],a,b,e2,evec[0],ee,f,evec[2],x);
+                                        return rubi134(evec[1],a,b,e2,evec[0],ee,f,evec[2],x);
                                 }
                                 if (bvec[2].is_equal(x)) {
                                         if (e4.is_zero()) {
@@ -247,7 +297,7 @@ ex rubi(ex e, ex xe)
                                         }
                                         if (not e3.is_equal(e1))
                                                 throw rubi_exception();
-                                        return rubi134H(evec[2],c,d,e4,evec[1],a,b,evec[0],x);
+                                        return rubi134(evec[2],c,d,e4,evec[1],a,b,evec[0],x);
                                 }
                         }
                 }
@@ -436,17 +486,22 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
 
         ex bcpad = (b*c + a*d).expand();
         if (m.is_equal(n)) {
+                // Rule 1.1 simplified
+                if (m.is_equal(_ex_1))
+                        return log(b*x + a)/bcmad - log(d*x + c)/bcmad;
                 if (m.is_equal(_ex_1_2)) {
-                        // Rule 7.1.1.1
+                        // Rule 7.1.1
                         if ((b+d).is_zero()
                             and (a+c).is_positive())
                                 return rubi211(a*c, -b*(a-c), -b*b, _ex_1_2, x);
                         return _ex2 * (rubi(1/(b-d*power(x,_ex2)), x)).subs(x == sqrt(a+b*x)/sqrt(c+d*x));
                 }
-
-                // Rule 1.1 simplified
-                else if (m.is_equal(_ex_1))
-                        return log(b*x + a)/bcmad - log(d*x + c)/bcmad;
+                if (m.is_negative() and (m+1).is_positive()) {
+                        // 7.1.2
+                        if (m.denom().is_equal(*_num3_p)
+                            or m.denom().is_equal(*_num4_p))
+                                return power(a+b*x,m)*power(c+d*x,m)/power(a*c+bcpad*x+b*d*x*x,m) * rubi211(a*c,bcpad,b*d,m,x);
+                }
                 // 2.1
                 if (bcpad.is_zero()) {
                         if (is_exactly_a<numeric>(m)
@@ -614,6 +669,45 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                         return power(a+b*x,m+1)*power(c+d*x,n)/b/(m+n+1) + n*bcmad/b/(m+n+1) * rubi112(a,b,m,c,d,n-1,x);
         }
 
+        // Rule 7
+        // for 7.1 see under m==n above
+        if (not bcmad.is_zero()
+            and m.is_negative() and (m+1).is_positive()
+            and n.is_negative() and (n+1).is_positive()) {
+                if ((m-n).is_negative()) { // make m>n
+                        m.swap(n);
+                        a.swap(c);
+                        b.swap(d);
+                        bcmad = _ex0 - bcmad;
+                }
+                // 7.2.1
+                if (m.is_equal(_ex_1_3) and n.is_equal(_ex_2_3)) {
+                        ex exr3 = power(_ex3,_ex1_2);
+                        if ((d/b).is_positive()) {
+                                ex q = power(d/b, _ex1_3);
+                                return _ex0-exr3*q/d * atan(_ex2*q*power(a+b*x,_ex1_3)/exr3/power(c+d*x,_ex1_3)+1/exr3) - q/_ex2/d*log(c+d*x) - _ex3_2*q/d*log(q*power(a+b*x,_ex1_3)/power(c+d*x,_ex1_3)-1);
+                        }
+                        else {
+                                ex q = power(-d/b, _ex1_3);
+                                return exr3*q/d * atan(_ex0-_ex2*q*power(a+b*x,_ex1_3)/exr3/power(c+d*x,_ex1_3)+1/exr3) + q/_ex2/d*log(c+d*x) + _ex3_2*q/d*log(q*power(a+b*x,_ex1_3)/power(c+d*x,_ex1_3)+1);
+                        }
+                }
+                // 7.2.2
+                if ((m+n+1).is_zero()) {
+                        ex p = m.denom();
+                        return p * rubi132(_ex1,p*(m+1)-1,b,_ex0-d,p,_ex_1,x).subs(x == power(a+b*x,_ex1/p)/power(c+d*x,_ex1/p));
+                }
+                // 7.3
+                if (n.denom() > m.denom()) { // make denom(n)<denom(m)
+                        m.swap(n);
+                        a.swap(c);
+                        b.swap(d);
+                        bcmad = _ex0 - bcmad;
+                }
+                ex p = m.denom();
+                return p/b * rubi132(_ex1,p*(m+1)-1,c-a*d/b,d/b,p,n,x).subs(x == power(a+b*x,_ex1/p));
+        }
+
         // H.1
         if (not bcmad.is_zero()) {
                 if (c.is_zero()) {
@@ -625,7 +719,10 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 if (a.is_zero())
                         return power(c,n)*power(b*x,m+1)/b/(m+1) * _2F1(-n,m+1,m+2,-d*x/c);
         }
-        throw rubi_exception();
+        m.swap(n);
+        a.swap(c);
+        b.swap(d);
+        return power(a+b*x,m+1)*power(c+d*x,n) * _2F1(m+1,_ex0-n,m+2,_ex0-d*(a+b*x)/(b*c-a*d))/(b*(1+m)*power(b*(c+d*x)/(b*c-a*d),n));
 }
 
 // 1.1.1.3 (a+bx)^m * (c+dx)^n * (e+fx)^p
@@ -850,6 +947,25 @@ static ex rubi131(ex ae, ex be, ex ne, ex pe, ex x)
                                return rubi131(_ex1, -be, _ex2, _ex_1, x).subs(x == x/sqrt(ae+be*x*x));
                        return 1/sqrt(-be) * asin(x*sqrt(-be)/sqrt(ae));
                 }
+                // 4.1.4.2
+                // Not implemented
+                // 4.1.4.3
+                if (ne.is_equal(_ex4)) {
+                        if ((be/ae).is_positive()) {
+                                ex q = power(be/ae, _ex1_4);
+                                return (q*q*x*x+1)*power((ae+be*power(x,4))/(q*q*x*x+1)/ae, _ex1_2)/_ex2/q/power(ae+be*power(x,4),_ex1_2) * _ellF(_ex2*atan(q*x),_ex1_2);
+                        }
+                        if (ae.is_negative() and be.is_positive()) {
+                                ex q = power(-ae*be,_ex1_2);
+                                return power(-ae+q*x*x,_ex1_2)*power(ae/q+x*x,_ex1_2)/power(_ex_2,_ex1_2)/power(-ae,_ex1_2)/power(ae+be*power(x,_ex4),_ex1_2) * _ellF(asin(x/power((ae+q*x*x)/_ex2/q,_ex1_2)), _ex1_2);
+                        }
+                        if ((be/ae).is_negative()
+                            and ae.is_negative())
+                                return power(be*power(x,_ex4)/ae+1,_ex1_2)/power(ae+be*power(x,_ex4),_ex1_2) * rubi131(_ex1,be/ae,_ex4,_ex_1_2,x);
+                        //if ((be/ae).is_negative()
+                        //    and ae.is_positive())
+                                return _ex1/power(ae,_ex1_4)/power(-be,_ex1_4) * _ellF(asin(power(-be,_ex1_4)/power(ae,_ex1_4)*x), _ex_1);
+                }
         }
 
         // 4.1.5
@@ -933,6 +1049,29 @@ static ex rubi132(ex ce, ex me, ex ae, ex be, ex ne, ex pe, ex x)
                 const ex _ex2_3 = _ex2/_ex3;
                 return _ex0 - power(_ex3*a13*b13, _ex_1) * rubi111(a13,b13,_ex_1,x) + power(_ex3*a13*b13, _ex_1) * rubi212(a13,b13,_ex1,power(ae,_ex2_3),_ex0-a13*b13,power(be,_ex2_3),_ex_1,x);
         }
+        if (ce.is_one() and me.is_equal(_ex2)) {
+                // 7.1.4.1.2.2.1
+                if (ne.is_equal(_ex4) and pe.is_minus_one()) {
+                        if ((ae/be).is_positive()) {
+                                ex r,s;
+                                sqrt_nd(ae/be, r, s);
+                                return _ex1_2/s * rubi223(r,s,_ex1,ae,_ex0,be,_ex_1,x) - _ex1_2/s * rubi223(r,-s,_ex1,ae,_ex0,be,_ex_1,x);
+                        }
+                        else {
+                                ex r,s;
+                                sqrt_nd(-ae/be, r, s);
+                                return s/_ex2/be * rubi211(r,_ex0,s,_ex_1,x) - s/_ex2/be * rubi211(r,_ex0,-s,_ex_1,x);
+                        }
+                }
+                // 7.1.5.2
+                if (ne.is_equal(_ex4) and pe.is_equal(_ex_1_2)) {
+                        if ((ae/be).is_positive()) {
+                                ex q = power(ae/be, _ex1_2);
+                                return _ex1/q * rubi131(ae,be,4,_ex_1_2,x) - _ex1/q * rubi223(_ex1,-q,_ex1,ae,_ex0,ce,_ex_1_2,x);
+                        }
+                }
+        }
+
         // 12
         if (not (pe.info(info_flags::integer)
                  and pe.info(info_flags::positive))) {
@@ -956,6 +1095,12 @@ static ex rubi132(ex ce, ex me, ex ae, ex be, ex ne, ex pe, ex x)
 static ex rubi133(ex a, ex b, ex c, ex d, ex n, ex p, ex q, ex x)
 {
         DEBUG std::cerr<<"r133: "<<a<<","<<b<<","<<c<<","<<d<<","<<n<<","<<p<<","<<q<<std::endl;
+        if (p.is_zero())
+                return rubi131(c,d,n,q,x);
+        if (q.is_zero())
+                return rubi131(a,b,n,p,x);
+        if (n.is_one())
+                return rubi112(a,b,n,c,d,n,x);
         if ((n*(p+q+1)+1).is_zero()) {
                 if (p.info(info_flags::integer)
                     and p.info(info_flags::negative))
@@ -965,13 +1110,49 @@ static ex rubi133(ex a, ex b, ex c, ex d, ex n, ex p, ex q, ex x)
                         return power(c,q)*x/power(a,q+1)/power(a+b*power(x,n),_ex1/n) * _2F1(_ex1/n, -q, _ex1+_ex1/n, (b*c-a*d)*power(x,n)/c/(a+b*power(x,n)));
                 return power(a+b*power(x,n),p)*x/c/power(c/a*(a+b*power(x,n))/(c+d*power(x,n)),p)/power(c+d*power(x,n),_ex1/n+p) * _2F1(_ex1/n, -p, _ex1+_ex1/n, -(b*c-a*d)*power(x,n)/a/(c+d*power(x,n)));
         }
+        // 13.1 parts
+        if (n.is_equal(_ex2) and p.is_equal(_ex_1_2) and q.is_equal(_ex_1_2)) {
+                if (not (b*c-a*d).is_zero()) {
+                        if (not (d/c).is_positive()) {
+                                if (a.is_positive() and c.is_positive())
+                                        return _ex1/power(a,_ex1_2)/power(c,_ex1_2)/power(-d/c,_ex1_2) * _ellF(asin(power(-d/c,_ex1_2)), b*c/a/d);
+                                if ((a-b*c/d).is_positive() and c.is_positive())
+                                        return _ex1/power(c,_ex1_2)/power(-d/c,_ex1_2)/power(a-b*c/d,_ex1_2) * _ellF(acos(power(-d/c,_ex1_2)), b*c/(b*c-a*d));
+                        }
+                }
+        }
+        // 13.2
+        if (n.is_equal(_ex2) and p.is_equal(_ex1_2) and q.is_equal(_ex_1_2)) {
+                if ((d/c).is_positive()) {
+                        if ((b/a).is_positive())
+                                return a * rubi133(a,b,c,d,_ex2,_ex_1_2,_ex_1_2,x) + b * rubi134(_ex2,a,b,_ex2,_ex_1_2,c,d,_ex_1_2,x);
+                        return b/d * rubi133(c,d,a,b,_ex2,_ex1_2,_ex_1_2,x) - (b*c-a*d)/d * rubi133(a,b,c,d,_ex2,_ex_1_2,_ex_1_2,x);
+                }
+                if (c.is_positive()) {
+                        if (a.is_positive())
+                                return power(a,_ex1_2)/power(c,_ex1_2)*power(-d/c,_ex1_2) * _ellE(asin(power(-d/c,_ex1_2)*x), b*c/a/d);
+                        if ((a-b*c/d).is_positive())
+                                return _ex0-power(a-b*c/d,_ex1_2)/power(c,_ex1_2)/power(-d/c,_ex1_2) * _ellE(acos(power(-d/c,_ex1_2)*x), b*c/(b*c-a*d));
+                        return power(a+b*x*x,_ex1_2)/power(1+b/a*x*x,_ex1_2) * rubi133(_ex1,b/a,c,d,_ex2,_ex1_2,_ex_1_2,x);
+                }
+                return power(1+d/c*x*x,_ex1_2)/power(c+d*x*x,_ex1_2) * rubi133(a,b,_ex1,d/c,_ex2,_ex1_2,_ex_1_2,x);
+        }
         throw rubi_exception();
 }
 
-// 1.1.3.4H x^m * (a+bx^n)^p * (c+dx^n)^q
-static ex rubi134H(ex m, ex a, ex b, ex n, ex p, ex c, ex d, ex q, ex x)
+// 1.1.3.4 x^m * (a+bx^n)^p * (c+dx^n)^q
+static ex rubi134(ex m, ex a, ex b, ex n, ex p, ex c, ex d, ex q, ex x)
 {
         DEBUG std::cerr<<"r134H: "<<m<<","<<a<<","<<b<<","<<n<<","<<p<<","<<c<<","<<d<<","<<q<<std::endl;
+        // 6.1.11 (n==2)
+        if (not (b*c-a*d).is_zero() 
+            and m.is_equal(_ex2) and n.is_equal(_ex2)
+            and p.is_equal(_ex_1_2) and q.is_equal(_ex_1_2)) {
+                if ((b/a).is_positive() and (d/c).is_positive())
+                        return x/b*power(a+b*x*x,_ex1_2)/power(c+d*x*x,_ex1_2) - c/b * rubi133(a,b,c,d,_ex2,_ex1_2,-_ex3/_ex2,x);
+                return _ex1/b*power(a+b*x*x,_ex1_2)/power(c+d*x*x,_ex1_2) - a/b * rubi133(a,b,c,d,_ex2,_ex_1_2,_ex_1_2,x);
+        }
+        // X
         if (m.is_equal(_ex_1) or (m-n).is_equal(_ex_1)
             or a.info(info_flags::negative)
             or c.info(info_flags::negative))
@@ -1098,6 +1279,10 @@ static ex rubi211(ex a, ex b, ex c, ex p, ex x)
 static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x)
 {
         DEBUG std::cerr<<"r212: "<<de<<","<<ee<<","<<me<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
+        if (pe.is_zero())
+                return rubi111(de,ee,me,x);
+        if (me.is_zero())
+                return rubi211(ae,be,ce,pe,x);
         // Rule 1
         if (me.is_one()) {
                 // Rule 1.1
@@ -1132,14 +1317,65 @@ static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x)
         throw rubi_exception();
 }
 
+// 1.2.2.2 (dx)^m * (a+bx^2+cx^4)^p
+static ex rubi222(ex de, ex me, ex ae, ex be, ex ce, ex pe, ex x)
+{
+        DEBUG std::cerr<<"r222: "<<de<<","<<me<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
+        ex bbmac = be*be - _ex4*ae*ce;
+        if (not bbmac.is_zero()) {
+                // 10
+                if (pe.is_minus_one()) {
+                        // 10.3
+                        if (de.is_one()
+                            and me.is_integer()
+                            and me.is_positive()
+                            and (me-4).is_negative()
+                            and bbmac.is_negative()) {
+                                ex q = power(ae/ce, _ex1_2);
+                                ex r = power(_ex2*q-be*ce, _ex1_2);
+                                // 10.3.1
+                                if ((ae*ce).is_positive())
+                                        return _ex1_2 * rubi223(q,_ex1,_ex1,ae,be,ce,_ex_1,x) - _ex1_2 * rubi223(q,_ex_1,_ex1,ae,be,ce,_ex_1,x);
+                                // 10.3.2
+                                if (me.is_equal(_ex3))
+                                        return _ex1_2/ce/r * rubi212(q,r,_ex1,q,r,_ex1,_ex_1,x) - _ex1_2/ce/r * rubi212(q,-r,_ex1,q,-r,_ex1,_ex_1,x);
+                                // 10.3.3
+                                if (me.is_one() or me.is_equal(_ex2))
+                                        return _ex1_2/ce/r * rubi212(_ex0,_ex1,me-1,q,-r,_ex1,_ex_1,x) - _ex1_2/ce/r * rubi212(_ex0,_ex1,me-1,q,r,_ex1,_ex_1,x);
+                        }
+                        ex q = power(bbmac, _ex1_2);
+                        // 10.4
+                        if (me.is_equal(_ex2)
+                            or (me-_ex2).is_positive())
+                                return de*de/_ex2*(be/q+1) * rubi212(_ex0,de,me-2,be/_ex2+q/_ex2,_ex0,ce,_ex_1,x) - de*de/_ex2*(be/q-1) * rubi212(_ex0,de,me-2,be/_ex2-q/_ex2,_ex0,ce,_ex_1,x);
+                        // 10.5
+                        return ce/q * rubi212(_ex0,de,me,be/_ex2-q/_ex2,_ex0,ce,_ex_1,x) - ce/q * rubi212(_ex0,de,me,be/_ex2+q/_ex2,_ex0,ce,_ex_1,x);
+                }
+        }
+
+        throw rubi_exception();
+}
+
+// 1.2.2.3 (d+ex^2)^q * (a+bx^2+cx^4)^p
 static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x)
 {
-        // Rule 5
+        DEBUG std::cerr<<"r223: "<<de<<","<<ee<<","<<qe<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
+        // 6.3.2.2.1
+        if (be.is_zero() and qe.is_one() and pe.is_equal(_ex_1_2)) {
+                ex cdpae = ce*de*de + ae*ee*ee;
+                if ((ce/ae).is_negative()) {
+                        if (cdpae.is_zero()) {
+                                if (ae.is_positive())
+                                        return de/power(ae,_ex1_2) * rubi133(_ex1,ee/de,_ex1,-ee/de,_ex2,_ex1_2,_ex_1_2,x);
+                        }
+                }
+        }
+        // 5.1.1
         if (qe.is_one() and pe.is_minus_one()) {
                 ex bbmac = be*be - _ex4*ae*ce;
                 ex cdmae = ce*de*de - ae*ee*ee;
                 ex tdembc = _ex2*de/ee - be/ce;
-                if (be.is_zero()) {
+                if (be.is_zero()) { //?
                         if (cdmae.is_zero()) {
                                 if ((de*ee).is_positive()) {
                                         ex q = power(_ex2*de/ee, _ex1_2);
@@ -1148,17 +1384,39 @@ static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x)
                         }
                 }
                 if (not bbmac.is_zero()) {
+                        // 5.1.1.1
                         if (cdmae.is_zero()) {
                                 // 5.1.1.1.1
                                 if (tdembc.is_positive()) {
                                         ex q = power(tdembc, _ex1_2);
                                         return ee/_ex2/ce * rubi211(de/ee,q,_ex1,_ex_1,x) + ee/_ex2/ce * rubi211(de/ee,-q,_ex1,_ex_1,x);
                                 }
+                                // 5.1.1.1.2
                                 if (bbmac.is_positive()) {
                                         ex q = power(bbmac, _ex1_2);
                                         return (ee/_ex2+(_ex2*ce*de-be*ee)/_ex2/q) * rubi211(be/_ex2-q/_ex2,_ex0,ce,_ex_1,x) + (ee/_ex2-(_ex2*ce*de-be*ee)/_ex2/q) * rubi211(be/_ex2+q/_ex2,_ex0,ce,_ex_1,x);
                                 }
+                                // 5.1.1.1.3
+                                else {
+                                        ex q = power(_ex0 - _ex2*de/ee - be/ce, _ex1_2);
+                                        return ee/_ex2/ce/q * rubi212(q,_ex_2,_ex1,de/ee,q,_ex_1,_ex_1,x) + ee/_ex2/ce/q * rubi212(q,_ex2,_ex1,de/ee,-q,_ex_1,_ex_1,x);
+                                }
                         }
+                        // 5.1.1.2.1
+                        if (bbmac.is_positive()) {
+                                ex q = power(bbmac, _ex1_2);
+                                ex t = (_ex2*ce*de - be*ee)/_ex2/q;
+                                return (ee/_ex2+t) * rubi211(be/_ex2-q/_ex2,_ex0,ce,_ex_1,x) + (ee/_ex2-t) * rubi211(be/_ex2+q/_ex2,_ex0,ce,_ex_1,x);
+                        }
+                        // 5.1.1.2.2.1
+                        if (be.is_zero()) {
+                                ex q = power(ae*ce, _ex1_2);
+                                return (de*q+ae*ee)/_ex2/ae/ee * rubi223(q,ce,_ex1,ae,_ex0,ce,_ex_1,x) + (de*q-ae*ee)/_ex2/ae/ee * rubi223(q,-ce,_ex1,ae,_ex0,ce,_ex_1,x);
+                        }
+                        // 5.1.1.2.2.2
+                        ex q = power(ae/ce, _ex1_2);
+                        ex r = power(_ex2*q-be/ce, _ex1_2);
+                        return _ex1_2/ce/q/r * rubi212(de*r,-de+ee*q,_ex1,q,-r,_ex1,_ex_1,x) + _ex1_2/ce/q/r * rubi212(de*r,de-ee*q,_ex1,q,r,_ex1,_ex_1,x);
                 }
         }
         throw rubi_exception();
