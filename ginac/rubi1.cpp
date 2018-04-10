@@ -66,6 +66,10 @@ class rubi_exception : public std::runtime_error {
 };
 
 ex rubi(ex e, ex x);
+static ex rubi_2prod(const exvector& bvec, const exvector& evec,
+                const symbol& x);
+static ex rubi_3prod(const exvector& bvec, const exvector& evec,
+                const symbol& x);
 static ex rubi11(ex e, ex x);
 static ex rubi111(ex a, ex b, ex m, ex x);
 static ex rubi112(ex ae, ex be, ex me, ex ce, ex de, ex ne, ex x);
@@ -79,6 +83,8 @@ static ex rubi142H(ex m, ex a, ex j, ex b, ex n, ex p, ex x);
 static ex rubi1x1(ex bas, ex exp, ex xe);
 static ex rubi211(ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x);
+static ex rubi213(ex de, ex ee, ex me, ex fe, ex ge, ex ae, ex be, ex ce, ex pe, ex x);
+static ex rubi214(ex de, ex ee, ex me, ex fe, ex ge, ex ne, ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi222(ex de, ex me, ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x);
 
@@ -134,16 +140,13 @@ ex rubi(ex e, ex xe)
                         if (is_exactly_a<power>(term)) {
                                 ex p = ex_to<power>(term);
                                 if (is_exactly_a<power>(p.op(0))) {
-                                        if (p.op(0).op(1).is_integer()
-                                            or p.op(1).is_integer()) {
+                                        if (p.op(1).is_integer()) {
                                                 bvec.push_back(p.op(0).op(0));
                                                 evec.push_back(p.op(1)*p.op(0).op(1));
                                         }
                                 }
-                                else {
-                                        bvec.push_back(ex_to<power>(term).op(0));
-                                        evec.push_back(ex_to<power>(term).op(1));
-                                }
+                                bvec.push_back(p.op(0));
+                                evec.push_back(p.op(1));
                         }
                         else {
                                 bvec.push_back(term);
@@ -155,157 +158,17 @@ ex rubi(ex e, ex xe)
                         if (has_symbol(eterm, x))
                                 throw rubi_exception();
 
-                if (xvec.size() == 2) {
-                        ex a, b, c, d, j, k, m, n;
-                        DEBUG std::cerr<<bvec[0]<<","<<bvec[1]<<std::endl;
-                        if (bvec[0].is_linear(x, a, b)
-                            and bvec[1].is_linear(x, c, d))
-                                return rubi112(a, b, evec[0], c, d, evec[1], x);
-                        
-                        if (bvec[0].is_linear(x, c, d)
-                            and c.is_zero()
-                            and bvec[1].is_binomial(x, a, j, b, n)) {
-                                if (j.is_zero())
-                                        return rubi132(d, evec[0], a, b, n, evec[1], x);
-                                if (n.is_zero())
-                                        return rubi132(d, evec[0], b, a, j, evec[1], x);
-                                return power(d,evec[0]) * rubi142H(evec[0], a, j, b, n, evec[1], x);
-                        }
-                        if (bvec[1].is_linear(x, a, b)
-                            and a.is_zero()
-                            and bvec[0].is_binomial(x, c, j, d, n)) {
-                                if (j.is_zero())
-                                        return rubi132(b, evec[1], c, d, n, evec[0], x);
-                                if (n.is_zero())
-                                        return rubi132(b, evec[1], d, c, j, evec[0], x);
-                                return power(b,evec[1]) * rubi142H(evec[1], c, j, d, n, evec[0], x);
-                        }
-                        if (bvec[0].is_linear(x, c, d)
-                            and bvec[1].is_binomial(x, a, j, b, n)) {
-                                if (j.is_zero() and n.is_equal(_ex2))
-                                        return rubi212(c, d, evec[0], a, _ex0, b, evec[1], x);
-                                if (n.is_zero() and j.is_equal(_ex2))
-                                        return rubi212(c, d, evec[0], b, _ex0, a, evec[1], x);
-                                throw rubi_exception();
-                        }
-                        if (bvec[1].is_linear(x, a, b)
-                            and bvec[0].is_binomial(x, c, j, d, n)) {
-                                if (j.is_zero() and n.is_equal(_ex2))
-                                        return rubi212(a, b, evec[1], c, _ex0, d, evec[0], x);
-                                if (n.is_zero() and j.is_equal(_ex2))
-                                        return rubi212(a, b, evec[1], d, _ex0, c, evec[0], x);
-                                throw rubi_exception();
-                        }
-                        if (bvec[0].is_linear(x, d, e)
-                            and bvec[1].is_quadratic(x, a, b, c))
-                                return rubi212(d, e, evec[0], a, b, c, evec[1], x);
-                        if (bvec[1].is_linear(x, d, e)
-                            and bvec[0].is_quadratic(x, a, b, c))
-                                return rubi212(d, e, evec[1], a, b, c, evec[0], x);
-                        if (bvec[0].is_binomial(x, a, j, b, n)
-                            and bvec[1].is_binomial(x, c, k, d, m)
-                            and (j*n).is_zero()
-                            and (k*m).is_zero()
-                            and (j+n).is_equal(k+m)) {
-                                if (n.is_zero()) {
-                                        a.swap(b);
-                                        j.swap(n);
-                                }
-                                if (m.is_zero()) {
-                                        c.swap(d);
-                                        k.swap(m);
-                                }
-                                return rubi133(a,b,c,d,n,evec[0],evec[1],x);
-                        }
+                // One term sum has posint exponent --> expand to sum
+                for (size_t i = 0; i < evec.size(); ++i)
+                        if ((evec[i].is_integer()
+                             and evec[i].is_positive()
+                             and is_exactly_a<add>(bvec[i])))
+                                return rubi(expand(the_ex), x);
 
-                        // other
-                        expairvec vec1, vec2;
-                        bvec[0].coefficients(x, vec1);
-                        bvec[1].coefficients(x, vec2);
-                        exvector c1, c2, e1, e2;
-                        firsts(c1, vec1);
-                        firsts(c2, vec2);
-                        seconds(e1, vec1);
-                        seconds(e2, vec2);
-                        DEBUG for (auto e : e1)
-                              std::cerr << e << ",";
-                        DEBUG std::cerr << std::endl;  
-                        DEBUG for (auto e : e2)
-                              std::cerr << e << ",";
-                        DEBUG std::cerr << std::endl;  
-
-                        if (ex_match_int(e1, {1})
-                            and ex_match_int(e2, {0,2,4})) {
-                                return rubi222(c1[0],evec[0],c2[0],c2[1],c2[2],evec[1],x);
-                        }
-                        if (ex_match_int(e2, {1})
-                            and ex_match_int(e1, {0,2,4})) {
-                                return rubi222(c2[0],evec[1],c1[0],c1[1],c1[2],evec[0],x);
-                        }
-                        if (ex_match_int(e1, {0,2})
-                            and ex_match_int(e2, {0,2,4})) {
-                                return rubi223(c1[0],c1[1],evec[0],c2[0],c2[1],c2[2],evec[1],x);
-                        }
-                        if (ex_match_int(e2, {0,2})
-                            and ex_match_int(e1, {0,2,4})) {
-                                return rubi223(c2[0],c2[1],evec[1],c1[0],c1[1],c1[2],evec[0],x);
-                        }
-                }
-                if (xvec.size() == 3) {
-                        ex a, b, c, d, ee, f;
-                        if (bvec[0].is_linear(x, a, b)
-                            and bvec[1].is_linear(x, c, d)
-                            and bvec[2].is_linear(x, ee, f))
-                                return rubi113(a, b, evec[0], c, d, evec[1], ee, f, evec[2], x);
-                        ex e1, e2, e3, e4, e5, e6;
-                        if (bvec[0].is_binomial(x, a, e1, b, e2)
-                            and bvec[1].is_binomial(x, c, e3, d, e4)
-                            and bvec[2].is_binomial(x, ee, e5, f, e6)
-                            and (e1*e2).is_zero()
-                            and (e3*e4).is_zero()
-                            and (e5*e6).is_zero()
-                            and (a*c*ee*b*d*f).is_zero()) {
-                                if (bvec[0].is_equal(x)) {
-                                        if (e4.is_zero()) {
-                                                e3.swap(e4);
-                                                c.swap(d);
-                                        }
-                                        if (e6.is_zero()) {
-                                                e5.swap(e6);
-                                                ee.swap(f);
-                                        }
-                                        if (not e3.is_equal(e5))
-                                                throw rubi_exception();
-                                        return rubi134(evec[0],c,d,e4,evec[1],ee,f,evec[2],x);
-                                }
-                                if (bvec[1].is_equal(x)) {
-                                        if (e2.is_zero()) {
-                                                e1.swap(e2);
-                                                a.swap(b);
-                                        }
-                                        if (e6.is_zero()) {
-                                                e5.swap(e6);
-                                                ee.swap(f);
-                                        }
-                                        if (not e1.is_equal(e5))
-                                                throw rubi_exception();
-                                        return rubi134(evec[1],a,b,e2,evec[0],ee,f,evec[2],x);
-                                }
-                                if (bvec[2].is_equal(x)) {
-                                        if (e4.is_zero()) {
-                                                e3.swap(e4);
-                                                c.swap(d);
-                                        }
-                                        if (e2.is_zero()) {
-                                                e1.swap(e2);
-                                                a.swap(b);
-                                        }
-                                        if (not e3.is_equal(e1))
-                                                throw rubi_exception();
-                                        return rubi134(evec[2],c,d,e4,evec[1],a,b,evec[0],x);
-                                }
-                        }
-                }
+                if (xvec.size() == 2)
+                        return rubi_2prod(bvec, evec, x);
+                if (xvec.size() == 3)
+                        return rubi_3prod(bvec, evec, x);
                 throw rubi_exception();
         }
         ex a, b, c;
@@ -342,6 +205,225 @@ ex rubi(ex e, ex xe)
         }
         return rubi11(the_ex, x);
 }
+
+// term1^exp1 * term2^exp2
+// this all presupposes the exponents inside the terms are posint
+static ex rubi_2prod(const exvector& bvec, const exvector& evec,
+                const symbol& x)
+{
+        ex a, b, c, d, e, j, k, m, n;
+        DEBUG std::cerr<<bvec[0]<<","<<bvec[1]<<std::endl;
+        if (bvec[0].is_linear(x, a, b)
+            and bvec[1].is_linear(x, c, d))
+                return rubi112(a, b, evec[0], c, d, evec[1], x);
+        
+        if (bvec[0].is_linear(x, c, d)
+            and c.is_zero()
+            and bvec[1].is_binomial(x, a, j, b, n)) {
+                if (j.is_zero())
+                        return rubi132(d, evec[0], a, b, n, evec[1], x);
+                if (n.is_zero())
+                        return rubi132(d, evec[0], b, a, j, evec[1], x);
+                return power(d,evec[0]) * rubi142H(evec[0], a, j, b, n, evec[1], x);
+        }
+        if (bvec[1].is_linear(x, a, b)
+            and a.is_zero()
+            and bvec[0].is_binomial(x, c, j, d, n)) {
+                if (j.is_zero())
+                        return rubi132(b, evec[1], c, d, n, evec[0], x);
+                if (n.is_zero())
+                        return rubi132(b, evec[1], d, c, j, evec[0], x);
+                return power(b,evec[1]) * rubi142H(evec[1], c, j, d, n, evec[0], x);
+        }
+        if (bvec[0].is_linear(x, c, d)
+            and bvec[1].is_binomial(x, a, j, b, n)) {
+                if (j.is_zero() and n.is_equal(_ex2))
+                        return rubi212(c, d, evec[0], a, _ex0, b, evec[1], x);
+                if (n.is_zero() and j.is_equal(_ex2))
+                        return rubi212(c, d, evec[0], b, _ex0, a, evec[1], x);
+                throw rubi_exception();
+        }
+        if (bvec[1].is_linear(x, a, b)
+            and bvec[0].is_binomial(x, c, j, d, n)) {
+                if (j.is_zero() and n.is_equal(_ex2))
+                        return rubi212(a, b, evec[1], c, _ex0, d, evec[0], x);
+                if (n.is_zero() and j.is_equal(_ex2))
+                        return rubi212(a, b, evec[1], d, _ex0, c, evec[0], x);
+                throw rubi_exception();
+        }
+        if (bvec[0].is_linear(x, d, e)
+            and bvec[1].is_quadratic(x, a, b, c))
+                return rubi212(d, e, evec[0], a, b, c, evec[1], x);
+        if (bvec[1].is_linear(x, d, e)
+            and bvec[0].is_quadratic(x, a, b, c))
+                return rubi212(d, e, evec[1], a, b, c, evec[0], x);
+        if (bvec[0].is_binomial(x, a, j, b, n)
+            and bvec[1].is_binomial(x, c, k, d, m)
+            and (j*n).is_zero()
+            and (k*m).is_zero()
+            and (j+n).is_equal(k+m)) {
+                if (n.is_zero()) {
+                        a.swap(b);
+                        j.swap(n);
+                }
+                if (m.is_zero()) {
+                        c.swap(d);
+                        k.swap(m);
+                }
+                return rubi133(a,b,c,d,n,evec[0],evec[1],x);
+        }
+
+        // other
+        expairvec vec1, vec2;
+        bvec[0].coefficients(x, vec1);
+        bvec[1].coefficients(x, vec2);
+        exvector c1, c2, e1, e2;
+        firsts(c1, vec1);
+        firsts(c2, vec2);
+        seconds(e1, vec1);
+        seconds(e2, vec2);
+        DEBUG for (auto ee : e1)
+              std::cerr << ee << ",";
+        DEBUG std::cerr << std::endl;  
+        DEBUG for (auto ee : e2)
+              std::cerr << ee << ",";
+        DEBUG std::cerr << std::endl;  
+
+        if (ex_match_int(e1, {1})
+            and ex_match_int(e2, {0,2,4})) {
+                return rubi222(c1[0],evec[0],c2[0],c2[1],c2[2],evec[1],x);
+        }
+        if (ex_match_int(e2, {1})
+            and ex_match_int(e1, {0,2,4})) {
+                return rubi222(c2[0],evec[1],c1[0],c1[1],c1[2],evec[0],x);
+        }
+        if (ex_match_int(e1, {0,2})
+            and ex_match_int(e2, {0,2,4})) {
+                return rubi223(c1[0],c1[1],evec[0],c2[0],c2[1],c2[2],evec[1],x);
+        }
+        if (ex_match_int(e2, {0,2})
+            and ex_match_int(e1, {0,2,4})) {
+                return rubi223(c2[0],c2[1],evec[1],c1[0],c1[1],c1[2],evec[0],x);
+                        }
+        throw rubi_exception();
+}
+
+// term1^exp1 * term2^exp2 * term3^exp3
+// this all presupposes the exponents inside the terms are posint
+static ex rubi_3prod(const exvector& bvec, const exvector& evec,
+                const symbol& x)
+{
+        expairvec vec1, vec2, vec3;
+        bvec[0].coefficients(x, vec1);
+        bvec[1].coefficients(x, vec2);
+        bvec[2].coefficients(x, vec3);
+        exvector c1, c2, c3, ev1, ev2, ev3;
+        firsts(c1, vec1);
+        firsts(c2, vec2);
+        firsts(c3, vec3);
+        seconds(ev1, vec1);
+        seconds(ev2, vec2);
+        seconds(ev3, vec3);
+        DEBUG for (auto e : ev1)
+              std::cerr << e << ",";
+        DEBUG std::cerr << std::endl;  
+        DEBUG for (auto e : ev2)
+              std::cerr << e << ",";
+        DEBUG std::cerr << std::endl;  
+        DEBUG for (auto e : ev3)
+              std::cerr << e << ",";
+        DEBUG std::cerr << std::endl;
+
+        ex a, b, c, d, ee, f, g, m, n, p;
+        // Three linear terms --> 1.1.1.3
+        if (bvec[0].is_linear(x, a, b)
+            and bvec[1].is_linear(x, c, d)
+            and bvec[2].is_linear(x, ee, f))
+                return rubi113(a, b, evec[0], c, d, evec[1], ee, f, evec[2], x);
+
+        ex evm1 = exvec_max(ev1);
+        ex evm2 = exvec_max(ev2);
+        ex evm3 = exvec_max(ev3);
+        // Two terms linear, one quadratic --> 1.2.1.3/4
+        if (evm1.info(info_flags::posint)
+            and evm2.info(info_flags::posint)
+            and evm3.info(info_flags::posint)
+            and (evm1+evm2+evm3).is_equal(_ex4)) {
+                bool check = false;
+                if (evm1.is_equal(_ex2)) {
+                        check = bvec[2].is_linear(x, d, ee)
+                                and bvec[1].is_linear(x, f, g)
+                                and bvec[0].is_quadratic(x, a, b, c);
+                        p = evec[0]; m = evec[2]; n = evec[1];
+                }
+                else if (evm2.is_equal(_ex2)) {
+                        check = bvec[0].is_linear(x, d, ee)
+                                and bvec[2].is_linear(x, f, g)
+                                and bvec[1].is_quadratic(x, a, b, c);
+                        p = evec[1]; m = evec[0]; n = evec[2];
+                }
+                else if (evm3.is_equal(_ex2)) {
+                        check = bvec[0].is_linear(x, d, ee)
+                                and bvec[1].is_linear(x, f, g)
+                                and bvec[2].is_quadratic(x, a, b, c);
+                        p = evec[2]; m = evec[0]; n = evec[1];
+                }
+                if (not check)
+                        throw rubi_exception();
+                return rubi214(d,ee,m,f,g,n,a,b,c,p,x);
+        }
+        //
+        ex e1, e2, e3, e4, e5, e6;
+        if (bvec[0].is_binomial(x, a, e1, b, e2)
+            and bvec[1].is_binomial(x, c, e3, d, e4)
+            and bvec[2].is_binomial(x, ee, e5, f, e6)
+            and (e1*e2).is_zero()
+            and (e3*e4).is_zero()
+            and (e5*e6).is_zero()
+            and (a*c*ee*b*d*f).is_zero()) {
+                if (bvec[0].is_equal(x)) {
+                        if (e4.is_zero()) {
+                                e3.swap(e4);
+                                c.swap(d);
+                        }
+                        if (e6.is_zero()) {
+                                e5.swap(e6);
+                                ee.swap(f);
+                        }
+                        if (not e4.is_equal(e6))
+                                throw rubi_exception();
+                        return rubi134(evec[0],c,d,e4,evec[1],ee,f,evec[2],x);
+                }
+                if (bvec[1].is_equal(x)) {
+                        if (e2.is_zero()) {
+                                e1.swap(e2);
+                                a.swap(b);
+                        }
+                        if (e6.is_zero()) {
+                                e5.swap(e6);
+                                ee.swap(f);
+                        }
+                        if (not e2.is_equal(e6))
+                                throw rubi_exception();
+                        return rubi134(evec[1],a,b,e2,evec[0],ee,f,evec[2],x);
+                }
+                if (bvec[2].is_equal(x)) {
+                        if (e4.is_zero()) {
+                                e3.swap(e4);
+                                c.swap(d);
+                        }
+                        if (e2.is_zero()) {
+                                e1.swap(e2);
+                                a.swap(b);
+                        }
+                        if (not e4.is_equal(e2))
+                                throw rubi_exception();
+                        return rubi134(evec[2],c,d,e4,evec[1],a,b,evec[0],x);
+                }
+        }
+        throw rubi_exception();
+}
+
 // 1.1.1.1 (a+bx)^m
 static ex rubi111(ex a, ex b, ex m, ex x)
 {
@@ -661,15 +743,20 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
 
         // Rule 6
         if (not bcmad.is_zero()
-            and not (a.is_zero() or c.is_zero())
+            and is_exactly_a<numeric>(m) and is_exactly_a<numeric>(n)
             and not (m+n+_ex1).is_zero()
             and (m.is_positive() or n.is_positive())) {
-                if (n.is_positive() and not m.is_positive()) {
+                if (not n.is_positive()) {
                         m.swap(n);
                         a.swap(c);
                         b.swap(d);
                         bcmad = _ex0 - bcmad;
                 }
+                if (not (m.is_integer() and m.is_positive()
+                         and (not n.is_integer()
+                              or (m.is_positive() and (m-n).is_negative())))
+                    and not ((m+n+2).is_integer() and (m+n+2).is_negative()))
+        DEBUG std::cerr<<"r1123-6: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::endl;
                 return power(a+b*x,m+1)*power(c+d*x,n)/b/(m+n+1) + n*bcmad/b/(m+n+1) * rubi112(a,b,m,c,d,n-1,x);
         }
 
@@ -747,6 +834,12 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
 static ex rubi113(ex a, ex b, ex m, ex c, ex d, ex n, ex e, ex f, ex p, ex x)
 {
         DEBUG std::cerr<<"r113: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<","<<e<<","<<f<<","<<p<<std::endl;
+        if (a.is_zero() and c.is_zero())
+                return power(b,m)*power(d,n) * rubi112(_ex0,_ex1,m+n,e,f,p,x);
+        if (c.is_zero() and e.is_zero())
+                return power(f,p)*power(d,n) * rubi112(_ex0,_ex1,p+n,a,b,m,x);
+        if (a.is_zero() and e.is_zero())
+                return power(b,m)*power(f,p) * rubi112(_ex0,_ex1,m+p,c,d,n,x);
         // 1.1.3.H.1/2
         if ((m+n+p+2).is_zero()) {
                 if (m.info(info_flags::integer)
@@ -823,7 +916,7 @@ static ex rubi131(ex ae, ex be, ex ne, ex pe, ex x)
                 if ((ne*pe).is_minus_one())
                         return power(be,pe) * log(x);
                 else
-                        return power(be,pe) * power(x,ne*pe+1) / (ne*pe+1);
+                        return x * power(be*power(x,ne),pe) / (ne*pe+1);
         }
         if (ne.is_one())
                 return rubi111(ae, be, pe, x);
@@ -1061,8 +1154,14 @@ static ex rubi132(ex ce, ex me, ex ae, ex be, ex ne, ex pe, ex x)
         DEBUG std::cerr<<"r132: "<<ce<<","<<me<<","<<ae<<","<<be<<","<<ne<<","<<pe<<std::endl;
         if (me.is_zero())
                 return rubi131(ae,be,ne,pe,x);
-        if (ae.is_zero())
-                return rubi(power(ce,me)*power(be*power(x,ne),pe), x);
+        if (ae.is_zero()) {
+                if ((pe*ne+me).is_minus_one())
+                        return power(ce*x,me+1)/ce * power(be*power(x,ne),pe) * log(x);
+                else
+                        return power(ce*x,me+1)/ce * power(be*power(x,ne),pe) / (pe*ne+me+1);
+        }
+        if (pe.is_integer() and pe.is_positive())
+                return rubi(expand(power(ce*x,me)*power(ae+be*power(x,ne),pe)),x);
         // Rule 1.1
         if ((me-ne+_ex1).is_zero())
                 return _ex1/ne * rubi111(ae, be, pe, x).subs(x == power(x,ne));
@@ -1306,6 +1405,39 @@ static ex rubi211(ex a, ex b, ex c, ex p, ex x)
         // return power(x*x*c+x*b+a, pe) / power(-(x*x*c+x*b+a)*c/qq, p) * rubi211(-a*c/qq, -b*c/qq, -c*c/qq, pe, x);
 }
 
+static bool nice_sqrt_helper(ex e)
+{
+        if (is_exactly_a<numeric>(e)) {
+                if (not ex_to<numeric>(e).is_positive())
+                        DEBUG std::cerr<<"nice_sqrt warning"<<std::endl;
+                return true;
+        }
+        if (is_exactly_a<power>(e))
+                return e.op(1).info(info_flags::rational)
+                        or e.op(1).info(info_flags::even);
+        if (is_exactly_a<mul>(e)) {
+                for (const auto& term : e)
+                        if (not nice_sqrt_helper(term))
+                                return false;
+                return true;
+        }
+        if (is_exactly_a<add>(e)) {
+                ex f;
+                bool r = factor(e, f);
+                if (not r or is_exactly_a<add>(f))
+                        return false;
+                return nice_sqrt_helper(f);
+        }
+        return false;
+}
+
+static bool has_nice_sqrt(ex e)
+{
+        if (e.is_negative())
+                return false;
+        return nice_sqrt_helper(e);
+}
+
 // 1.2.1.2 (d+ex)^m * (a+bx+cx^2)^p
 static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x)
 {
@@ -1314,6 +1446,14 @@ static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x)
                 return rubi111(de,ee,me,x);
         if (me.is_zero())
                 return rubi211(ae,be,ce,pe,x);
+        if ((me.is_integer()
+             and ((not de.is_zero() and me.is_positive())
+                     or (me-1).is_positive()))
+            or (pe.is_integer()
+             and ((not (ae*be).is_zero() and pe.is_positive())
+                     or (pe-1).is_positive())))
+                return rubi(expand(power(de+ee*x,me)
+                                        * power(ae+be*x+ce*x*x,pe)), x);
         // Rule 1
         if (me.is_one()) {
                 // Rule 1.1
@@ -1335,15 +1475,74 @@ static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x)
                     and not qq.is_zero()) {
                         if (be.is_zero())
                                 return de * rubi(power(ae+ce*x*x,_ex_1),x) + ee * rubi(x/(ae+ce*x*x),x);
-                        ex q = power(qq, _ex1_2);
-                        if ((is_exactly_a<power>(qq)
-                            and ex_to<power>(q).op(1).info(info_flags::even))
-                            or (is_exactly_a<numeric>(qq)
-                                and ex_to<numeric>(qq).is_square()))
+                        if (has_nice_sqrt(qq)) {
+                                ex q = power(qq, _ex1_2);
                                 return (ce*de-ee*(be-q)/_ex2)/q * rubi111((be-q)/_ex2,ce,_ex_1,x) - (ce*de-ee*(be+q)/_ex2)/q * rubi111((be+q)/_ex2,ce,_ex_1,x);
-                        else
+                        }
+                        else {
+                                DEBUG std::cerr<<"r212-122: "<<qq<<","<<de<<","<<ee<<","<<me<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
                                 return (2*ce*de-be*ee)/_ex2/ce * rubi211(ae,be,ce,_ex_1,x) + ee/_ex2/ce * rubi212(be,_ex2*ce,_ex1,ae,be,ce,_ex_1,x);
+                        }
                 }
+        }
+
+        ex qq = be*be - _ex4*ae*ce;
+        // Rule 2
+        if (qq.is_zero()) {
+                if (pe.is_integer())
+                        return power(ce,-pe) * rubi112(de,ee,me,de/_ex2,ce,_ex2*pe,x);
+                // 2.2.1
+                if ((_ex2*ce*de-be*ee).is_zero()) {
+                        if (me.is_integer()) {
+                                if ((me/_ex2).is_integer())
+                                        return power(ee,me)/power(ce,me/_ex2) * rubi211(ae,be,ce,pe+me/_ex2,x);
+                                return power(ee,me-1)*power(ce,(me-1)/_ex2) * rubi212(de,ee,_ex1,ae,be,ce,pe+(me-1)/_ex2,x);
+                        }
+                        return power(ae+be*x+ce*x*x,pe)/power(de+ee*x,_ex2*pe) * rubi111(de,ee,me+_ex2*pe,x);
+                }
+                // 2.2.2
+                if (is_exactly_a<numeric>(pe)) {
+                        numeric fp = ex_to<numeric>(pe).frac();
+                        numeric ip = ex_to<numeric>(pe).floor();
+                        return power(ae+be*x+ce*x*x,fp)/power(ce,ip)/power(be/_ex2+ce*x,_ex2*fp) * rubi112(de,ee,me,be/_ex2,ce,_ex2*pe,x);
+                }
+        }
+        throw rubi_exception();
+}
+
+// 1.2.1.3 (d+ex)^m * (f+gx) * (a+bx+cx^2)^p
+static ex rubi213(ex de, ex ee, ex me, ex fe, ex ge, ex ae, ex be, ex ce, ex pe, ex x)
+{
+        DEBUG std::cerr<<"r213: "<<de<<","<<ee<<","<<me<<","<<fe<<","<<ge<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
+        if ((ee*fe-de*ge).is_zero())
+                return fe/de * rubi212(de,ee,me+1,ae,be,ce,pe,x);
+        ex qq = be*be - _ex4*ae*ce;
+        // 6
+        if (qq.is_zero()
+            and is_exactly_a<numeric>(pe)) {
+                numeric fp = ex_to<numeric>(pe).frac();
+                numeric ip = ex_to<numeric>(pe).floor();
+                return power(ae+be*x+ce*x*x,fp)/power(ce,ip)/power(be*be+ce*x,_ex2*fp) * rubi113(de,ee,me,fe,ge,_ex1,be/_ex2,ce,_ex2*pe, x);
+        }
+        throw rubi_exception();
+}
+
+// 1.2.1.4 (d+ex)^m * (f+gx)^n * (a+bx+cx^2)^p
+static ex rubi214(ex de, ex ee, ex me, ex fe, ex ge, ex ne, ex ae, ex be, ex ce, ex pe, ex x)
+{
+        DEBUG std::cerr<<"r214: "<<de<<","<<ee<<","<<me<<","<<fe<<","<<ge<<","<<ne<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
+        if (ne.is_one())
+                return rubi213(de,ee,me,fe,ge,ae,be,ce,pe,x);
+        // 9
+        if (ae.is_zero()
+            and not pe.is_integer()) {
+                if (ne.is_integer() and ne.is_positive()) {
+                        me.swap(ne);
+                        de.swap(fe);
+                        ee.swap(ge);
+                }
+                if (not (ne.is_integer() and ne.is_positive()))
+                        return power(ee*x,me)*power(be*x+ce*x*x,pe)/power(x,me+pe)/power(be+ce*x,pe) * rubi113(_ex0,_ex1,me+pe,fe,ge,ne,be,ce,pe,x);
         }
         throw rubi_exception();
 }
