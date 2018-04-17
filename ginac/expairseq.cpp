@@ -368,116 +368,6 @@ ex expairseq::conjugate() const
 	return result;
 }
 
-bool expairseq::match(const ex & pattern, exmap& map) const
-{
-	// This differs from basic::match() because we want "a+b+c+d" to
-	// match "d+*+b" with "*" being "a+c", and we want to honor
-        // commutativity
-
-	if (this->tinfo() != ex_to<basic>(pattern).tinfo())
-                return inherited::match(pattern, map);
-
-        // Check whether global wildcard (one that matches the "rest of the
-        // expression", like "*" above) is present
-        bool has_global_wildcard = false;
-        ex global_wildcard;
-        for (size_t i=0; i<pattern.nops(); i++) {
-                const ex& p = pattern.sorted_op(i);
-                if (is_exactly_a<wildcard>(p)
-                    and map.find(p) == map.end()) {
-                        has_global_wildcard = true;
-                        global_wildcard = p;
-                        break;
-                }
-        }
-        // Even if the expression does not match the pattern, some of
-        // its subexpressions could match it. For example, x^5*y^(-1)
-        // does not match the pattern $0^5, but its subexpression x^5
-        // does. So, save repl_lst in order to not add bogus entries.
-        exmap tmp_repl = map;
-
-        // Unfortunately, this is an O(N^2) operation because we can't
-        // sort the pattern in a useful way...
-
-        // Chop into terms
-        exvector ops;
-        ops.reserve(nops());
-        for (size_t i=0; i<nops(); i++)
-                ops.push_back(stable_op(i));
-
-        // Now, for every term of the pattern, look for a matching
-        // term in the expression and remove the match
-        for (const auto& p : pattern) {
-                if (has_global_wildcard
-                    and p.is_equal(global_wildcard))
-                        continue;
-                bool match_found = false;
-                auto it = ops.begin();
-                for (; it != ops.end(); ++it) {
-                        if (it->match(p, tmp_repl)) {
-                                match_found = true;
-                                ops.erase(it);
-                                break;
-                        }
-                }
-                if (not match_found)
-                        return false; // no match found
-        }
-
-        if (has_global_wildcard) {
-
-                // Assign all the remaining terms to the global
-                // wildcard (unless it has already been matched
-                // before, in which case the matches must be equal)
-                std::unique_ptr<epvector> vp(new epvector);
-                vp->reserve(ops.size());
-                for (const auto& term : ops)
-                        vp->push_back(split_ex_to_pair(term));
-
-                ex rest = thisexpairseq(std::move(vp),
-                                default_overall_coeff());
-                const auto& it = tmp_repl.find(global_wildcard);
-                if (it != tmp_repl.end()) {
-                        if (rest.is_equal(it->second)) {
-                                map = tmp_repl;
-                                return true;
-                        }
-                        return false;
-                }
-                map = tmp_repl;
-                map[global_wildcard] = rest;
-                return true;
-        } 
-
-        // No global wildcard, then the match fails if there are any
-        // unmatched terms left
-        if (ops.empty()) {
-                map = tmp_repl;
-                return true;
-        }
-        return false;
-}
-
-ex expairseq::subs(const exmap & m, unsigned options) const
-{
-	std::unique_ptr<epvector> vp = subschildren(m, options);
-	if (vp != nullptr) {
-                const ex& ocs = overall_coeff.subs(m, options);
-                if (is_exactly_a<numeric>(ocs))
-                        return ex_to<basic>(thisexpairseq(std::move(vp),
-                                            ex_to<numeric>(ocs),
-                                            (options & subs_options::no_index_renaming) == 0));
-                else
-                        return ex_to<basic>(add(ocs, thisexpairseq(std::move(vp),
-                                            *_num0_p,
-                                            (options & subs_options::no_index_renaming) == 0)));
-        }
-	if (((options & subs_options::algebraic) != 0u) && is_exactly_a<mul>(*this))
-		return static_cast<const mul *>(this)->algebraic_subs_mul(m, options);
-	else
-		return subs_one_level(m, options);
-}
-
 // returns total degree of this sequence
 numeric expairseq::calc_total_degree() const
 {
@@ -654,6 +544,26 @@ ex expairseq::expand(unsigned options) const
 
         // The terms have not changed, so it is safe to declare this expanded
         return (options == 0) ? setflag(status_flags::expanded) : *this;
+}
+
+ex expairseq::subs(const exmap & m, unsigned options) const
+{
+	std::unique_ptr<epvector> vp = subschildren(m, options);
+	if (vp != nullptr) {
+                const ex& ocs = overall_coeff.subs(m, options);
+                if (is_exactly_a<numeric>(ocs))
+                        return ex_to<basic>(thisexpairseq(std::move(vp),
+                                            ex_to<numeric>(ocs),
+                                            (options & subs_options::no_index_renaming) == 0));
+                else
+                        return ex_to<basic>(add(ocs, thisexpairseq(std::move(vp),
+                                            *_num0_p,
+                                            (options & subs_options::no_index_renaming) == 0)));
+        }
+	if (((options & subs_options::algebraic) != 0u) && is_exactly_a<mul>(*this))
+		return static_cast<const mul *>(this)->algebraic_subs_mul(m, options);
+	else
+		return subs_one_level(m, options);
 }
 
 //////////
@@ -1738,6 +1648,147 @@ const epvector & expairseq::get_sorted_seq() const
 		return seq;
 
         return seq_sorted;
+}
+
+using boolvec = std::vector<bool>;
+
+static std::string str(const boolvec& v)
+{
+        std::string s;
+        for (bool t : v)
+                s.push_back(t? '1':'0');
+        return s;
+}
+
+static bool debug=false;
+#define DEBUG if(debug)
+
+static bool walk(const exvector& pats, const exvector& objs,
+                 const boolvec& pbits, const boolvec& obits,
+                 exmap& map, size_t pcount) {
+   DEBUG std::cerr<<pats<<" ||| "<<objs<<" ||| "<<str(pbits) << "/" <<str(obits)<<" ||| "<<map<<", "<<pcount<<std::endl;
+        for (size_t i=0; i<pats.size(); ++i) {
+                if (not pbits[i])
+                        continue;
+/*                // global wildcard?
+                if (pcount == 1 and is_exactly_a<wildcard>(pats[i])) {
+                   std::cerr<<"Joker"<<std::endl;
+                        if (map.find(pats[i]) != map.end())
+                                return false;
+                        exvector ev;
+                        for (size_t j=0; j<objs.size(); ++j)
+                                if (obits[j])
+                                        ev.push_back(objs[j]);
+                        if (ev.size() == 1)
+                                map[pats[i]] = ev[0];
+                        else
+                                map[pats[i]] = mul(ev);
+                        return true;
+                }
+*/                exmap m = map;
+                for (size_t j=0; j<objs.size(); ++j) {
+                        if (not obits.at(j))
+                                continue;
+                        DEBUG std::cerr<<"match "<<objs[j]<<" to "<<pats[i]<<" with "<<m<<std::endl;
+                        if (not objs[j].match(pats[i], m))
+                                continue;
+                        DEBUG std::cerr<<"matched "<<" with "<<m<<std::endl;
+                        if (pcount == 1) {
+                        DEBUG std::cerr<<"all matched"<<std::endl;
+                                map = m;
+                                return true;
+                        }
+                        boolvec pb = pbits, ob = obits;
+                        pb[i] = false;
+                        ob[j] = false;
+                        --pcount;
+
+                        bool ret = walk(pats, objs, pb, ob, m, pcount);
+                        if (ret) {
+                        DEBUG std::cerr<<"Lift map"<<std::endl;
+                                map = m;
+                                return true;
+                        }
+                        break;
+                }
+        }
+        return false;
+}
+
+bool expairseq::cmatch(const ex & pattern, exmap& map) const
+{
+	// This differs from basic::match() because commutative structures
+        // need a special algorithm. We follow the outline in
+        // Manuel Krebber's Master Thesis, "Non-linear Associative-Commutative
+        // Many-to-One Pattern Matching with Sequence Variables", section 3.2
+        // https://arxiv.org/abs/1705.00907
+
+        DEBUG std::cerr<<"add::match: "<<*this<<", "<<pattern<<", "<<map<<std::endl; 
+	if (this->tinfo() != ex_to<basic>(pattern).tinfo())
+                return inherited::match(pattern, map);
+        if (nops() < pattern.nops())
+                return false;
+
+        // Chop into terms
+        exvector ops, pat;
+        ops.reserve(nops());
+        pat.reserve(nops());
+        for (size_t i=0; i<nops(); i++) {
+                ops.push_back(op(i));
+                pat.push_back(pattern.op(i));
+        }
+        std::sort(ops.begin(), ops.end());
+        std::sort(pat.begin(), pat.end());
+
+        // First, match all terms without unset wildcards from the pattern
+        // If there are matches remove them from both subject and pattern
+        for (auto it1 = pat.begin(); it1 != pat.end(); ) {
+                if (is_exactly_a<wildcard>(*it1)) {
+                        const auto& mit = map.find(*it1);
+                        if (mit == map.end()) {
+                                ++it1;
+                                continue;
+                        }
+                        bool matched = false;
+                        for (auto it2 = ops.begin(); it2 != ops.end(); ) {
+                                if (it2->is_equal(mit->second)) {
+                                        it1 = pat.erase(it1);
+                                        it2 = ops.erase(it2);
+                                        matched = true;
+                                        break;
+                                }
+                                ++it2;
+                        }
+                        if (not matched)
+                                return false;
+                }
+                if (haswild(*it1)) {
+                        ++it1;
+                        continue;
+                }
+                bool matched = false;
+                for (auto it2 = ops.begin(); it2 != ops.end(); ) {
+                        if (it2->is_equal(*it1)) {
+                                it1 = pat.erase(it1);
+                                it2 = ops.erase(it2);
+                                matched = true;
+                                break;
+                        }
+                        ++it2;
+                }
+                if (not matched)
+                        return false;
+        }
+        if (ops.empty() and pat.empty())
+                return true;
+        if (ops.empty() or pat.empty())
+                throw std::runtime_error("matching gotcha");
+
+        exvector p = pat, o = ops;
+        boolvec pbits, obits;
+        pbits.assign(p.size(), true);
+        obits.assign(o.size(), true);
+        return walk(p, o, pbits, obits, map, p.size());
 }
 
 //////////
