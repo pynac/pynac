@@ -164,21 +164,6 @@ bool ex::cmatch(const ex & pattern, exvector& vec) const
         return ret;
 }
 
-bool ex::match(const ex & pattern, exvector& vec) const
-{
-        lst l;
-        bool ret = bp->match(pattern, l);
-        if (not ret)
-                return ret;
-        vec.resize(l.nops());
-        for (auto rel : l) {
-                if (not is_exactly_a<wildcard>(rel.lhs()))
-                        throw std::runtime_error("no wildcard");
-                vec[ex_to<wildcard>(rel.lhs()).get_label()] = rel.rhs();
-        }
-        return ret;
-}
-
 /** Find all occurrences of a pattern. The found matches are appended to
  *  the "found" list. If the expression itself matches the pattern, the
  *  children are not further examined. This function returns true when any

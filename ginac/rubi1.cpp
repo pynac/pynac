@@ -52,6 +52,10 @@ std::cerr << "- " << long(op) << ", " << Py_REFCNT(op) << ", " << Py_TYPE(op)->t
     } while (0); std::cerr << "Done" << std::endl; std::cerr.flush();
 #endif
 
+#if PY_MAJOR_VERSION >= 3
+#define PyString_FromString PyUnicode_FromString
+#endif
+
 #define DEBUG if (debug)
 
 inline void py_error(const char* errmsg) {

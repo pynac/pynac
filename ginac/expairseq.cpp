@@ -4,6 +4,7 @@
 
 /*
  *  GiNaC Copyright (C) 1999-2008 Johannes Gutenberg University Mainz, Germany
+ *  (C) 2015-2018 Ralf Stephan <ralf@ark.in-berlin.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1806,6 +1807,7 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
         // Many-to-One Pattern Matching with Sequence Variables", section 3.2
         // https://arxiv.org/abs/1705.00907
 
+        // Author: 2018: Ralf Stephan <ralf@ark.in-berlin.de>
         DEBUG std::cerr<<"cmatch: "<<*this<<", "<<pattern<<", "<<map<<std::endl; 
 	if (this->tinfo() != ex_to<basic>(pattern).tinfo())
                 return inherited::match(pattern, map);
