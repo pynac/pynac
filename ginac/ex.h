@@ -172,11 +172,17 @@ public:
 	ex imag_part() const { return bp->imag_part(); }
 
 	// pattern matching
-	bool has(const ex & pattern, unsigned options = 0) const { return bp->has(pattern, options); }
+	bool has(const ex & pattern, unsigned options = 0) const
+            { return bp->has(pattern, options); }
 	bool find(const ex & pattern, lst & found) const;
 	bool match(const ex & pattern) const;
-	bool match(const ex & pattern, lst & repl_lst) const { return bp->match(pattern, repl_lst); }
+	bool match(const ex & pattern, lst & repl_lst) const;
+	bool match(const ex & pattern, exmap& map) const;
 	bool match(const ex & pattern, exvector& vec) const;
+	bool cmatch(const ex & pattern, exmap& map) const;
+	bool cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
+            { return bp->cmatch(pattern, map, sink); }
+        bool cmatch(const ex & pattern, exvector& vec) const;
 
 	// substitutions
 	ex subs(const exmap & m, unsigned options = 0) const

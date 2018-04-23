@@ -2,7 +2,7 @@
 
 lib_LTLIBRARIES = libpynac.la
 libpynac_la_SOURCES = add.cpp archive.cpp assume.cpp basic.cpp \
-  constant.cpp context.cpp ex.cpp expair.cpp expairseq.cpp exprseq.cpp \
+  constant.cpp context.cpp ex.cpp expair.cpp exprseq.cpp \
   fderivative.cpp function.cpp function_info.cpp \
   infinity.cpp inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp \
   inifcns_hyperb.cpp inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
@@ -23,7 +23,12 @@ libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
 endif
 libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -Wno-unknown-pragmas -Wno-parentheses-equality
 
-libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) @FACTORY_LIBS@ $(LIBGIAC)
+noinst_LTLIBRARIES = libpynac17.la
+libpynac17_la_SOURCES = expairseq.cpp
+libpynac17_la_CPPFLAGS = --std=c++17
+
+libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) libpynac17.la @FACTORY_LIBS@ $(LIBGIAC) $(LIBBOOST)
+
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h \
   class_info.h constant.h container.h context.h ex.h ex_utils.h \

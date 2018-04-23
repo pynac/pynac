@@ -512,6 +512,33 @@ range_t<T> range(T b, T e)
     return range_t<T>(b, e);
 }
 
+// adapted from http://en.cppreference.com/w/cpp/algorithm/next_permutation
+template<class BidirIt>
+int next_permutation_pos(BidirIt first, BidirIt last)
+{
+    if (first == last) return -1;
+    BidirIt i = last;
+    if (first == --i) return -1;
+ 
+    while (true) {
+        BidirIt i1, i2;
+ 
+        i1 = i;
+        if (*--i < *i1) {
+            i2 = last;
+            while (!(*i < *--i2))
+                ;
+            std::iter_swap(i, i2);
+            std::reverse(i1, last);
+            return i1 - first;
+        }
+        if (i == first) {
+            std::reverse(first, last);
+            return -1;
+        }
+    }
+}
+
 } // namespace GiNaC
 
 
