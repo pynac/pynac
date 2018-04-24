@@ -1875,6 +1875,7 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                                         // normal matching attempt
                                         ret = e.match(p, m);
                                         if (ret) {
+                                                map_repo[index] = m;
                                                 DEBUG std::cerr<<"match found: "<<e<<", "<<p<<", "<<m<<": "<<ret<<std::endl; 
                                         }
                                 }
@@ -1891,14 +1892,13 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
 
                                         if (ret) {
                                                 map_repo[index] = source.get();
-                                                DEBUG std::cerr<<"cmatch found: "<<e<<", "<<p<<", "<<m<<std::endl;
+                                                DEBUG std::cerr<<"cmatch found: "<<e<<", "<<p<<", "<<map_repo[index]<<std::endl;
                                         }
                                         else {
                                                 corots[index].reset();
                                         }
                                 }
                                 if (ret) {
-                                        map_repo[index] = m;
                                         pterm_matched[i] = true;
                                         break;
                                 }
@@ -1931,8 +1931,8 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
 
                 if (not perm_failed) {
                         // give back one solution of this cmatch call
-                        DEBUG std::cerr<<"send alt: "<<map<<std::endl;
-                        sink(map);
+                        DEBUG std::cerr<<"send alt: "<<map_repo[N-1]<<std::endl;
+                        sink(map_repo[N-1]);
                         // permute and get leftmost changed position
                         int pos = next_permutation_pos(perm.begin(),
                                         perm.end());
