@@ -1755,50 +1755,6 @@ static std::string str(const boolvec& v)
 static bool debug=true;
 #define DEBUG if(debug)
 
-static bool walk(const exvector& pats, const exvector& objs,
-                 const boolvec& pbits, const boolvec& obits,
-                 exmap& map, size_t pcount) {
-   DEBUG std::cerr<<"WALK "<<pats<<" ||| "<<objs<<" ||| "<<str(obits)<<" ||| "<<map<<", "<<pcount<<std::endl;
-        boolvec pb = pbits;
-        for (size_t i=0; i<pats.size(); ++i) {
-                if (not pb.at(i))
-                        continue;
-                exmap m = map;
-                boolvec ob = obits;
-                size_t pc = pcount;
-                        DEBUG std::cerr<<"choose to match "<<pats[i]<<" with "<<m<<std::endl;
-                for (size_t j=0; j<objs.size(); ++j) {
-                        if (not ob.at(j))
-                                continue;
-                        DEBUG std::cerr<<"choose to match "<<pats[i]<<" to "<<objs[j]<<" with "<<m<<std::endl;
-                        if (not objs[j].cmatch(pats[i], m)) {
-                                DEBUG std::cerr<<"match failed"<<std::endl;
-                                m = map;
-                                continue;
-                        }
-                        DEBUG std::cerr<<"match succeeds with "<<m<<std::endl;
-                        if (--pc == 0) {
-                        DEBUG std::cerr<<"all matched"<<std::endl;
-                                map = m;
-                                return true;
-                        }
-                        ob[j] = false;
-                        pb[i] = false;
-
-                        bool ret = walk(pats, objs, pb, ob, m, pc);
-                        if (ret) {
-                        DEBUG std::cerr<<"Lift map"<<std::endl;
-                                map = m;
-                                return true;
-                        }
-                }
-                pc = pcount;
-                pb = pbits;
-                DEBUG std::cerr<<"Next pattern."<<std::endl;
-        }
-        return false;
-}
-
 bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
 {
 	// This differs from basic::match() because commutative structures
@@ -1877,9 +1833,9 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                 }
                 ++it1;
         }
-        if (ops.empty() and pat.empty())
+        if (wilds.empty() and ops.empty() and pat.empty())
                 return true;
-        if (ops.empty() or pat.empty())
+        if (wilds.empty() and (ops.empty() or pat.empty()))
                 throw std::runtime_error("matching gotcha");
 
         for (auto&& w : wilds)
@@ -1888,17 +1844,29 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
         const size_t N = pat.size();
         std::vector<size_t> perm(N);
         std::iota(perm.begin(), perm.end(), 0);
-        size_t index = 0;
         std::vector<std::optional<exmap_corot_t>> corots(N);
         std::vector<exmap> map_repo(N);
-        map_repo[0] = map;
+        // The outer loop goes though permutations of perm
         while (true) {
+                size_t index = 0;
                 bool perm_failed = false;
+                std::vector<bool> pterm_matched(N);
+                pterm_matched.assign(N, false);
+                DEBUG { std::cerr<<"["; for (size_t i:perm) std::cerr<<i<<","; std::cerr<<"]"<<std::endl; }
+                // The second loop increases index to get a new ops term
                 do {
-                        const ex& p = pat[perm[index]];
+                        const ex& e = ops[perm[index]];
+                        DEBUG std::cerr<<"index: "<<index<<", e: "<<e<<std::endl;
                         bool ret;
-                        for (const auto& e : ops) {
+                        if (index == 0)
+                                map_repo[0] = map;
+                        else
+                                map_repo[index] = map_repo[index-1];
+                        for (size_t i=0; i<pat.size(); ++i) {
+                                if (pterm_matched[i])
+                                        continue;
                                 // At this point we try matching p to e 
+                                const ex& p = pat[i];
                                 exmap m = map_repo[index];
                                 if (corots[index])
                                         corots[index].reset();
@@ -1906,8 +1874,9 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                                     or not is_a<expairseq>(e)) {
                                         // normal matching attempt
                                         ret = e.match(p, m);
-                                        if (ret)
-                                                map_repo[index] = m;
+                                        if (ret) {
+                                                DEBUG std::cerr<<"match found: "<<e<<", "<<p<<", "<<m<<": "<<ret<<std::endl; 
+                                        }
                                 }
                                 else {
                                         // both p and e are sum or product
@@ -1919,26 +1888,50 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                                             });
                                         const exmap_corot_t& source = corots[index].value();
                                         ret = bool(source);
+
                                         if (ret) {
                                                 map_repo[index] = source.get();
+                                                DEBUG std::cerr<<"cmatch found: "<<e<<", "<<p<<", "<<m<<std::endl;
                                         }
                                         else {
                                                 corots[index].reset();
                                         }
                                 }
                                 if (ret) {
+                                        map_repo[index] = m;
+                                        pterm_matched[i] = true;
                                         break;
                                 }
                         }
                         if (not ret) {
-                                perm_failed = true;
-                                break;
+                        // did we start coroutines in this permutation?
+                                bool alt_solution_found = false;
+                                int i = static_cast<int>(index);
+                                while (--i >= 0) {
+                                        if (corots[i]) {
+                                                const exmap_corot_t& source =
+                                                        corots[i].value();
+                                                if (bool(source)) {
+                                                        map_repo[i] = source.get();
+                                                        index = i+1;
+                                                        alt_solution_found = true;
+                                                        DEBUG std::cerr<<"try alt: "<<i<<", "<<map_repo[i]<<std::endl;
+                                                        break;
+                                                }
+                                                corots[i].reset();
+                                        }
+                                }
+                                if (not alt_solution_found) {
+                                        perm_failed = true;
+                                        break;
+                                }
                         }
                 }
                 while (++index < N);
 
                 if (not perm_failed) {
                         // give back one solution of this cmatch call
+                        DEBUG std::cerr<<"send alt: "<<map<<std::endl;
                         sink(map);
                         // permute and get leftmost changed position
                         int pos = next_permutation_pos(perm.begin(),
@@ -1946,28 +1939,12 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                         if (pos < 0)
                                 return false;
                         // still permutations left
+                        // state could save index too
                         index = pos;
+                        return true;
                 }
                 else {
-                        // did we start coroutines in this permutation?
-                        bool alt_solution_found = false;
-                        int i = static_cast<int>(index);
-                        while (--i >= 0) {
-                                if (corots[i]) {
-                                        const exmap_corot_t& source =
-                                                corots[i].value();
-                                        if (bool(source)) {
-                                                map_repo[i] = source.get();
-                                                index = i+1;
-                                                alt_solution_found = true;
-                                                break;
-                                        }
-                                        corots[i].reset();
-                                }
-                        }
-                        if (alt_solution_found)
-                                continue;
-                        // no coroutines have alternative solutions
+                        // no cmatch calls have alternative solutions
                         // to their cmatch, so get the next permutation
                         // that changes current index position
                         size_t old = perm[index];
