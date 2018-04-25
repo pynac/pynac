@@ -138,15 +138,7 @@ bool ex::cmatch(const ex & pattern, exmap& map) const
 {
         if (not is_a<expairseq>(*this))
                 return bp->match(pattern, map);
-        exmap_corot_t source(
-            [&](exmap_sink_t& sink) {
-                (void)this->cmatch(pattern, map, sink);
-            });
-        if (source) {
-                map = source.get();
-                return true;
-        }
-        return false;
+        return bp->cmatch(pattern, map);
 }
 
 bool ex::cmatch(const ex & pattern, exvector& vec) const

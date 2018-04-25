@@ -27,7 +27,7 @@ noinst_LTLIBRARIES = libpynac17.la
 libpynac17_la_SOURCES = expairseq.cpp
 libpynac17_la_CPPFLAGS = --std=c++17
 
-libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) libpynac17.la @FACTORY_LIBS@ $(LIBGIAC) $(LIBBOOST)
+libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) libpynac17.la @FACTORY_LIBS@ $(LIBGIAC)
 
 ginacincludedir = $(includedir)/pynac
 ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h \
