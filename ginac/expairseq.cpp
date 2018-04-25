@@ -1752,7 +1752,7 @@ static std::string str(const boolvec& v)
         return s;
 }
 
-static bool debug=true;
+static bool debug=false;
 #define DEBUG if(debug)
 
 bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
@@ -1781,7 +1781,6 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                 if (is_exactly_a<wildcard>(pattern.op(i)))
                         wilds.push_back(pattern.op(i));
                 else {
-        DEBUG std::cerr<<pattern.op(i)<<","<<std::endl;
                         pat.push_back(pattern.op(i));
                 }
         }
@@ -1795,24 +1794,20 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                         continue;
                 }
                 bool matched = false;
-                for (auto it2 = ops.begin(); it2 != ops.end(); ) {
+                for (auto it2 = ops.begin(); it2 != ops.end(); ++it2) {
                         if (it2->is_equal(mit->second)) {
-                                it1 = wilds.erase(it1);
-                                it2 = ops.erase(it2);
+                                (void)ops.erase(it2);
                                 matched = true;
                                 break;
                         }
-                        else
-                                ++it2;
                 }
                 if (matched) {
+                        it1 = wilds.erase(it1);
                         DEBUG std::cerr<<"preset "<<mit->first<<" == "<<mit->second<<" found in "<<*this<<std::endl;
                 }
                 else
                         ++it1;
-                continue;
         }
-        DEBUG std::cerr<<pat[0]<<std::endl;
         // Check that all "constants" in the pattern are matched
         for (auto it1 = pat.begin(); it1 != pat.end(); ) {
                 if (haswild(*it1)) {
@@ -1822,19 +1817,17 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                 bool matched = false;
                 for (auto it2 = ops.begin(); it2 != ops.end(); ) {
                         if (it2->is_equal(*it1)) {
-                                it1 = pat.erase(it1);
-                                it2 = ops.erase(it2);
+                                (void)ops.erase(it2);
                                 matched = true;
                                 break;
                         }
-                        else
-                                ++it2;
+                        ++it2;
                 }
                 if (not matched) {
                         DEBUG std::cerr<<"constant "<<*it1<<" not found in "<<*this<<std::endl;
                         return false;
                 }
-                ++it1;
+                it1 = pat.erase(it1);
         }
         if (wilds.empty() and ops.empty() and pat.empty())
                 return true;
