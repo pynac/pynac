@@ -1780,8 +1780,10 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
         for (size_t i=0; i<pattern.nops(); i++) {
                 if (is_exactly_a<wildcard>(pattern.op(i)))
                         wilds.push_back(pattern.op(i));
-                else
+                else {
+        DEBUG std::cerr<<pattern.op(i)<<","<<std::endl;
                         pat.push_back(pattern.op(i));
+                }
         }
 
         // First, match all terms without unset wildcards from the pattern
@@ -1810,6 +1812,7 @@ bool expairseq::cmatch(const ex & pattern, exmap& map, exmap_sink_t& sink) const
                         ++it1;
                 continue;
         }
+        DEBUG std::cerr<<pat[0]<<std::endl;
         // Check that all "constants" in the pattern are matched
         for (auto it1 = pat.begin(); it1 != pat.end(); ) {
                 if (haswild(*it1)) {
