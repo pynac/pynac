@@ -1752,7 +1752,7 @@ static std::string str(const boolvec& v)
         return s;
 }
 
-static bool debug=true;
+static bool debug=false;
 #define DEBUG if(debug)
 
 struct CMatcher {
@@ -1762,13 +1762,17 @@ struct CMatcher {
         void run();
         std::optional<exmap> get()
         {
-                std::optional<exmap> ret_map;
                 if (ret_val) {
                         // it was already done in init()
                         return ret_map;
                 }
                 run();    // guarantees to set ret, and if true, map
                 return ret_map;
+        }
+        void clear_ret()
+        {
+                ret_val.reset();
+                ret_map.reset();
         }
 
         ex source, pattern;
@@ -1781,7 +1785,6 @@ struct CMatcher {
         exvector ops, pat;
         std::vector<size_t> perm;
         std::vector<std::optional<CMatcher>> cms;
-        std::vector<exmap> map_repo;
         bool all_perms;
 };
 
@@ -1796,7 +1799,7 @@ void CMatcher::init()
         // Author: 2018: Ralf Stephan <ralf@ark.in-berlin.de>
         DEBUG std::cerr<<"cmatch: "<<source<<", "<<pattern<<", "<<map<<std::endl; 
         size_t nops = source.nops();
-        if (nops < pattern.nops()) {
+        if (nops != pattern.nops()) {
                 ret_val = false;
                 return;
         }
@@ -1872,21 +1875,23 @@ void CMatcher::init()
                 pat.insert(pat.begin(), w);
 
         N = pat.size();
-        for (size_t i=0; i<N; ++i)
+        std::optional<CMatcher> ocm;
+        for (size_t i=0; i<N; ++i) {
                 perm.push_back(i);
-        cms.reserve(N);
-        map_repo.reserve(N);
+                cms.push_back(ocm);
+        }
         all_perms = false;
 }
 
 void CMatcher::run()
 {
-        ret_val.reset();
-        ret_map.reset();
-        if (all_perms) {
+        if (all_perms or perm.empty()) {
                 ret_val = false;
                 return;
         }
+        DEBUG std::cerr<<"run() entered"<<std::endl;
+        clear_ret();
+        std::vector<exmap> map_repo(N);
         // The outer loop goes though permutations of perm
         while (true) {
                 size_t index = 0;
@@ -1948,11 +1953,13 @@ void CMatcher::run()
                                 int i = static_cast<int>(index);
                                 while (--i >= 0) {
                                         if (cms[i]) {
-                                                CMatcher& cm = cms[index].value();
+                                                CMatcher& cm = cms[i].value();
+                                                DEBUG std::cerr<<"find alt: "<<i<<std::endl;
+                                                cm.clear_ret();
                                                 std::optional<exmap> opm = cm.get();
                                                 if (opm) {
                                                         map_repo[i] = opm.value();
-                                                        index = i+1;
+                                                        index = i;
                                                         alt_solution_found = true;
                                                         DEBUG std::cerr<<"try alt: "<<i<<", "<<map_repo[i]<<std::endl;
                                                         break;
@@ -1994,11 +2001,13 @@ void CMatcher::run()
                                                 perm.end());
                                 if (not more) {
                                         ret_val = false;
+                                        DEBUG std::cerr<<"perms exhausted"<<std::endl;
                                         return;
                                 }
                         }
                 }
         }
+        DEBUG std::cerr<<"run() exited"<<std::endl;
         ret_val = false;
 }
 
