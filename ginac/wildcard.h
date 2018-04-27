@@ -42,7 +42,7 @@ public:
 	// functions overriding virtual functions from base classes
 public:
 	bool match(const ex & pattern, exmap& map) const override;
-        bool cmatch(const ex & pattern, exmap& map)
+        bool cmatch(const ex & pattern, exmap& map) const override
                 { return match(pattern, map); }
 
 protected:

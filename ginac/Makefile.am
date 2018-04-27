@@ -24,15 +24,16 @@ endif
 libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -Wno-unknown-pragmas -Wno-parentheses-equality
 
 noinst_LTLIBRARIES = libpynac17.la
-libpynac17_la_SOURCES = expairseq.cpp
+libpynac17_la_SOURCES = expairseq.cpp cmatcher.cpp
 libpynac17_la_CPPFLAGS = --std=c++17
 
 libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) libpynac17.la @FACTORY_LIBS@ $(LIBGIAC)
 
 ginacincludedir = $(includedir)/pynac
-ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h basic.h \
-  class_info.h constant.h container.h context.h ex.h ex_utils.h \
-  expair.h expairseq.h exprseq.h fderivative.h flags.h function.h \
+ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h \
+  basic.h class_info.h cmatcher.h constant.h container.h context.h \
+  ex.h ex_utils.h expair.h expairseq.h exprseq.h \
+  fderivative.h flags.h function.h \
   inifcns.h infinity.h lst.h matrix.h mpoly.h mul.h \
   normal.h numeric.h operators.h \
   power.h print.h pseries.h ptr.h registrar.h relational.h extern_templates.h \

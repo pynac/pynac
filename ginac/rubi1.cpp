@@ -32,25 +32,10 @@
 #ifdef PYNAC_HAVE_LIBGIAC
 #undef _POSIX_C_SOURCE
 #undef _XOPEN_SOURCE
+#endif
 
 #include <stdexcept>
 #include <functional>
-
-#define Py_INCREF(op) (                         \
-    _Py_INC_REFTOTAL  _Py_REF_DEBUG_COMMA       \
-    ((PyObject*)(op))->ob_refcnt++) ; \
-std::cerr << "+ " << long(op) << ", " << Py_REFCNT(op) << ", " << Py_TYPE(op)->tp_name << std::endl; std::cerr.flush();
-
-#define Py_DECREF(op)                                   \
-    do {                                                \
-std::cerr << "- " << long(op) << ", " << Py_REFCNT(op) << ", " << Py_TYPE(op)->tp_name << std::endl; std::cerr.flush(); \
-        if (_Py_DEC_REFTOTAL  _Py_REF_DEBUG_COMMA       \
-        --((PyObject*)(op))->ob_refcnt != 0)            \
-            _Py_CHECK_REFCNT(op)                        \
-        else                                            \
-        _Py_Dealloc((PyObject *)(op));                  \
-    } while (0); std::cerr << "Done" << std::endl; std::cerr.flush();
-#endif
 
 #if PY_MAJOR_VERSION >= 3
 #define PyString_FromString PyUnicode_FromString
@@ -166,8 +151,7 @@ ex rubi(ex e, ex xe)
                 ex w0=wild(0), w1=wild(1), w2=wild(2), w3=wild(3), w4=wild(4);
                 exvector w;
                 // uv^m(bv)^n
-                // DOES NOT WORK, see https://github.com/pynac/pynac/issues/324
-                if (the_ex.match(w0 * power(w1,w2) *power(w3*w1,w4), w)) {
+                if (the_ex.cmatch(w0 * power(w1,w2) *power(w3*w1,w4), w)) {
                         DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
                         return power(w[3],-w[2]) * rubi(w[0]*power(w[3]*w[1],w[2]+w[4]), x);
                 }
