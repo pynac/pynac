@@ -5,8 +5,6 @@
 #include <optional>
 
 
-static bool debug=false;
-#define DEBUG if(debug)
 
 namespace GiNaC {
 

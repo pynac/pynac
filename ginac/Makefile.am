@@ -3,13 +3,13 @@
 lib_LTLIBRARIES = libpynac.la
 libpynac_la_SOURCES = add.cpp archive.cpp assume.cpp basic.cpp \
   constant.cpp context.cpp ex.cpp expair.cpp exprseq.cpp \
-  fderivative.cpp function.cpp function_info.cpp \
+  fderivative.cpp function_info.cpp \
   infinity.cpp inifcns.cpp inifcns_trig.cpp inifcns_zeta.cpp \
   inifcns_hyperb.cpp inifcns_trans.cpp inifcns_gamma.cpp inifcns_nstdsums.cpp \
   inifcns_orthopoly.cpp inifcns_hyperg.cpp inifcns_comb.cpp \
   lst.cpp matrix.cpp mpoly-giac.cpp mpoly-ginac.cpp \
   mpoly-singular.cpp mpoly.cpp mul.cpp normal.cpp numeric.cpp \
-  operators.cpp power.cpp py_funcs.cpp registrar.cpp relational.cpp \
+  operators.cpp py_funcs.cpp registrar.cpp relational.cpp \
   remember.cpp rubi1.cpp \
   pseries.cpp print.cpp symbol.cpp upoly-ginac.cpp \
   utils.cpp wildcard.cpp templates.cpp infoflagbase.cpp sum.cpp \
@@ -24,8 +24,8 @@ endif
 libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -Wno-unknown-pragmas -Wno-parentheses-equality
 
 noinst_LTLIBRARIES = libpynac17.la
-libpynac17_la_SOURCES = expairseq.cpp cmatcher.cpp
-libpynac17_la_CPPFLAGS = --std=c++17
+libpynac17_la_SOURCES = expairseq.cpp cmatcher.cpp power.cpp function.cpp
+libpynac17_la_CPPFLAGS = $(PYTHON_CPPFLAGS) --std=c++17
 
 libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) libpynac17.la @FACTORY_LIBS@ $(LIBGIAC)
 

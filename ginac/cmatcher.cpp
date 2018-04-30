@@ -1,3 +1,21 @@
+// cmatcher.cpp: commutative matching
+// Distributed under GPL2+
+// Author: 2018: Ralf Stephan <ralf@ark.in-berlin.de>
+//
+// This differs from basic::match() because commutative structures
+// need a special algorithm. We follow the outline in
+// Manuel Krebber's Master Thesis, "Non-linear Associative-Commutative
+// Many-to-One Pattern Matching with Sequence Variables", section 3.2
+// https://arxiv.org/abs/1705.00907
+//
+// TODO:
+//       - one "global wildcard" (see basic::match)
+//       - zero wildcards (matching superfluous wilds with 0(+) or 1(*)
+//       - constant wildcards (not having specified symbols)
+//       - more than one global wildcard
+//       - more than two args with noncommutative functions
+//       - commutative functions
+
 #include "cmatcher.h"
 #include "expairseq.h"
 #include "wildcard.h"
@@ -7,18 +25,35 @@
 #include <iostream>
 #include <algorithm>
 
+#define DEBUG if(debug)
+
 namespace GiNaC {
+
+static bool debug=false;
 
 void CMatcher::init()
 {
-	// This differs from basic::match() because commutative structures
-        // need a special algorithm. We follow the outline in
-        // Manuel Krebber's Master Thesis, "Non-linear Associative-Commutative
-        // Many-to-One Pattern Matching with Sequence Variables", section 3.2
-        // https://arxiv.org/abs/1705.00907
-
-        // Author: 2018: Ralf Stephan <ralf@ark.in-berlin.de>
         DEBUG std::cerr<<"cmatch: "<<source<<", "<<pattern<<", "<<map<<std::endl; 
+	if (is_exactly_a<wildcard>(pattern)) {
+                const auto& it = map.find(pattern);
+                if (it != map.end()) {
+		        if (not source.is_equal(ex_to<basic>(it->second))) {
+                                ret_val = false;
+                                return;
+                        }
+                        ret_val = true;
+                        ret_map = map;
+                        return;
+                }
+		map[pattern] = source;
+                ret_val = true;
+                ret_map = map;
+		return;
+	} 
+	if (ex_to<basic>(source).tinfo() != ex_to<basic>(pattern).tinfo()) {
+                ret_val = false;
+                return;
+        }
         size_t nops = source.nops();
         if (nops != pattern.nops()) {
                 ret_val = false;

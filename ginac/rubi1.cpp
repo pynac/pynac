@@ -28,6 +28,7 @@
 #include "py_funcs.h"
 #include "ex_utils.h"
 #include "wildcard.h"
+#include "function.h"
 
 #ifdef PYNAC_HAVE_LIBGIAC
 #undef _POSIX_C_SOURCE
@@ -49,6 +50,9 @@ inline void py_error(const char* errmsg) {
 }
 
 namespace GiNaC {
+
+DECLARE_FUNCTION_2P(__tuple)
+unsigned __tuple_SERIAL::serial = function::register_new(function_options("__tuple", 2));
 
 class rubi_exception : public std::runtime_error {
         public:
@@ -77,6 +81,7 @@ static ex rubi213(ex de, ex ee, ex me, ex fe, ex ge, ex ae, ex be, ex ce, ex pe,
 static ex rubi214(ex de, ex ee, ex me, ex fe, ex ge, ex ne, ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi222(ex de, ex me, ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x);
+static bool rubi91(ex& the_ex, ex& f, const symbol& x);
 
 bool rubi_integrate(ex e, ex x, ex& ret)
 {
@@ -115,6 +120,10 @@ ex rubi(ex e, ex xe)
                 return add(vec);
         }
         if (is_exactly_a<mul>(the_ex)) {
+                ex factor;
+                bool b = rubi91(the_ex, factor, x);
+                if (b)
+                        return factor * rubi(the_ex, x);
                 const mul& mu = ex_to<mul>(the_ex);
                 exvector cvec, xvec;
                 for (unsigned int i=0; i<mu.nops(); i++) {
@@ -148,34 +157,6 @@ ex rubi(ex e, ex xe)
                         if (has_symbol(eterm, x))
                                 throw rubi_exception();
 
-                ex w0=wild(0), w1=wild(1), w2=wild(2), w3=wild(3), w4=wild(4);
-                exvector w;
-                // uv^m(bv)^n
-                if (the_ex.cmatch(w0 * power(w1,w2) *power(w3*w1,w4), w)) {
-                        DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
-                        return power(w[3],-w[2]) * rubi(w[0]*power(w[3]*w[1],w[2]+w[4]), x);
-                }
-                // u(c(a+bx)^n)^p
-                if (the_ex.match(w1 * power(w2 * power(w3, w4), w0), w)) {
-                        ex a,b,core = w[3];
-                        if (core.is_linear(x, a, b)) {
-                                ex p = w[0];
-                                if (not p.is_integer()) {
-                                        ex fp,ip;
-                                        if (is_exactly_a<numeric>(p)) {
-                                                fp = ex_to<numeric>(p).frac();
-                                                ip = ex_to<numeric>(p).floor();
-                                        }
-                                        else {
-                                                fp = p;
-                                                ip = _ex0;
-                                        }
-                        DEBUG std::cerr<<"u(c(a+bx)^n)^p: "<<a<<","<<b<<","<<w[2]<<","<<w[4]<<","<<w[0]<<","<<w[1]<<std::endl;
-                                        return power(w[2],ip)*power(w[2]*power(core,w[4]),fp)/power(core,w[4]*fp) * rubi(w[1]*power(core,w[4]*p), x);
-                                }
-                        }
-
-                }
                 if (xvec.size() == 2)
                         return rubi_2prod(bvec, evec, x);
                 if (xvec.size() == 3)
@@ -570,10 +551,13 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
         // Rule 3
         bool e1p = is_exactly_a<numeric>(m) and m.info(info_flags::posint);
         bool e2p = is_exactly_a<numeric>(n) and n.info(info_flags::posint);
-        if ((e1p and e2p)
-            or (e1p and c.is_zero())
-            or (e2p and a.is_zero()))
-                return rubi((power(a+b*x, m) * power(c+d*x, n)).expand(), x);
+        if (e1p and e2p)
+                return rubi((power(a+b*x,m)*power(c+d*x,n)).expand(), x);
+        symbol t;
+        if (e1p and c.is_zero())
+                return rubi((t*power(a+b*x,m)).expand().subs(t==power(d*x,n)),x);
+        if (e2p and a.is_zero())
+                return rubi((t*power(c+d*x,n)).expand().subs(t==power(b*x,m)),x);
         ex bcmad = (b*c - a*d).expand();
         if (bcmad.is_zero()) {
                 if ((a/c-_ex1).is_positive())
@@ -890,6 +874,12 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
 static ex rubi113(ex a, ex b, ex m, ex c, ex d, ex n, ex e, ex f, ex p, ex x)
 {
         DEBUG std::cerr<<"r113: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<","<<e<<","<<f<<","<<p<<std::endl;
+        // 2?
+        if ((m.is_one() and not a.is_zero())
+            or (n.is_one() and not c.is_zero())
+            or (p.is_one() and not e.is_zero()))
+                return rubi(expand(power(a+b*x,m)*power(c+d*x,n)*power(e+f*x,p)), x);
+        
         if (m.is_minus_one() or n.is_minus_one() or p.is_minus_one()) {
                 if (not p.is_minus_one() and m.is_minus_one()) {
                         a.swap(e);
@@ -1809,6 +1799,110 @@ static ex rubi1x1(ex bas, ex exp, ex xe)
 {
         DEBUG std::cerr<<"r1x1: "<<bas<<","<<exp<<std::endl;
         throw rubi_exception();
+}
+
+static bool rubi91(ex& the_ex, ex& f, const symbol& x)
+{
+        ex e = the_ex;
+        ex w0=wild(0), w1=wild(1), w2=wild(2), w3=wild(3), w4=wild(4), w5=wild(5);
+        exvector w;
+        // u(c(a+bx)^n)^p
+        // TODO: improve this with global wildcard in CMatcher
+        if (e.cmatch(w1 * power(w2 * power(w3, w4), w0), w)
+            or e.cmatch(w1*w5 * power(w2*power(w3, w4), w0), w) ) {
+                ex a,b,core = w[3];
+                if (core.is_linear(x, a, b)) {
+                        ex p = w[0];
+                        if (not p.is_integer()) {
+                                ex fp,ip;
+                                if (is_exactly_a<numeric>(p)) {
+                                        fp = ex_to<numeric>(p).frac();
+                                        ip = ex_to<numeric>(p).floor();
+                                }
+                                else {
+                                        fp = p;
+                                        ip = _ex0;
+                                }
+                                ex u, ww5;
+                                if (w.size() < 6)
+                                        ww5  = NaN;
+                                else 
+                                        ww5 = w[5];
+                                if (ww5.is_equal(NaN))
+                                        u = w[1];
+                                else if (w[1].is_equal(NaN))
+                                        u = ww5;
+                                else
+                                        u = w[1]*ww5;
+                DEBUG std::cerr<<"u(c(a+bx)^n)^p: "<<a<<","<<b<<","<<u<<","<<w[4]<<","<<w[0]<<std::endl;
+                                f = power(w[2],ip)*power(w[2]*power(core,w[4]),fp)/power(core,w[4]*fp);
+                                the_ex = u*power(core,w[4]*p);
+                                return true;
+                        }
+                }
+        }
+        // u(av)^m(bv)^n
+        // TODO: simplify by using constant wildcards
+        bool matched = false;
+        if (e.cmatch(w0 * power(w1,w2) *power(w3,w4), w)
+            and not w[2].is_integer()
+            and not w[4].is_integer()
+            and not (w[2]+w[4]).is_integer()) {
+                DEBUG std::cerr<<"u(av)^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<std::endl;
+                if (not is_exactly_a<power>(w[0])
+                and not is_exactly_a<add>(w[1])
+                and not is_exactly_a<add>(w[3]))
+                        matched = true;
+                if (is_exactly_a<power>(w[0]))
+...
+                ex a,b,av, m=w[2], n=w[4], v=av=w[1], bv=w[3], u=w[0];
+                // TODO: simplify this by implementing zero wildcards
+                ex t = __tuple(av, bv);
+                if (t.cmatch(__tuple(w0*w1,w1), w)) {
+                        a = w[0]; b = _ex1; v = w[1];
+                }
+                else if (t.cmatch(__tuple(w1,w0*w1), w)) {
+                        b = w[0]; a = _ex1; v = w[1];
+                }
+                else if (t.cmatch(__tuple(w0*w1,w2*w1), w)) {
+                        a = w[0]; b = w[2]; v = w[1];
+                }
+                else {
+                        a = av; b = bv;
+                }
+                DEBUG std::cerr<<"u,a,b,v: "<<u<<","<<a<<","<<b<<","<<v<<std::endl;
+                ex fp,ip;
+                if (is_exactly_a<numeric>(n)) {
+                        fp = ex_to<numeric>(n).frac();
+                        ip = ex_to<numeric>(n).floor();
+                }
+                else if (is_exactly_a<numeric>(m)) {
+                        fp = ex_to<numeric>(m).frac();
+                        ip = ex_to<numeric>(m).floor();
+                }
+                else {
+                        fp = n;
+                        ip = _ex0;
+                }
+                f = power(b,ip)*power(b*v,fp)/power(a,ip)/power(a*v,fp);
+                the_ex = u*power(a*v,m+n);
+                DEBUG std::cerr<<"f: "<<f<<std::endl;
+                return true;
+        }
+        // uv^m(bv)^n
+        if (e.cmatch(w0 * power(w1,w2) *power(w3*w1,w4), w)) {
+                DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
+                f = power(w[3],-w[2]);
+                the_ex = w[0]*power(w[3]*w[1],w[2]+w[4]);
+                return true;
+        }
+        if (e.cmatch(w0 * w1 *power(w3*w1,w4), w)) {
+                DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
+                f = power(w[3],_ex_1);
+                the_ex = w[0]*power(w[3]*w[1],w[4]+_ex1);
+                return true;
+        }
+        return false;
 }
 
 }

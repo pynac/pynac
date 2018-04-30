@@ -1742,8 +1742,6 @@ const epvector & expairseq::get_sorted_seq() const
 
 bool expairseq::cmatch(const ex & pattern, exmap& map) const
 {
-	if (this->tinfo() != ex_to<basic>(pattern).tinfo())
-                return false;
         CMatcher cm(*this, pattern, map);
         std::optional<exmap> m = cm.get();
         if (not m)
