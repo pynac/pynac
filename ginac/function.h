@@ -378,7 +378,7 @@ public:
 	long calchash() const override;
 	ex series(const relational & r, int order, unsigned options = 0) const override;
         void useries(flint_series_t& fp, int order) const override;
-        bool cmatch(const ex& pattern, exmap& map) const override;
+        bool match(const ex& pattern, exmap& map) const override;
         ex subs(const exmap & m, unsigned options = 0) const override;
 	ex normal(exmap & repl, exmap & rev_lookup, int level = 0, unsigned options = 0) const override;
 	ex thiscontainer(const exvector & v) const override;
@@ -388,6 +388,7 @@ public:
 	ex imag_part() const override;
 	bool info(unsigned inf) const override;
 	//int compare(const basic &other) const;
+        static ex unarchive(const archive_node &n, lst &sym_lst);
 protected:
 	ex derivative(const symbol & s) const override;
 	bool is_equal_same_type(const basic & other) const override;

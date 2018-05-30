@@ -68,8 +68,6 @@ void wildcard::archive(archive_node &n) const
 	n.add_unsigned("label", label);
 }
 
-DEFAULT_UNARCHIVE(wildcard)
-
 //////////
 // functions overriding virtual functions from base classes
 //////////
@@ -132,6 +130,25 @@ bool haswild(const ex & x)
 		if (haswild(x.op(i)))
 			return true;
 	return false;
+}
+
+symbolset substitute(const wildset& w, const exmap& m)
+{
+        symbolset s;
+        for (const auto& pair : m) {
+                if (not is_exactly_a<wildcard>(pair.first))
+                        throw (std::runtime_error(""));
+                const auto& it = w.find(ex_to<wildcard>(pair.first));
+                if (it != w.end()) {
+                        const ex& e = pair.second;
+                        if (is_exactly_a<symbol>(e))
+                                s.insert(ex_to<symbol>(e));
+                        else
+                                for (const symbol& sym : e.symbols())
+                                       s.insert(sym);
+                }
+        }
+        return s;
 }
 
 } // namespace GiNaC

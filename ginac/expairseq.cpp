@@ -180,8 +180,6 @@ void expairseq::archive(archive_node &n) const
 	n.add_ex("overall_coeff", ex(overall_coeff));
 }
 
-DEFAULT_UNARCHIVE(expairseq)
-
 //////////
 // functions overriding virtual functions from base classes
 //////////
@@ -546,94 +544,6 @@ ex expairseq::expand(unsigned options) const
 
         // The terms have not changed, so it is safe to declare this expanded
         return (options == 0) ? setflag(status_flags::expanded) : *this;
-}
-
-bool expairseq::match(const ex & pattern, exmap& map) const
-{
-	// This differs from basic::match() because we want "a+b+c+d" to
-	// match "d+*+b" with "*" being "a+c", and we want to honor commutativity
-
-	if (this->tinfo() == ex_to<basic>(pattern).tinfo()) {
-
-		// Check whether global wildcard (one that matches the "rest of the
-		// expression", like "*" above) is present
-		bool has_global_wildcard = false;
-		ex global_wildcard;
-		for (size_t i=0; i<pattern.nops(); i++) {
-			if (is_exactly_a<wildcard>(pattern.sorted_op(i))) {
-				has_global_wildcard = true;
-				global_wildcard = pattern.sorted_op(i);
-				break;
-			}
-		}
-
-		// Even if the expression does not match the pattern, some of
-		// its subexpressions could match it. For example, x^5*y^(-1)
-		// does not match the pattern $0^5, but its subexpression x^5
-		// does. So, save repl_lst in order to not add bogus entries.
-		exmap tmp_repl = map;
-
-		// Unfortunately, this is an O(N^2) operation because we can't
-		// sort the pattern in a useful way...
-
-		// Chop into terms
-		exvector ops;
-		ops.reserve(nops());
-		for (size_t i=0; i<nops(); i++)
-			ops.push_back(stable_op(i));
-
-		// Now, for every term of the pattern, look for a matching
-                // term in the expression and remove the match
-		for (size_t i=0; i<pattern.nops(); i++) {
-			ex p = ex_to<expairseq>(pattern).stable_op(i);
-			if (has_global_wildcard && p.is_equal(global_wildcard))
-				continue;
-			auto it = ops.begin(), itend = ops.end();
-			while (it != itend) {
-				if (it->match(p, tmp_repl)) {
-					ops.erase(it);
-					goto found;
-				}
-				++it;
-			}
-			return false; // no match found
-found:		;
-		}
-
-		if (has_global_wildcard) {
-
-			// Assign all the remaining terms to the global
-                        // wildcard (unless it has already been matched
-                        // before, in which case the matches must be equal)
-			std::unique_ptr<epvector> vp(new epvector);
-			vp->reserve(ops.size());
-			for (const auto& term : ops)
-				vp->push_back(split_ex_to_pair(term));
-
-                        ex rest = thisexpairseq(std::move(vp),
-                                        default_overall_coeff());
-                        const auto& it = tmp_repl.find(global_wildcard);
-                        if (it != tmp_repl.end()) {
-                                if (rest.is_equal(it->second)) {
-                                        map = tmp_repl;
-                                        return true;
-                                }
-                                return false;
-                        }
-                        map = tmp_repl;
-			map[global_wildcard] = rest;
-			return true;
-		} 
-
-                // No global wildcard, then the match fails if there are any
-                // unmatched terms left
-                if (ops.empty()) {
-                        map = tmp_repl;
-                        return true;
-                }
-                return false;
-	}
-	return inherited::match(pattern, map);
 }
 
 ex expairseq::subs(const exmap & m, unsigned options) const
@@ -1740,10 +1650,11 @@ const epvector & expairseq::get_sorted_seq() const
         return seq_sorted;
 }
 
-bool expairseq::cmatch(const ex & pattern, exmap& map) const
+bool expairseq::match(const ex & pattern, exmap& map) const
 {
+        CMatcher::level=0;
         CMatcher cm(*this, pattern, map);
-        std::optional<exmap> m = cm.get();
+        opt_exmap m = cm.get();
         if (not m)
                 return false;
         map = m.value();

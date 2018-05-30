@@ -20,6 +20,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#define register
 #include <Python.h>
 #include "ex.h"
 #include "ex_utils.h"
@@ -105,15 +106,10 @@ bool ex::match(const ex & pattern) const
 	return bp->match(pattern, map);
 }
 
-bool ex::match(const ex & pattern, exmap& map) const
-{
-        return cmatch(pattern, map);
-}
-
 bool ex::match(const ex & pattern, lst & repl_lst) const
 {
         exmap map;
-        bool ret = match(pattern, map);
+        bool ret = bp->match(pattern, map);
         for (const auto& pair : map)
                 repl_lst.append(pair.first == pair.second);
         return ret;
@@ -122,27 +118,7 @@ bool ex::match(const ex & pattern, lst & repl_lst) const
 bool ex::match(const ex & pattern, exvector& vec) const
 {
         exmap map;
-        bool ret = bp->match(pattern, map);
-        if (not ret)
-                return ret;
-        vec.resize(map.size());
-        for (const auto& pair : map) {
-                if (not is_exactly_a<wildcard>(pair.first))
-                        throw std::runtime_error("no wildcard");
-                vec[ex_to<wildcard>(pair.first).get_label()] = pair.second;
-        }
-        return ret;
-}
-
-bool ex::cmatch(const ex & pattern, exmap& map) const
-{
-        return bp->cmatch(pattern, map);
-}
-
-bool ex::cmatch(const ex & pattern, exvector& vec) const
-{
-        exmap map;
-        bool ret = this->cmatch(pattern, map);
+        bool ret = this->match(pattern, map);
         if (not ret)
                 return ret;
         unsigned maxl = 0;
@@ -250,6 +226,17 @@ ex ex::subs(const ex & e, unsigned options) const
 
 	} else
 		throw(std::invalid_argument("ex::subs(ex): argument must be a relation_equal or a list"));
+}
+
+ex ex::subs(const exmap& m, unsigned options) const
+{
+        if ((options & subs_options::no_pattern) != 0)
+                return bp->subs(m, options);
+        for (const auto& p : m)
+                if (haswild(p.first))
+                        return bp->subs(m, options);
+
+        return bp->subs(m, options | subs_options::no_pattern);
 }
 
 /** Traverse expression tree with given visitor, preorder traversal. */
@@ -522,6 +509,22 @@ std::unordered_set<unsigned> ex::functions() const
         std::unordered_set<unsigned> the_set;
         collect_functions(*this, the_set);
         return the_set;
+}
+
+static void collect_wilds(const ex& e, wildset& wilds)
+{
+	if (is_exactly_a<wildcard>(e))
+		wilds.insert(ex_to<wildcard>(e));
+	else
+		for (size_t i=0; i < e.nops(); i++)
+                        collect_wilds(e.op(i), wilds);
+}
+
+wildset ex::wilds() const
+{
+        wildset the_set;
+        collect_wilds(*this, the_set);
+	return the_set;
 }
 
 ex ex::sorted_op(size_t i) const

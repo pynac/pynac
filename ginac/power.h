@@ -51,6 +51,11 @@ class power : public basic
 public:
 	power(ex  lh, ex  rh) : inherited(&power::tinfo_static), basis(std::move(lh)), exponent(std::move(rh)) {}
 	template<typename T> power(ex  lh, const T & rh) : inherited(&power::tinfo_static), basis(std::move(lh)), exponent(rh) {}
+        static ex unarchive(const archive_node &n, lst &sym_lst)
+        {
+                return (new power(n, sym_lst))->
+                        setflag(status_flags::dynallocated);
+        }
 	
 	// functions overriding virtual functions from base classes
 public:
@@ -68,7 +73,7 @@ public:
 	ex evalf(int level=0, PyObject* parent=nullptr) const override;
 	ex series(const relational & s, int order, unsigned options = 0) const override;
         void useries(flint_series_t& fp, int order) const override;
-        bool cmatch(const ex& pattern, exmap& map) const override;
+        bool match(const ex& pattern, exmap& map) const override;
 	ex subs(const exmap & m, unsigned options = 0) const override;
 	bool has(const ex & other, unsigned options = 0) const override;
 	ex normal(exmap & repl, exmap & rev_lookup, int level = 0, unsigned options = 0) const override;

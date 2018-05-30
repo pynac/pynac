@@ -74,6 +74,9 @@ class const_postorder_iterator;
 class symbol;
 struct symbolhasher;
 using symbolset = std::unordered_set<symbol,symbolhasher>;
+class wildcard;
+struct wildhasher;
+using wildset = std::unordered_set<wildcard,wildhasher>;
 using expairvec = std::vector<std::pair<ex,ex>>;
 using ocvector = std::vector<numeric>;
 using power_ocvector_map = std::map<ex, ocvector, GiNaC::ex_is_less>;
@@ -155,6 +158,7 @@ public:
         symbolset symbols() const;
         symbolset free_symbols() const;
         std::unordered_set<unsigned> functions() const;
+        wildset wilds() const;
 	const ex op(size_t i) const { return bp->op(i); }
 	ex sorted_op(size_t i) const;
 	ex operator[](const ex & index) const { return (*bp)[index]; }
@@ -177,14 +181,12 @@ public:
 	bool find(const ex & pattern, lst & found) const;
 	bool match(const ex & pattern) const;
 	bool match(const ex & pattern, lst & repl_lst) const;
-	bool match(const ex & pattern, exmap& map) const;
+	bool match(const ex & pattern, exmap& map) const
+            { return bp->match(pattern, map); }
 	bool match(const ex & pattern, exvector& vec) const;
-	bool cmatch(const ex & pattern, exmap& map) const;
-        bool cmatch(const ex & pattern, exvector& vec) const;
 
 	// substitutions
-	ex subs(const exmap & m, unsigned options = 0) const
-                { return bp->subs(m, options); }
+	ex subs(const exmap & m, unsigned options = 0) const;
 	ex subs(const lst & ls, const lst & lr, unsigned options = 0) const;
 	ex subs(const ex & e, unsigned options = 0) const;
 
@@ -264,7 +266,6 @@ public:
 
 	long gethash() const { return bp->gethash(); }
 
-private:
 	static ptr<basic> construct_from_basic(const basic & other);
 	static basic & construct_from_int(int i);
 	static basic & construct_from_pyobject(PyObject* o);
@@ -282,7 +283,6 @@ private:
 
 // member variables
 
-private:
 	mutable ptr<basic> bp;  ///< pointer to basic object managed by this
 };
 

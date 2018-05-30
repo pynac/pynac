@@ -419,15 +419,8 @@ extern const ex _ex144;
 #define DEFAULT_CTOR(classname) \
 classname::classname() : inherited(&classname::tinfo_static) { setflag(status_flags::evaluated | status_flags::expanded); }
 
-#define DEFAULT_UNARCHIVE(classname) \
-ex classname::unarchive(const archive_node &n, lst &sym_lst) \
-{ \
-	return (new classname(n, sym_lst))->setflag(status_flags::dynallocated); \
-}
-
 #define DEFAULT_ARCHIVING(classname) \
 classname::classname(const archive_node &n, lst &sym_lst) : inherited(n, sym_lst) {} \
-DEFAULT_UNARCHIVE(classname) \
 void classname::archive(archive_node &n) const \
 { \
 	inherited::archive(n); \
@@ -537,6 +530,40 @@ int next_permutation_pos(BidirIt first, BidirIt last)
             return -1;
         }
     }
+}
+
+// choice of r out of n, given a container [0,...,n]
+template <class C>
+int next_combination(std::vector<C>& vec, size_t r, size_t n)
+{
+        if (vec.empty()) {
+                for (size_t i=0; i<r; ++i)
+                        vec.push_back(i);
+                return n>1 and r<n and r>0;
+        }
+        if (n<2 or r==n)
+                return false;
+        auto first = vec.begin(), last = vec.end();
+        if ((*first) != n - r) {
+                auto mt = last;
+                while (*(--mt) == n-(last-mt));
+                (*mt)++;
+                while (++mt != last) *mt = *(mt-1)+1;
+                return true;
+        }
+        return false;
+}
+
+template<class C, class H>
+bool subset_of(const std::unordered_set<C,H>& s1,
+               const std::unordered_set<C,H>& s2)
+{
+        if (s1.size() > s2.size())
+                return false;
+        for (const auto& elem : s1)
+                if (s2.find(elem) == s2.end())
+                        return false;
+        return true;
 }
 
 } // namespace GiNaC

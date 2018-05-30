@@ -539,8 +539,7 @@ unsigned function::current_serial = 0;
 registered_class_info function::reg_info = \
         registered_class_info(registered_class_options("function",
                                 "exprseq",
-                                &function::tinfo_static,
-                                &function::unarchive));
+                                &function::tinfo_static));
 
 const tinfo_static_t function::tinfo_static = {};
 
@@ -1394,10 +1393,8 @@ bool function::match_same_type(const basic & other) const
 	return serial == o.serial;
 }
 
-bool function::cmatch(const ex & pattern, exmap& map) const
+bool function::match(const ex & pattern, exmap& map) const
 {
-        // Commutative function not supported yet but can be
-        // treated like an expairseq
 	if (is_exactly_a<wildcard>(pattern)) {
                 const auto& it = map.find(pattern);
                 if (it != map.end())
@@ -1407,30 +1404,12 @@ bool function::cmatch(const ex & pattern, exmap& map) const
 	} 
         if (not is_exactly_a<function>(pattern))
                 return false;
-	const function & p = ex_to<function>(pattern);
-	if (serial != p.serial)
-		return false;
-        if (nops() == 0)
-                return true;
-        if (nops() == 1)
-                return op(0).cmatch(p.op(0), map);
-        // TODO: To implement cmatching of noncomm. functions with any
-        // number of arguments CMatcher needs to be modified to run
-        // for a single permutation. Instead we just handle two
-        // arguments manually here
-        if (is_exactly_a<expairseq>(p.op(0))) {
-                CMatcher cm(op(0), p.op(0), map);
-                while (true) {
-                        std::optional<exmap> m = cm.get();
-                        if (not m)
-                                return false;
-                        map = m.value();
-                        if (op(1).cmatch(p.op(1), map))
-                                return true;
-                }
-        }
-        return op(0).cmatch(p.op(0), map)
-                and op(1).cmatch(p.op(1), map);
+        CMatcher cm(*this, pattern, map);
+        const opt_exmap& m = cm.get();
+        if (not m)
+                return false;
+        map = m.value();
+        return true;
 }
 
 

@@ -20,7 +20,6 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "py_funcs.h"
 #include "power.h"
 #include "expairseq.h"
 #include "add.h"
@@ -39,6 +38,7 @@
 #include "cmatcher.h"
 #include "wildcard.h"
 
+#include <unistd.h>
 #include <vector>
 #include <stdexcept>
 #include <limits>
@@ -87,8 +87,6 @@ void power::archive(archive_node &n) const
 	n.add_ex("basis", basis);
 	n.add_ex("exponent", exponent);
 }
-
-DEFAULT_UNARCHIVE(power)
 
 //////////
 // functions overriding virtual functions from base classes
@@ -704,7 +702,7 @@ bool power::has(const ex & other, unsigned options) const
 	return basic::has(other, options);
 }
 
-bool power::cmatch(const ex & pattern, exmap& map) const
+bool power::match(const ex & pattern, exmap& map) const
 {
 	if (is_exactly_a<wildcard>(pattern)) {
                 const auto& it = map.find(pattern);
@@ -715,19 +713,12 @@ bool power::cmatch(const ex & pattern, exmap& map) const
 	} 
         if (not is_exactly_a<power>(pattern))
                 return false;
-        if (is_exactly_a<expairseq>(pattern.op(0))) {
-                CMatcher cm(basis, pattern.op(0), map);
-                while (true) {
-                        std::optional<exmap> m = cm.get();
-                        if (not m)
-                                return false;
-                        map = m.value();
-                        if (exponent.cmatch(pattern.op(1), map))
-                                return true;
-                }
-        }
-        return basis.cmatch(pattern.op(0), map)
-                and exponent.cmatch(pattern.op(1), map);
+        CMatcher cm(*this, pattern, map);
+        const opt_exmap& m = cm.get();
+        if (not m)
+                return false;
+        map = m.value();
+        return true;
 }
 
 // from mul.cpp
@@ -739,8 +730,13 @@ ex power::subs(const exmap & m, unsigned options) const
 	const ex &subsed_exponent = exponent.subs(m, options);
 
         if (!are_ex_trivially_equal(basis, subsed_basis)
-	 || !are_ex_trivially_equal(exponent, subsed_exponent)) 
-		return power(subsed_basis, subsed_exponent).subs_one_level(m, options);
+	 || !are_ex_trivially_equal(exponent, subsed_exponent)) {
+		ex p = power(subsed_basis, subsed_exponent);
+                ex t = ex_to<power>(p).subs_one_level(m, options);
+                if ((t-*this).is_zero())
+                        return p;
+                return t;
+        }
 
 	if ((options & subs_options::algebraic) == 0u)
 		return subs_one_level(m, options);
