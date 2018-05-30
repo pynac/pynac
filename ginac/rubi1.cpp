@@ -94,7 +94,7 @@ bool rubi_integrate(ex e, ex x, ex& ret)
         return true;
 }
 
-static bool debug=true;
+static bool debug=false;
 
 ex rubi(ex e, ex xe)
 {
@@ -548,16 +548,6 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 return x*power(b*x,m)*power(d*x,n)/(m+n+1);
         }
 
-        // Rule 3
-        bool e1p = is_exactly_a<numeric>(m) and m.info(info_flags::posint);
-        bool e2p = is_exactly_a<numeric>(n) and n.info(info_flags::posint);
-        if (e1p and e2p)
-                return rubi((power(a+b*x,m)*power(c+d*x,n)).expand(), x);
-        symbol t;
-        if (e1p and c.is_zero())
-                return rubi((t*power(a+b*x,m)).expand().subs(t==power(d*x,n)),x);
-        if (e2p and a.is_zero())
-                return rubi((t*power(c+d*x,n)).expand().subs(t==power(b*x,m)),x);
         ex bcmad = (b*c - a*d).expand();
         if (bcmad.is_zero()) {
                 if ((a/c-_ex1).is_positive())
@@ -678,6 +668,16 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
         }
         
+        // Rule 3
+        bool e1p = is_exactly_a<numeric>(m) and m.info(info_flags::posint);
+        bool e2p = is_exactly_a<numeric>(n) and n.info(info_flags::posint);
+        if (e1p and e2p)
+                return rubi((power(a+b*x,m)*power(c+d*x,n)).expand(), x);
+        symbol t;
+        if (e1p and c.is_zero())
+                return rubi((t*power(a+b*x,m)).expand().subs(t==power(d*x,n)),x);
+        if (e2p and a.is_zero())
+                return rubi((t*power(c+d*x,n)).expand().subs(t==power(b*x,m)),x);
         // 4
         const ex _ex3_2 = _ex3/_ex2;
         const ex _ex_3_2 = _ex_3/_ex2;
