@@ -1807,9 +1807,8 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
         ex w0=wild(0), w1=wild(1), w2=wild(2), w3=wild(3), w4=wild(4), w5=wild(5);
         exvector w;
         // u(c(a+bx)^n)^p
-        // TODO: improve this with global wildcard in CMatcher
-        if (e.cmatch(w1 * power(w2 * power(w3, w4), w0), w)
-            or e.cmatch(w1*w5 * power(w2*power(w3, w4), w0), w) ) {
+        if (e.match(w1 * power(w2 * power(w3, w4), w0), w)
+            or e.match(w1*w5 * power(w2*power(w3, w4), w0), w) ) {
                 ex a,b,core = w[3];
                 if (core.is_linear(x, a, b)) {
                         ex p = w[0];
@@ -1844,7 +1843,7 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
         // u(av)^m(bv)^n
         // TODO: simplify by using constant wildcards
         bool matched = false;
-        if (e.cmatch(w0 * power(w1,w2) *power(w3,w4), w)
+        if (e.match(w0 * power(w1,w2) *power(w3,w4), w)
             and not w[2].is_integer()
             and not w[4].is_integer()
             and not (w[2]+w[4]).is_integer()) {
@@ -1853,18 +1852,18 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
                 and not is_exactly_a<add>(w[1])
                 and not is_exactly_a<add>(w[3]))
                         matched = true;
-                if (is_exactly_a<power>(w[0]))
-...
+//                if (is_exactly_a<power>(w[0]))
+//...
                 ex a,b,av, m=w[2], n=w[4], v=av=w[1], bv=w[3], u=w[0];
                 // TODO: simplify this by implementing zero wildcards
                 ex t = __tuple(av, bv);
-                if (t.cmatch(__tuple(w0*w1,w1), w)) {
+                if (t.match(__tuple(w0*w1,w1), w)) {
                         a = w[0]; b = _ex1; v = w[1];
                 }
-                else if (t.cmatch(__tuple(w1,w0*w1), w)) {
+                else if (t.match(__tuple(w1,w0*w1), w)) {
                         b = w[0]; a = _ex1; v = w[1];
                 }
-                else if (t.cmatch(__tuple(w0*w1,w2*w1), w)) {
+                else if (t.match(__tuple(w0*w1,w2*w1), w)) {
                         a = w[0]; b = w[2]; v = w[1];
                 }
                 else {
@@ -1890,13 +1889,13 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
                 return true;
         }
         // uv^m(bv)^n
-        if (e.cmatch(w0 * power(w1,w2) *power(w3*w1,w4), w)) {
+        if (e.match(w0 * power(w1,w2) *power(w3*w1,w4), w)) {
                 DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
                 f = power(w[3],-w[2]);
                 the_ex = w[0]*power(w[3]*w[1],w[2]+w[4]);
                 return true;
         }
-        if (e.cmatch(w0 * w1 *power(w3*w1,w4), w)) {
+        if (e.match(w0 * w1 *power(w3*w1,w4), w)) {
                 DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
                 f = power(w[3],_ex_1);
                 the_ex = w[0]*power(w[3]*w[1],w[4]+_ex1);
