@@ -22,6 +22,7 @@
 #include "relational.h"
 #include "ex.h"
 #include "normal.h"
+#include "upoly.h"
 #include "utils.h"
 #include "operators.h"
 #include "inifcns.h"
@@ -43,6 +44,7 @@
 #endif
 
 #define DEBUG if (debug)
+static bool debug=true;
 
 inline void py_error(const char* errmsg) {
         throw std::runtime_error((PyErr_Occurred() != nullptr) ? errmsg:
@@ -83,6 +85,16 @@ static ex rubi222(ex de, ex me, ex ae, ex be, ex ce, ex pe, ex x);
 static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x);
 static bool rubi91(ex& the_ex, ex& f, const symbol& x);
 
+static ex dist(const ex& f, const ex& p)
+{
+        if (not is_exactly_a<add>(p))
+                return mul(f, p);
+        ex s = _ex0;
+        for (size_t i=0; i<p.nops(); ++i)
+                s += f*p.op(i);
+        return s;
+}
+
 bool rubi_integrate(ex e, ex x, ex& ret)
 {
         try {
@@ -94,7 +106,6 @@ bool rubi_integrate(ex e, ex x, ex& ret)
         return true;
 }
 
-static bool debug=true;
 
 ex rubi(ex e, ex xe)
 {
@@ -671,13 +682,43 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
         // Rule 3
         bool e1p = is_exactly_a<numeric>(m) and m.info(info_flags::posint);
         bool e2p = is_exactly_a<numeric>(n) and n.info(info_flags::posint);
-        symbol t1, t2;
-        if (e1p and c.is_zero())
-                return rubi((t2*power((t1-a)*d/b,n)).expand().subs(t1==a+b*x).subs(t2==power(a+b*x,m)),x);
-        if (e2p and a.is_zero())
-                return rubi((t2*power((t1-c)*b/d,m)).expand().subs(t1==c+d*x).subs(t2==power(c+d*x,n)),x);
-        if (e1p and e2p)
-                return rubi((power(a+b*x,m)*power(c+d*x,n)).expand(), x);
+        if (e1p and e2p) {
+                if (a.is_zero() or c.is_zero()) {
+                        if (a.is_zero()) {
+                                a.swap(c);
+                                b.swap(d);
+                                m.swap(n);
+                                bcmad = _ex0-bcmad;
+                        }
+                        if ((_ex7*m+_ex4*n+_ex4).is_negative()
+                            or (n.is_positive()
+                                and (m-n-_ex1).is_positive())) {
+                                        symbol t1, t2;
+                                        return rubi((t2*power((t1-a)*d/b,n)).expand().subs(t1==a+b*x).subs(t2==power(a+b*x,m)),x);
+                        }
+                }
+        }
+        if (e1p or e2p) {
+                if (not e1p) {
+                        a.swap(c);
+                        b.swap(d);
+                        m.swap(n);
+                        bcmad = _ex0-bcmad;
+                }
+                if (c.is_zero()
+                    and ((m+n+_ex2).is_positive()
+                         or (_ex7*m+_ex4*n+_ex4).is_negative())) {
+                        return rubi((power(a+b*x,m)*power(c+d*x,n)).expand(), x);
+                }
+                if (a.is_zero()
+                    and is_exactly_a<numeric>(n)
+                    and n.is_integer()) {
+                        ex q = quo(power(b*x,m), power(c+d*x,n), x);
+                        ex r = quo(power(b*x,m), power(c+d*x,n), x);
+                        return rubi(q + dist(r,power(c+d*x,n)), x);
+                }
+        }
+
         // 4
         const ex _ex3_2 = _ex3/_ex2;
         const ex _ex_3_2 = _ex_3/_ex2;
@@ -738,6 +779,10 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
         
         // Rule 5
         if (not bcmad.is_zero()
+            and (m+n).is_integer()
+            and ((m+n+_ex2).is_positive()
+                 or (m+n+n+_ex1).is_negative()
+                 or (m+m+n+_ex1).is_negative())
             and ((m+1).is_negative() or (n+1).is_negative())) {
                 if (not (m+1).is_negative()) {
                         m.swap(n);
@@ -745,9 +790,9 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                         b.swap(d);
                         bcmad = _ex0 - bcmad;
                 }
-                if (n.is_positive())
+                if (n.is_positive() and (m+n+n+_ex1).is_negative())
                         return power(a+b*x,m+1)*power(c+d*x,n)/b/(m+1) - d*n/b/(m+1) * rubi112(a,b,m+1,c,d,n-1,x);
-                if (n.is_negative())
+                if (n.is_negative() and (m+m+n+_ex1).is_negative())
                         return power(a+b*x,m+1)*power(c+d*x,n+1)/bcmad/(m+1) - d*(m+n+2)/bcmad/(m+1) * rubi112(a,b,m+1,c,d,n,x);
         }
 
@@ -765,9 +810,10 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 if (not (m.is_integer() and m.is_positive()
                          and (not n.is_integer()
                               or (m.is_positive() and (m-n).is_negative())))
-                    and not ((m+n+2).is_integer() and (m+n+2).is_negative()))
+                    and not ((m+n+2).is_integer() and (m+n+2).is_negative())) {
         DEBUG std::cerr<<"r112-6: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::endl;
                 return power(a+b*x,m+1)*power(c+d*x,n)/b/(m+n+1) + n*bcmad/b/(m+n+1) * rubi112(a,b,m,c,d,n-1,x);
+                }
         }
 
         // Rule 7
@@ -808,7 +854,19 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 ex p = m.denom();
                 return p/b * rubi132(_ex1,p*(m+1)-1,c-a*d/b,d/b,p,n,x).subs(x == power(a+b*x,_ex1/p));
         }
-
+        // 8
+        if ((m+n+_ex2).is_negative()
+            and (m+n+_ex2).is_integer()) {
+                if (m.is_equal(_ex_1)
+                    or m.is_positive()) {
+                        m.swap(n);
+                        a.swap(c);
+                        b.swap(d);
+                        bcmad = _ex0 - bcmad;
+                }
+                if (not m.is_equal(_ex_1))
+                        return power(a+b*x,m+1)*power(c+d*x,n+1)/bcmad/(m+1) - dist(d*(m+n+2)/bcmad/(m+1), rubi112(a,b,m+1,c,d,n,x));
+        }
         // H.1
         if (not bcmad.is_zero()) {
                 if (a.is_zero() or c.is_zero()) {
