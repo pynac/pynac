@@ -713,9 +713,11 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 if (a.is_zero()
                     and is_exactly_a<numeric>(n)
                     and n.is_integer()) {
-                        ex q = quo(power(b*x,m), power(c+d*x,n), x);
-                        ex r = quo(power(b*x,m), power(c+d*x,n), x);
-                        return rubi(q + dist(r,power(c+d*x,n)), x);
+                        const auto& p = quo_rem(power(b*x,m), power(c+d*x,-n),
+                                        x, false);
+                        DEBUG std::cerr<<power(b*x,m)<<" quorem "<<power(c+d*x,-n)<<" = "<<p.first<<" / "<<p.second<<std::endl;
+                        return rubi(p.first + dist(p.second, power(c+d*x,n)),
+                                        x);
                 }
         }
 
