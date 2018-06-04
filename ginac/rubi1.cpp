@@ -44,7 +44,7 @@
 #endif
 
 #define DEBUG if (debug)
-static bool debug=true;
+static bool debug=false;
 
 inline void py_error(const char* errmsg) {
         throw std::runtime_error((PyErr_Occurred() != nullptr) ? errmsg:
@@ -713,11 +713,10 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 if (a.is_zero()
                     and is_exactly_a<numeric>(n)
                     and n.is_integer()) {
-                        const auto& p = quo_rem(power(b*x,m), power(c+d*x,-n),
-                                        x, false);
-                        DEBUG std::cerr<<power(b*x,m)<<" quorem "<<power(c+d*x,-n)<<" = "<<p.first<<" / "<<p.second<<std::endl;
-                        return rubi(p.first + dist(p.second, power(c+d*x,n)),
-                                        x);
+                        const auto& pf = parfrac(mul(power(b*x,m),
+                                                power(c+d*x,n)), x);
+                        DEBUG std::cerr<<"parfrac "<<pf<<std::endl;
+                        return rubi(pf, x);
                 }
         }
 
