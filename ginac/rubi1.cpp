@@ -44,7 +44,7 @@
 #endif
 
 #define DEBUG if (debug)
-static bool debug=false;
+static bool debug=true;
 
 inline void py_error(const char* errmsg) {
         throw std::runtime_error((PyErr_Occurred() != nullptr) ? errmsg:
@@ -132,9 +132,9 @@ ex rubi(ex e, ex xe)
         }
         if (is_exactly_a<mul>(the_ex)) {
                 ex factor;
-//                bool b = rubi91(the_ex, factor, x);
-//                if (b)
-//                        return factor * rubi(the_ex, x);
+                bool b = rubi91(the_ex, factor, x);
+                if (b)
+                        return factor * rubi(the_ex, x);
                 const mul& mu = ex_to<mul>(the_ex);
                 exvector cvec, xvec;
                 for (unsigned int i=0; i<mu.nops(); i++) {
@@ -924,7 +924,7 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                         // H.1.2
                         if (not n.is_integer()
                             and (m.is_integer()
-                                 or ((-d/b/c).is_positive())))
+                                 or (-d/b/c).is_positive()))
                                 return power(c+d*x,n+1)/d/(n+1)/power(-d/b/c,m) * _2F1(-m,n+1,n+2,1+d*x/c);
                         // H.1.3
                         if (not m.is_integer() and not n.is_integer()
@@ -954,7 +954,8 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                                         fm = m;
                                         im = _ex0;
                                 }
-                                return power(-b*c/d,im)*power(b*x,fm)/power(-d/c*x,fm) * rubi112(_ex0,-d/c,m,c,d,n,x);
+                                DEBUG std::cerr<<"r112H13 fac: "<<power(-b*c/d,im)*power(b*x,fm)/power(-d/c*x,fm)<<std::endl;
+                                return power(-b*c/d,im)*power(b*x,fm)/power(-d/c*x,fm) * rubi(power(-d*x/c,m)*power(c+d*x,n),x);
                         }
                 }
         }
