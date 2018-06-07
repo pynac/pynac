@@ -134,7 +134,7 @@ ex rubi(ex e, ex xe)
                 ex factor;
                 bool b = rubi91(the_ex, factor, x);
                 if (b)
-                        return factor * rubi(the_ex, x);
+                        return dist(factor, rubi(the_ex, x));
                 const mul& mu = ex_to<mul>(the_ex);
                 exvector cvec, xvec;
                 for (unsigned int i=0; i<mu.nops(); i++) {
@@ -153,6 +153,7 @@ ex rubi(ex e, ex xe)
                                         if (p.op(1).is_integer()) {
                                                 bvec.push_back(p.op(0).op(0));
                                                 evec.push_back(p.op(1)*p.op(0).op(1));
+                                                continue;
                                         }
                                 }
                                 bvec.push_back(p.op(0));
@@ -727,7 +728,8 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                     and ((m+n+_ex2).is_positive()
                          or (_ex7*m+_ex4*n+_ex4).is_negative()
                          or not n.is_integer())) {
-                        return rubi((power(a+b*x,m)*power(c+d*x,n)).expand(), x);
+                        return rubi(dist(power(d*x,n),
+                                                expand(power(a+b*x,m))), x);
                 }
                 if (a.is_zero()) {
                         if (is_exactly_a<numeric>(n)
