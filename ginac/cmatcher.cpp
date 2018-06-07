@@ -526,6 +526,16 @@ void CMatcher::perm_run(const exvector& sterms, const exvector& pterms)
 void CMatcher::with_global_wild()
 {
         do {
+                // global wildcard used elsewhere?
+                size_t wwi = wild_ind[wi];
+                const wildcard& gw = ex_to<wildcard>(pat[wwi]);
+                size_t ii;
+                for (ii=0; ii<P; ++ii)
+                        if (ii != wwi and haswild(pat[ii], gw))
+                                break;
+                if (ii < P)
+                        continue;
+
                 do {
                         bool comb_finished = finished = false;
                         if (perm.empty()) { // new combination
