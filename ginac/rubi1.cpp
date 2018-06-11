@@ -308,7 +308,15 @@ static ex rubi_2prod(const exvector& bvec, const exvector& evec,
         if (ex_match_int(e2, {0,2})
             and ex_match_int(e1, {0,2,4})) {
                 return rubi223(c2[0],c2[1],evec[1],c1[0],c1[1],c1[2],evec[0],x);
-                        }
+        }
+        if (ex_match_int(e1, {0,2})
+            and ex_match_int(e2, {0,4})) {
+                return rubi223(c1[0],c1[1],evec[0],c2[0],_ex0,c2[1],evec[1],x);
+        }
+        if (ex_match_int(e2, {0,2})
+            and ex_match_int(e1, {0,4})) {
+                return rubi223(c2[0],c2[1],evec[1],c1[0],_ex0,c1[1],evec[0],x);
+        }
         throw rubi_exception();
 }
 
@@ -580,20 +588,70 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
 
         ex bcmad = (b*c - a*d).expand();
         if (bcmad.is_zero()) {
+                // some 9.1 rules here
+                if (m.is_integer()
+                    and (not n.is_integer()
+                         or (c+d*x).treesize() < (a+b*x).treesize()))
+                        return dist(power(b/d,m), rubi111(c,d,m+n,x));
+                if (n.is_integer()
+                    and (not m.is_integer()
+                         or (c+d*x).treesize() > (a+b*x).treesize()))
+                        return dist(power(d/b,n), rubi111(a,b,m+n,x));
+                if (not m.is_integer()
+                    and not n.is_integer()
+                    and not (b/d).is_positive())
+                        return dist(power(a+b*x,m)/power(c+d*x,m), rubi111(c,d,m+n,x));
                 if ((a/c-_ex1).is_positive())
                         return rubi(power(a/c, m) * power(c+d*x, m+n), x);
                 else
                         return rubi(power(c/a, n) * power(a+b*x, m+n), x);
         }
-//        else if ((e1p and not a.is_zero())
-//                 or (e2p and not c.is_zero()) )
-//                return rubi((power(a+b*x, m) * power(c+d*x, n)).expand(), x);
 
         ex bcpad = (b*c + a*d).expand();
         if (m.is_equal(n)) {
                 // Rule 1.1 simplified
                 if (m.is_equal(_ex_1))
                         return log(b*x + a)/bcmad - log(d*x + c)/bcmad;
+                // 2.1
+                if (bcpad.is_zero()
+                    and m.is_equal(n)) {
+                        if (is_exactly_a<numeric>(m)
+                            and ex_to<numeric>(m).denom().is_equal(*_num2_p)) {
+                                numeric mnum = ex_to<numeric>(m);
+                                // Rule 2.1.1
+                                if (mnum.is_positive())
+                                        return x*power(a+b*x, m)*power(c+d*x, m)/(_ex2*m+1) + _ex2*a*c*m/(_ex2*m+1) * rubi112(a, b, m-_ex1, c, d, m-_ex1, x);
+                                // Rule 2.1.2.1
+                                if (mnum.is_equal((*_num_3_p)/(*_num2_p)))
+                                        return x/(a*c*sqrt(a+b*x)*sqrt(c+d*x));
+                                // Rule 2.1.4
+                                if (mnum.is_equal(*_num_1_2_p)) {
+                                        if ((a+c).is_zero()) {
+                                                if (a.info(info_flags::positive))
+                                                        return acosh(b*x/a) / b;
+                                                if (c.info(info_flags::positive))
+                                                        return acosh(d*x/c) / d;
+                                        }
+                                }
+                                // Rule 2.1.2.2
+                                else
+                                        return _ex0-x*power(a+b*x, m+_ex1)*power(c+d*x,m+_ex1)/_ex2/a/c/(m+_ex1) + (_ex2*m+_ex3)/_ex2/a/c/(m+_ex1) * rubi112(a, b, m+_ex1, c, d, m+_ex1, x);
+                        }
+                        // Fallback Rule 2.1.3
+                        if (m.info(info_flags::integer)
+                            or (a.info(info_flags::positive)
+                                and c.info(info_flags::positive)))
+                                return rubi131(a*c, b*d, _ex2, m, x);
+                        // Fallback Rule 2.1.4.2
+                        if (m.is_equal(_ex_1_2))
+                                return _ex2*rubi131(b,-d,_ex2,_ex_1,x).subs(x == sqrt(a+b*x)/sqrt(c+d*x));
+                        // Fallback Rule 2.1.5
+                        if (is_exactly_a<numeric>(m)) {
+                                numeric fpm = ex_to<numeric>(m).frac();
+                                return power(a+b*x,fpm) * power(c+d*x,fpm) / power(a*c+b*d*x*x,fpm) * rubi131(a*c, b*d, _ex2, m, x);
+                        }
+                        
+                }
                 if (m.is_equal(_ex_1_2)) {
                         // Rule 7.1.1.1
                         if ((b+d).is_zero()
@@ -619,45 +677,6 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                             or m.denom().is_equal(*_num4_p))
                                 return power(a+b*x,m)*power(c+d*x,m)/power(a*c+bcpad*x+b*d*x*x,m) * rubi211(a*c,bcpad,b*d,m,x);
                 }
-                // 2.1
-                if (bcpad.is_zero()) {
-                        if (is_exactly_a<numeric>(m)
-                            and ex_to<numeric>(m).denom().is_equal(*_num2_p)) {
-                                numeric mnum = ex_to<numeric>(m);
-                                // Rule 2.1.2.1
-                                if (mnum.is_equal((*_num_3_p)/(*_num2_p)))
-                                        return x/(a*c*sqrt(a+b*x)*sqrt(c+d*x));
-                                // Rule 2.1.4
-                                if (mnum.is_equal(*_num_1_2_p)) {
-                                        if ((a+c).is_zero()) {
-                                                if (a.info(info_flags::positive))
-                                                        return acosh(b*x/a) / b;
-                                                if (c.info(info_flags::positive))
-                                                        return acosh(d*x/c) / d;
-                                        }
-                                        if ((a*c).info(info_flags::positive))
-                                                return asin(-b*x/a) / sqrt(-b*d);
-                                        return _ex2*rubi131(b,-d,_ex2,_ex_1,x).subs(x == sqrt(a+b*x)/sqrt(c+d*x));
-                                }
-                                // Rule 2.1.1
-                                if (mnum.numer().is_positive())
-                                        return x*power(a+b*x, m)*power(c+d*x, m)/(_ex2*m+_ex1) + _ex2*a*c*m/(_ex2*m+_ex1) * rubi112(a, b, m-_ex1, c, d, m-_ex1, x);
-                                // Rule 2.1.2.2
-                                else
-                                        return _ex0-x*power(a+b*x, m+_ex1)*power(c+d*x,m+_ex1)/_ex2/a/c/(m+_ex1) + (_ex2*m+_ex3)/_ex2/a/c/(m+_ex1) * rubi112(a, b, m+_ex1, c, d, m+_ex1, x);
-                                        
-                        }
-                        // Rule 2.1.3
-                        if (m.info(info_flags::integer)
-                            or (a.info(info_flags::positive)
-                                and c.info(info_flags::positive)))
-                                return rubi131(a*c, b*d, _ex2, m, x);
-                        if (is_exactly_a<numeric>(m)) {
-                                // Fallback Rule 2.1.5
-                                numeric fpm = ex_to<numeric>(m).frac();
-                                return power(a+b*x,fpm) * power(c+d*x,fpm) / power(a*c+b*d*x*x,fpm) * rubi131(a*c, b*d, _ex2, m, x);
-                        }
-                }
         }
         else if ((m-n).is_negative()) {
                 // make m > n
@@ -678,8 +697,9 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                     and ex_to<numeric>(m).denom().is_equal(*_num2_p)
                     and ex_to<numeric>(n).denom().is_equal(*_num2_p)) {
                         // Rule 2.4
-                        if (n.info(info_flags::positive))
-                                return power(c+d*x, n+_ex1) * power(a+b*x, m) / b / (m+n+_ex1) + _ex2*c*m/(m+n+_ex1) * rubi112(c, d, n, a, b, m-_ex1, x);
+                        if (m.info(info_flags::positive)
+                            and n.info(info_flags::positive))
+                                return power(c+d*x,n+1) * power(a+b*x, m) / d / (m+n+1) + dist(_ex2*a*m/(m+n+1), rubi112(c, d, n, a, b, m-1, x));
                         // Rule 2.5
                         if ((m+_ex1).info(info_flags::negative)) // not m == -1/2 !
                                 return _ex0-power(c+d*x, n+_ex1) * power(a+b*x, m+_ex1) / _ex2 / b / c / (n+_ex1) + (m+n+_ex2)/_ex2/c/(n+_ex1) * rubi112(c, d, n+_ex1, a, b, m, x);
@@ -796,10 +816,11 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
 
                 // Fallback Rules H.4
-                if (not n.is_integer()
-                    and bcmad.is_zero())
+                if (not n.is_integer()) {
+                    if (bcmad.is_zero())
                         return _ex0-power(c+d*x, n+_ex1) / (c*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, _ex1+d*x/c);
-                return _ex0-power(c+d*x, n+_ex1) / (bcmad*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, (b*(c+d*x)/bcmad).normal());
+                    return _ex0-power(c+d*x, n+1) / (c*(n+1)) * _2F1(1, n+1, n+2, 1+d*x/c);
+                }
         }
         
         // 5+6
@@ -1092,6 +1113,8 @@ static ex rubi131(ex ae, ex be, ex ne, ex pe, ex x)
         }
         if (ne.is_one())
                 return rubi111(ae, be, pe, x);
+        if (pe.is_one())
+                return rubi(ae + be*power(x,ne), x);
         ex _ex3_2 = _ex3/_ex2;
         ex _ex3_4 = _ex3/_ex4;
         ex _ex_3_4 = _ex_3/_ex4;
@@ -1114,8 +1137,21 @@ static ex rubi131(ex ae, ex be, ex ne, ex pe, ex x)
                 if (ne.info(info_flags::integer)
                     and ne.info(info_flags::positive)
                     and pe.info(info_flags::positive))
-                        return rubi(expand(power(ae + power(be,ne), pe)), x);
+                        return rubi(expand(power(ae + be*power(x,ne), pe)), x);
         }
+        // 4.1.2.3
+        ex e1 = pe + _ex1/ne;
+        if (ne.info(info_flags::posint)
+            and (pe+1).is_negative()
+            and ((_ex2*pe).is_integer()
+                 or (ne.is_equal(_ex2)
+                     and ((_ex3*pe).is_integer()
+                          or (_ex4*pe).is_integer()))
+                 or (is_exactly_a<numeric>(e1)
+                     and is_exactly_a<numeric>(pe)
+                     and ex_to<numeric>(e1).denom() < ex_to<numeric>(pe).denom())))
+                 return _ex0-x*power(ae+be*power(x,ne),pe+1)/ae/ne/(pe+1) + dist((ne*(pe+1)+1)/ae/ne/(pe+1), rubi131(ae,be,ne,pe+1,x));
+
         // 4.1.2
         if (ne.is_equal(_ex2)) {
                 if (pe.is_equal(_ex_5/_ex4)
@@ -1673,90 +1709,116 @@ static bool has_nice_sqrt(ex e)
 }
 
 // 1.2.1.2 (d+ex)^m * (a+bx+cx^2)^p
-static ex rubi212(ex de, ex ee, ex me, ex ae, ex be, ex ce, ex pe, ex x)
+static ex rubi212(ex d, ex e, ex m, ex a, ex b, ex c, ex p, ex x)
 {
-        DEBUG std::cerr<<"r212: "<<de<<","<<ee<<","<<me<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
-        if (pe.is_zero())
-                return rubi111(de,ee,me,x);
-        if (me.is_zero())
-                return rubi211(ae,be,ce,pe,x);
-        if ((me.is_integer()
-             and ((not de.is_zero() and me.is_positive())
-                     or (me-1).is_positive()))
-            or (pe.is_integer()
-             and ((not (ae*be).is_zero() and pe.is_positive())
-                     or (pe-1).is_positive())))
-                return rubi(expand(power(de+ee*x,me)
-                                        * power(ae+be*x+ce*x*x,pe)), x);
+        DEBUG std::cerr<<"r212: "<<d<<","<<e<<","<<m<<","<<a<<","<<b<<","<<c<<","<<p<<std::endl;
+        if (p.is_zero())
+                return rubi111(d,e,m,x);
+        if (m.is_zero())
+                return rubi211(a,b,c,p,x);
+//        if ((m.is_integer()
+//             and ((not d.is_zero() and m.is_positive())
+//                     or (m-1).is_positive()))
+//            or (p.is_integer()
+//             and ((not (a*b).is_zero() and p.is_positive())
+//                     or (p-1).is_positive())))
+//                return rubi(expand(power(d+e*x,m)
+//                                        * power(a+b*x+c*x*x,p)), x);
         // Rule 1
-        if (me.is_one()) {
+        ex qq = b*b - _ex4*a*c;
+        if (m.is_one()) {
+                if (p.is_minus_one()) {
+                         if ((b*e).is_equal(_ex2*c*d)) // int(Qr/Pq) rule
+                                 return e*log(a+b*x+c*x*x)/_ex2/c;
+                }
                 // Rule 1.1
-                if ((_ex2*ce*de - be*ee).is_zero()) {
-                        if (pe.is_minus_one())
-                                return de/be * log(ae+be*x+ce*x*x);
+                if ((_ex2*c*d - b*e).is_zero()) {
+                        if (p.is_minus_one())
+                                return d/b * log(a+b*x+c*x*x);
                         else
-                                return de/be/(pe+1) * power(ae+be*x+ce*x*x, pe+1);
+                                return d/b/(p+1) * power(a+b*x+c*x*x, p+1);
                 }
                 // Rule 1.2.1
-                if (pe.is_integer() and pe.is_positive()) {
-                        if ((ce*de*de - be*de*ee + ae*ee*ee).is_zero())
-                                return rubi112(de,ee,pe+1,ae/de,ce/ee,pe,x);
-                        return rubi(expand((de+ee*x) * power(ae+be*x+ce*x*x, pe)),x);
+                if (p.is_integer() and p.is_positive()) {
+                        if ((c*d*d - b*d*e + a*e*e).is_zero())
+                                return rubi112(d,e,p+1,a/d,c/e,p,x);
+                        return rubi(expand((d+e*x) * power(a+b*x+c*x*x, p)),x);
                 }
-                ex qq = be*be - _ex4*ae*ce;
                 // Rule 1.2.2
-                if (pe.is_minus_one()
+                if (p.is_minus_one()
                     and not qq.is_zero()) {
-                        if (be.is_zero())
-                                return de * rubi(power(ae+ce*x*x,_ex_1),x) + ee * rubi(x/(ae+ce*x*x),x);
+                        if (b.is_zero())
+                                return d * rubi(power(a+c*x*x,_ex_1),x) + e * rubi(x/(a+c*x*x),x);
                         if (has_nice_sqrt(qq)) {
                                 ex q = power(qq, _ex1_2);
-                                return (ce*de-ee*(be-q)/_ex2)/q * rubi111((be-q)/_ex2,ce,_ex_1,x) - (ce*de-ee*(be+q)/_ex2)/q * rubi111((be+q)/_ex2,ce,_ex_1,x);
+                                return (c*d-e*(b-q)/_ex2)/q * rubi111((b-q)/_ex2,c,_ex_1,x) - (c*d-e*(b+q)/_ex2)/q * rubi111((b+q)/_ex2,c,_ex_1,x);
                         }
                         else {
-                                DEBUG std::cerr<<"r212-122: "<<qq<<","<<de<<","<<ee<<","<<me<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
-                                return (2*ce*de-be*ee)/_ex2/ce * rubi211(ae,be,ce,_ex_1,x) + ee/_ex2/ce * rubi212(be,_ex2*ce,_ex1,ae,be,ce,_ex_1,x);
+                                return (2*c*d-b*e)/_ex2/c * rubi211(a,b,c,_ex_1,x) + e/_ex2/c * rubi212(b,_ex2*c,_ex1,a,b,c,_ex_1,x);
                         }
                 }
         }
 
-        ex qq = be*be - _ex4*ae*ce;
         // Rule 2
         if (qq.is_zero()) {
-                if (pe.is_integer())
-                        return power(ce,-pe) * rubi112(de,ee,me,de/_ex2,ce,_ex2*pe,x);
+                if (p.is_integer())
+                        return power(c,-p) * rubi112(d,e,m,d/_ex2,c,_ex2*p,x);
                 // 2.2.1
-                if ((_ex2*ce*de-be*ee).is_zero()) {
-                        if (me.is_integer()) {
-                                if ((me/_ex2).is_integer())
-                                        return power(ee,me)/power(ce,me/_ex2) * rubi211(ae,be,ce,pe+me/_ex2,x);
-                                return power(ee,me-1)*power(ce,(me-1)/_ex2) * rubi212(de,ee,_ex1,ae,be,ce,pe+(me-1)/_ex2,x);
+                if ((_ex2*c*d-b*e).is_zero()) {
+                        if (m.is_integer()) {
+                                if ((m/_ex2).is_integer())
+                                        return power(e,m)/power(c,m/_ex2) * rubi211(a,b,c,p+m/_ex2,x);
+                                return power(e,m-1)*power(c,(m-1)/_ex2) * rubi212(d,e,_ex1,a,b,c,p+(m-1)/_ex2,x);
                         }
-                        return power(ae+be*x+ce*x*x,pe)/power(de+ee*x,_ex2*pe) * rubi111(de,ee,me+_ex2*pe,x);
+                        return power(a+b*x+c*x*x,p)/power(d+e*x,_ex2*p) * rubi111(d,e,m+_ex2*p,x);
                 }
                 // 2.2.2
-                if (is_exactly_a<numeric>(pe)) {
-                        numeric fp = ex_to<numeric>(pe).frac();
-                        numeric ip = ex_to<numeric>(pe).floor();
-                        return power(ae+be*x+ce*x*x,fp)/power(ce,ip)/power(be/_ex2+ce*x,_ex2*fp) * rubi112(de,ee,me,be/_ex2,ce,_ex2*pe,x);
+                if (is_exactly_a<numeric>(p)) {
+                        numeric fp = ex_to<numeric>(p).frac();
+                        numeric ip = ex_to<numeric>(p).floor();
+                        return power(a+b*x+c*x*x,fp)/power(c,ip)/power(b/_ex2+c*x,_ex2*fp) * rubi112(d,e,m,b/_ex2,c,_ex2*p,x);
                 }
         }
+        ex QQ = c*d*d - b*d*e + a*e*e;
+        // 3.2.8.2
+        if (not qq.is_zero()
+            and QQ.is_zero()
+            and p.is_positive()
+            and (((m+2).is_positive()
+                  and m.is_negative())
+                 or (m+p+1).is_zero())
+            and not (m+_ex2*p+1).is_zero()
+            and (_ex2*p).is_integer()) {
+               if (b.is_zero())
+                       return power(d+e*x,m+1)*power(a+c*x*x,p)/e/(m+_ex2*p+1) -dist(2*c*d*p/e/e/(m+_ex2*p+1), rubi212(d,e,m+1,a,_ex0,c,p-1,x));
+               return power(d+e*x,m+1)*power(a+b*x+c*x*x,p)/e/(m+_ex2*p+1) -dist(p*(2*c*d-b*e)/e/e/(m+_ex2*p+1), rubi212(d,e,m+1,a,b,c,p-1,x));
+        }
+
         throw rubi_exception();
 }
 
 // 1.2.1.3 (d+ex)^m * (f+gx) * (a+bx+cx^2)^p
-static ex rubi213(ex de, ex ee, ex me, ex fe, ex ge, ex ae, ex be, ex ce, ex pe, ex x)
+static ex rubi213(ex d, ex e, ex m, ex f, ex g, ex a, ex b, ex c, ex p, ex x)
 {
-        DEBUG std::cerr<<"r213: "<<de<<","<<ee<<","<<me<<","<<fe<<","<<ge<<","<<ae<<","<<be<<","<<ce<<","<<pe<<std::endl;
-        if ((ee*fe-de*ge).is_zero())
-                return fe/de * rubi212(de,ee,me+1,ae,be,ce,pe,x);
-        ex qq = be*be - _ex4*ae*ce;
+        DEBUG std::cerr<<"r213: "<<d<<","<<e<<","<<m<<","<<f<<","<<g<<","<<a<<","<<b<<","<<c<<","<<p<<std::endl;
+        if ((e*f-d*g).is_zero())
+                return f/d * rubi212(d,e,m+1,a,b,c,p,x);
+        ex qq = b*b - _ex4*a*c;
         // 6
         if (qq.is_zero()
-            and is_exactly_a<numeric>(pe)) {
-                numeric fp = ex_to<numeric>(pe).frac();
-                numeric ip = ex_to<numeric>(pe).floor();
-                return power(ae+be*x+ce*x*x,fp)/power(ce,ip)/power(be*be+ce*x,_ex2*fp) * rubi113(de,ee,me,fe,ge,_ex1,be/_ex2,ce,_ex2*pe, x);
+            and is_exactly_a<numeric>(p)) {
+                numeric fp = ex_to<numeric>(p).frac();
+                numeric ip = ex_to<numeric>(p).floor();
+                return power(a+b*x+c*x*x,fp)/power(c,ip)/power(b*b+c*x,_ex2*fp) * rubi113(d,e,m,f,g,_ex1,b/_ex2,c,_ex2*p, x);
+        }
+        // 8.2.4
+        if (not (m+_ex2*p+_ex2).is_zero()
+            and (not m.is_equal(_ex2) or d.is_zero())
+            and (c*d*d - b*d*e + a*e*e).is_zero()
+            and not qq.is_zero()) {
+                if (b.is_zero())
+                        return g*power(d+e*x,m)*power(a+c*x*x,p+1)/c/(m+_ex2*p+_ex2) + dist((m*(d*g+e*f)+_ex2*e*f*(p+1))/e/(m+_ex2*p+_ex2), rubi212(d,e,m,a,_ex0,c,p,x));
+                return g*power(d+e*x,m)*power(a+b*x+c*x*x,p+1)/c/(m+_ex2*p+_ex2) + dist((m*(g*(c*d-b*e)+c*e*f)+e*(p+1)*(_ex2*c*f-b*g))/c/e/(m+_ex2*p+_ex2), rubi212(d,e,m,a,b,c,p,x));
         }
         throw rubi_exception();
 }
@@ -1845,14 +1907,6 @@ static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x)
                 ex bbmac = be*be - _ex4*ae*ce;
                 ex cdmae = ce*de*de - ae*ee*ee;
                 ex tdembc = _ex2*de/ee - be/ce;
-                if (be.is_zero()) { //?
-                        if (cdmae.is_zero()) {
-                                if ((de*ee).is_positive()) {
-                                        ex q = power(_ex2*de/ee, _ex1_2);
-                                        return ee/_ex2/ce * rubi211(de/ee,q,_ex1,_ex_1,x) + ee/_ex2/ce * rubi211(de/ee,-q,_ex1,_ex_1,x);
-                                }
-                        }
-                }
                 if (not bbmac.is_zero()) {
                         // 5.1.1.1
                         if (cdmae.is_zero()) {
@@ -1867,7 +1921,8 @@ static ex rubi223(ex de, ex ee, ex qe, ex ae, ex be, ex ce, ex pe, ex x)
                                         return (ee/_ex2+(_ex2*ce*de-be*ee)/_ex2/q) * rubi211(be/_ex2-q/_ex2,_ex0,ce,_ex_1,x) + (ee/_ex2-(_ex2*ce*de-be*ee)/_ex2/q) * rubi211(be/_ex2+q/_ex2,_ex0,ce,_ex_1,x);
                                 }
                                 // 5.1.1.1.3
-                                else {
+                                if (not bbmac.is_zero()
+                                    or (de*ee).is_negative()) {
                                         ex q = power(_ex0 - _ex2*de/ee - be/ce, _ex1_2);
                                         return ee/_ex2/ce/q * rubi212(q,_ex_2,_ex1,de/ee,q,_ex_1,_ex_1,x) + ee/_ex2/ce/q * rubi212(q,_ex2,_ex1,de/ee,-q,_ex_1,_ex_1,x);
                                 }
@@ -1946,11 +2001,12 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
         // u(av)^m(bv)^n
         // TODO: simplify by using constant wildcards
         bool matched = false;
-        if (e.match(w0 * power(w1,w2) *power(w3,w4), w)
+        if (e.match(w0 * power(w1*w5,w2) *power(w3*w5,w4), w)
             and not w[2].is_integer()
             and not w[4].is_integer()
             and not (w[2]+w[4]).is_integer()) {
-                DEBUG std::cerr<<"u(av)^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<std::endl;
+                DEBUG std::cerr<<"u(av)^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<w[5]<<std::endl;
+#if 0
                 if (not is_exactly_a<power>(w[0])
                 and not is_exactly_a<add>(w[1])
                 and not is_exactly_a<add>(w[3]))
@@ -1972,6 +2028,8 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
                 else {
                         a = av; b = bv;
                 }
+#endif
+                ex u=w[0], a=w[1], b=w[3], v=w[5], m=w[2], n=w[4];
                 DEBUG std::cerr<<"u,a,b,v: "<<u<<","<<a<<","<<b<<","<<v<<std::endl;
                 ex fp,ip;
                 if (is_exactly_a<numeric>(n)) {
@@ -1994,14 +2052,16 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
         // uv^m(bv)^n
         if (e.match(w0 * power(w1,w2) *power(w3*w1,w4), w)) {
                 DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
-                f = power(w[3],-w[2]);
-                the_ex = w[0]*power(w[3]*w[1],w[2]+w[4]);
+                f = power(w[1], -w[4]) * power(w[1]*w[3],w[4]);
+                DEBUG std::cerr<<"f: "<<f<<std::endl;
+                the_ex = w[0]*power(w[1],w[2]+w[4]);
                 return true;
         }
         if (e.match(w0 * w1 *power(w3*w1,w4), w)) {
-                DEBUG std::cerr<<"uv^m(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
-                f = power(w[3],_ex_1);
-                the_ex = w[0]*power(w[3]*w[1],w[4]+_ex1);
+                DEBUG std::cerr<<"uv(bv)^n: "<<w[0]<<","<<w[1]<<","<<w[2]<<","<<w[3]<<","<<w[4]<<","<<std::endl;
+                f = power(w[1], -w[4]) * power(w[1]*w[3],w[4]);
+                DEBUG std::cerr<<"f: "<<f<<std::endl;
+                the_ex = w[0]*power(w[1], w[4]+1);
                 return true;
         }
         return false;
