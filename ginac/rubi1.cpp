@@ -143,8 +143,7 @@ ex rubi(ex e, ex xe)
                 if (ff)
                         the_ex = res_ex;
                 ex factor;
-                bool b = rubi91(the_ex, factor, x);
-                if (b)
+                if (rubi91(the_ex, factor, x))
                         return dist(factor, rubi(the_ex, x));
                 const mul& mu = ex_to<mul>(the_ex);
                 exvector cvec, xvec;
@@ -154,8 +153,6 @@ ex rubi(ex e, ex xe)
                         else
                                 cvec.push_back(mu.op(i));
                 }
-                if (not cvec.empty())
-                        return mul(cvec) * rubi(mul(xvec), x);
                 exvector bvec, evec;
                 for (const auto& term : xvec) {
                         if (is_exactly_a<power>(term)) {
@@ -180,6 +177,16 @@ ex rubi(ex e, ex xe)
                         if (has_symbol(eterm, x))
                                 throw rubi_exception();
 
+                // a(b+cx)
+                if (xvec.size() == 1
+                    and not cvec.empty()
+                    and evec[0].is_one()) {
+                        ex a, b;
+                        if (bvec[0].is_linear(x, a, b))
+                                return mul(cvec)*power(a+b*x,_ex2)/_ex2/b;
+                }
+                if (not cvec.empty())
+                        return mul(cvec) * rubi(mul(xvec), x);
                 if (xvec.size() == 2)
                         return rubi_2prod(bvec, evec, x);
                 if (xvec.size() == 3)
@@ -199,10 +206,12 @@ ex rubi(ex e, ex xe)
                         if (e.match(power(w0 + w1*w2, w3), w)) {
                                 if (not w[2].is_equal(x)
                                     and w[2].is_linear(x,a,b)
+                                    and not b.is_zero()
                                     and not has_symbol(w[1], x))
                                         return dist(_ex1/b, rubi111(w[0],w[1],w[3],x).subs(x == w[2]));
                                 if (not w[1].is_equal(x)
                                     and w[1].is_linear(x,a,b)
+                                    and not b.is_zero()
                                     and not has_symbol(w[2], x))
                                         return dist(_ex1/b, rubi111(w[0],w[2],w[3],x).subs(x == w[1]));
                         }
@@ -798,9 +807,10 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                         DEBUG std::cerr<<"parfrac2 "<<pf<<std::endl;
                         if (not pf.is_equal(t))
                                 return rubi(pf, x);
-                        symbol t1, t2;
+                        //symbol t1, t2;
         DEBUG std::cerr<<"r112-3c: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::endl;
-                        return rubi((t2*power((t1-c)*b/d,m)).expand().subs(t1==c+d*x).subs(t2==power(c+d*x,n)),x);
+                        return rubi(t.expand(), x);
+        //                return rubi((t2*power((t1-c)*b/d,m)).expand().subs(t1==c+d*x).subs(t2==power(c+d*x,n)),x);
                 }
         }
 
