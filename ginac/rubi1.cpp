@@ -95,6 +95,18 @@ static ex dist(const ex& f, const ex& p)
         return s;
 }
 
+static ex remove_content(const ex& e, const ex& x)
+{
+        if (not is_exactly_a<add>(e))
+                return e;
+        expairvec coeffs;
+        e.coefficients(x, coeffs);
+        ex d = _ex1;
+        for (const auto& p : coeffs)
+                d *= p.first.denom();
+        return dist(d, e);
+}
+
 bool rubi_integrate(ex e, ex x, ex& ret)
 {
         try {
@@ -118,11 +130,6 @@ ex rubi(ex e, ex xe)
         if (e.is_equal(x))
                 return power(x, _ex2) / _ex2;
         ex the_ex = e.collect_powers();
-        //ex the_ex = e.expand(0).collect_powers();
-        //ex res_ex;
-        //bool ff = factor(the_ex, res_ex);
-        //if (ff)
-        //        the_ex = res_ex;
         if (is_exactly_a<add>(the_ex)) {
                 const add& m = ex_to<add>(the_ex);
                 exvector vec;
@@ -131,6 +138,10 @@ ex rubi(ex e, ex xe)
                 return add(vec);
         }
         if (is_exactly_a<mul>(the_ex)) {
+                ex res_ex;
+                bool ff = factor(the_ex, res_ex);
+                if (ff)
+                        the_ex = res_ex;
                 ex factor;
                 bool b = rubi91(the_ex, factor, x);
                 if (b)
@@ -182,6 +193,19 @@ ex rubi(ex e, ex xe)
                 const ex& m = p.op(1);
                 ex j, n;
                 if (has_symbol(ebas, x) and not has_symbol(m, x)) {
+                        ex w0=wild(0), w1=wild(1), w2=wild(2), w3=wild(3);
+                        exvector w;
+                        // (a+bu)^m
+                        if (e.match(power(w0 + w1*w2, w3), w)) {
+                                if (not w[2].is_equal(x)
+                                    and w[2].is_linear(x,a,b)
+                                    and not has_symbol(w[1], x))
+                                        return dist(_ex1/b, rubi111(w[0],w[1],w[3],x).subs(x == w[2]));
+                                if (not w[1].is_equal(x)
+                                    and w[1].is_linear(x,a,b)
+                                    and not has_symbol(w[2], x))
+                                        return dist(_ex1/b, rubi111(w[0],w[2],w[3],x).subs(x == w[1]));
+                        }
                         if (ebas.is_linear(x, a, b))
                                 return rubi111(a, b, m, ex(x));
                         if (ebas.is_quadratic(x, a, b, c)) {
@@ -448,7 +472,7 @@ static ex rubi111(ex a, ex b, ex m, ex x)
         }
         if (is_exactly_a<numeric>(m)) {
                 if (ex_to<numeric>(m).is_minus_one())
-                        return log(a+b*x) / b;
+                        return log(remove_content(a+b*x,x)) / b;
         }
         return power(a+b*x,m+1) / b / (m+1);
 }
@@ -585,9 +609,10 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                         return power(d/b,-m-1)/b * log(x);
                 return x*power(b*x,m)*power(d*x,n)/(m+n+1);
         }
-        if ((m.info(info_flags::posint) and not a.is_zero())
+/*        if ((m.info(info_flags::posint) and not a.is_zero())
             or (n.info(info_flags::posint) and not c.is_zero())) {
                 const ex& t = mul(power(a+b*x,m), power(c+d*x,n));
+                DEBUG std::cerr<<"r112 expanded"<<std::endl;
                 return rubi(t.expand(), x);
         }
         if (not ((a.is_zero() and m.is_positive())
@@ -600,7 +625,7 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                         DEBUG std::cerr<<"parfrac1 "<<pf<<std::endl;
                         return rubi(pf, x);
                 }
-        }
+        }*/
 
         ex bcmad = (b*c - a*d).expand();
         if (bcmad.is_zero()) {
@@ -628,8 +653,7 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 if (m.is_equal(_ex_1))
                         return log(b*x + a)/bcmad - log(d*x + c)/bcmad;
                 // 2.1
-                if (bcpad.is_zero()
-                    and m.is_equal(n)) {
+                if (bcpad.is_zero()) {
                         if (is_exactly_a<numeric>(m)
                             and ex_to<numeric>(m).denom().is_equal(*_num2_p)) {
                                 numeric mnum = ex_to<numeric>(m);
@@ -639,7 +663,7 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                                 // Rule 2.1.2.1
                                 if (mnum.is_equal((*_num_3_p)/(*_num2_p)))
                                         return x/(a*c*sqrt(a+b*x)*sqrt(c+d*x));
-                                // Rule 2.1.4
+                                // Rule 2.1.4.1
                                 if (mnum.is_equal(*_num_1_2_p)) {
                                         if ((a+c).is_zero()) {
                                                 if (a.info(info_flags::positive))
@@ -686,7 +710,9 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                             and (b-d).is_zero())
                                 return _ex2/b * rubi131(c-a,_ex1,_ex2,_ex_1_2,x).subs(x==power(a+b*x,_ex1_2));
                         // 7.1.1.4
-                        return _ex2 * rubi131(b,-d,_ex2,_ex_1,x).subs(x == sqrt(a+b*x)/sqrt(c+d*x));
+                        if (is_exactly_a<numeric>(d))
+                                return _ex2*rubi131(d,-b,_ex2,_ex_1,x).subs(x == power(c+d*x,_ex1_2)/power(a+b*x,_ex1_2));
+                        return _ex2*rubi131(b,-d,_ex2,_ex_1,x).subs(x == power(a+b*x,_ex1_2)/power(c+d*x,_ex1_2));
                 }
                 if (m.is_negative() and (m+1).is_positive()) {
                         // 7.1.2
@@ -792,26 +818,36 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
                 // Rule 4.1
                 if (n.is_positive())
-                        return power(c+d*x,n)/b/n + bcmad/b * rubi112(a,b,m,c,d,n-1,x);
+                        return power(c+d*x,n)/b/n + dist(bcmad/b, rubi112(a,b,m,c,d,n-1,x));
                 // Rule 4.2
                 if ((n+_ex1).is_negative()) // we know m=-1
                         return _ex0 - power(c+d*x,n+_ex1)/(n+_ex1)/bcmad + b/bcmad * rubi112(a,b,m,c,d,n+1,x);
                 const ex bcmad_b = bcmad / b;
-                if (n.is_equal(_ex_1_3)) { // 4.3.1
+                ex q;
+                if (n.is_equal(_ex_1_3)
+                    or n.is_equal(_ex_2_3)) {
                         if (bcmad_b.is_negative_or_minus()) {
-                                ex q = power(_ex0-bcmad_b, _ex1_3);
-                                return log(a+b*x)/_ex2/b/q - _ex3_2/b/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
+                                if (is_exactly_a<numeric>(bcmad_b))
+                                        q = power(_ex0-bcmad_b, _ex1_3);
+                                else
+                                        q = power(_ex0-bcmad,_ex1_3)/power(b,_ex1_3);
                         }
-                        ex q = power(bcmad_b, _ex1_3);
-                        return _ex0-log(a+b*x)/_ex2/b/q - _ex3_2/b/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
+                        else {
+                                if (is_exactly_a<numeric>(bcmad_b))
+                                        q = power(bcmad_b, _ex1_3);
+                                else
+                                        q = power(bcmad,_ex1_3)/power(b,_ex1_3);
+                        }
+                }
+                if (n.is_equal(_ex_1_3)) { // 4.3.1
+                        if (bcmad_b.is_negative_or_minus())
+                                return log(remove_content(a+b*x,x))/_ex2/b/q - _ex3_2/b/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
+                        return _ex0-log(remove_content(a+b*x,x))/_ex2/b/q - _ex3_2/b/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
                 }
                 if (n.is_equal(_ex_2_3)) { // 4.3.2
-                        if (bcmad_b.is_negative_or_minus()) {
-                                ex q = power(_ex0-bcmad_b, _ex1_3);
-                                return _ex0-log(a+b*x)/_ex2/b/q/q + _ex3_2/b/q/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b/q * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
-                        }
-                        ex q = power(bcmad_b, _ex1_3);
-                        return _ex0-log(a+b*x)/_ex2/b/q/q - _ex3_2/b/q/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) - _ex3_2/b/q * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
+                        if (bcmad_b.is_negative_or_minus())
+                                return _ex0-log(remove_content(a+b*x,x))/_ex2/b/q/q + _ex3_2/b/q/q * rubi111(q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) + _ex3_2/b/q * rubi211(q*q,-q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
+                        return _ex0-log(remove_content(a+b*x,x))/_ex2/b/q/q - _ex3_2/b/q/q * rubi111(q,_ex_1,_ex_1,x).subs(x==power(c+d*x,_ex1_3)) - _ex3_2/b/q * rubi211(q*q,q,_ex1,_ex_1,x).subs(x==power(c+d*x,_ex1_3));
                 }
                 // Rule 4.3.3
                 if (is_exactly_a<numeric>(n)
@@ -954,7 +990,7 @@ DEBUG std::cerr<<"r112H1: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::end
                 if (not n.is_integer()
                     and (m.is_integer()
                          or (-d/b/c).is_positive()))
-                        return power(c+d*x,n+1)/d/(n+1)/power(-d/b/c,m) * _2F1(-m,n+1,n+2,1+d*x/c);
+                        return power(c+d*x,n+1)/d/(n+1)/power(-d/b/c,m) * _2F1(n+1,-m,n+2,1+d*x/c);
                 // H.1.3
                 if (not m.is_integer() and not n.is_integer()
                     and not c.is_positive()
@@ -983,8 +1019,8 @@ DEBUG std::cerr<<"r112H1: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::end
                                 fm = m;
                                 im = _ex0;
                         }
-                        DEBUG std::cerr<<"r112H13 fac: "<<power(-b*c/d,im)*power(b*x,fm)/power(-d/c*x,fm)<<std::endl;
-                        return power(-b*c/d,im)*power(b*x,fm)/power(-d/c*x,fm) * rubi(power(-d*x/c,m)*power(c+d*x,n),x);
+                        DEBUG std::cerr<<"r112H13 fac: "<<power(-b*c/d,im)*power(b*x,fm)*power(-x,_ex0-fm)*power(d/c,_ex0-fm)<<std::endl;
+                        return dist(power(-b*c/d,im)*power(b*x,fm)*power(-x,_ex0-fm)*power(d/c,_ex0-fm), rubi(power(-d*x/c,m)*power(c+d*x,n),x));
                 }
         }
         // H.2.2.1
@@ -2010,7 +2046,8 @@ static bool rubi91(ex& the_ex, ex& f, const symbol& x)
         if (e.match(w1 * power(w2 * power(w3, w4), w0), w)
             or e.match(w1*w5 * power(w2*power(w3, w4), w0), w) ) {
                 ex a,b,core = w[3];
-                if (core.is_linear(x, a, b)) {
+                if (core.is_linear(x, a, b)
+                    and not b.is_zero()) {
                         ex p = w[0];
                         if (not p.is_integer()) {
                                 ex fp,ip;
