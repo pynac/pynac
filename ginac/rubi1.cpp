@@ -142,6 +142,8 @@ ex rubi(ex e, ex xe)
                 bool ff = factor(the_ex, res_ex);
                 if (ff)
                         the_ex = res_ex;
+                if (not has_symbol(the_ex, x))
+                        return the_ex*x;
                 ex factor;
                 if (rubi91(the_ex, factor, x))
                         return dist(factor, rubi(the_ex, x));
@@ -159,16 +161,16 @@ ex rubi(ex e, ex xe)
                                 ex p = ex_to<power>(term);
                                 if (is_exactly_a<power>(p.op(0))) {
                                         if (p.op(1).is_integer()) {
-                                                bvec.push_back(p.op(0).op(0));
+                                                bvec.push_back(p.op(0).op(0).expand());
                                                 evec.push_back(p.op(1)*p.op(0).op(1));
                                                 continue;
                                         }
                                 }
-                                bvec.push_back(p.op(0));
+                                bvec.push_back(p.op(0).expand());
                                 evec.push_back(p.op(1));
                         }
                         else {
-                                bvec.push_back(term);
+                                bvec.push_back(term.expand());
                                 evec.push_back(_ex1);
                         }
                 }
@@ -801,16 +803,24 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                     and (_ex7*m+_ex4*n+_ex4).is_negative())
                     or (m+n+_ex2).is_positive()
                     or (_ex9*m+_ex5*n+_ex5).is_negative()
-                    or not n.is_integer()) {
+                    or not (is_exactly_a<numeric>(n) and n.is_integer())) {
                         const ex& t = mul(power(a+b*x,m), power(c+d*x,n));
                         const ex& pf = parfrac(t, x);
                         DEBUG std::cerr<<"parfrac2 "<<pf<<std::endl;
                         if (not pf.is_equal(t))
                                 return rubi(pf, x);
-                        //symbol t1, t2;
+              
         DEBUG std::cerr<<"r112-3c: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::endl;
-                        return rubi(t.expand(), x);
-        //                return rubi((t2*power((t1-c)*b/d,m)).expand().subs(t1==c+d*x).subs(t2==power(c+d*x,n)),x);
+                        symbol t1,t2;          
+                        if ((c.is_zero()
+                            and is_exactly_a<numeric>(m)
+                            and m.info(info_flags::posint))
+                         or (a.is_zero()
+                            and is_exactly_a<numeric>(n)
+                            and n.info(info_flags::posint)))
+                                return rubi(t.expand(), x);
+                        else
+                                return rubi((t2*power((t1-c)*b/d,m)).expand().subs(t1==c+d*x).subs(t2==power(c+d*x,n)),x);
                 }
         }
 
@@ -868,7 +878,7 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
 
                 // Fallback Rules H.4
-                if (not n.is_integer()) {
+                if (not (is_exactly_a<numeric>(n) and n.is_integer())) {
 //                    if (bcmad.is_zero())
 //                        return _ex0-power(c+d*x, n+_ex1) / (c*(n+_ex1)) * _2F1(1, n+_ex1, n+_ex2, _ex1+d*x/c);
                     return _ex0-power(c+d*x, n+1)/(n+1)/bcmad * _2F1(1, n+1, n+2, b*(c+d*x)/bcmad);
@@ -989,26 +999,27 @@ static ex rubi112(ex a, ex b, ex m, ex c, ex d, ex n, ex x)
                 }
                 // H.1.1
 DEBUG std::cerr<<"r112H1: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::endl;
-                if (not m.is_integer()
-                    and (n.is_integer()
+                if (not m.is_num_integer()
+                    and (n.is_num_integer()
                          or (c.is_positive()
                             and not (n.is_equal(_ex_1_2)
                                      and (c*c-d*d).is_zero()
                                      and (-d/(b*c)).is_positive()))))
                         return power(c,n)*power(b*x,m+1)/b/(m+1) * _2F1(-n,m+1,m+2,-d*x/c);
                 // H.1.2
-                if (not n.is_integer()
-                    and (m.is_integer()
+                if (not n.is_num_integer()
+                    and (m.is_num_integer()
                          or (-d/b/c).is_positive()))
                         return power(c+d*x,n+1)/d/(n+1)/power(-d/b/c,m) * _2F1(n+1,-m,n+2,1+d*x/c);
                 // H.1.3
-                if (not m.is_integer() and not n.is_integer()
+                if (not m.is_num_integer() and not n.is_num_integer()
                     and not c.is_positive()
                     and not (d/b/c).is_negative()) {
-                        if ((m.info(info_flags::rational)
+                        // H.1.3.1
+                        if (m.is_num_fraction()
                             and not (n.is_equal(_ex_1_2)
-                                    and (c*c-d*d).is_zero()))
-                            or not n.info(info_flags::rational)) {
+                                    and (c*c-d*d).is_zero())
+                            or not n.is_num_fraction()) {
                                 ex fn,in;
                                 if (is_exactly_a<numeric>(n)) {
                                         fn = ex_to<numeric>(n).frac();
@@ -1020,6 +1031,7 @@ DEBUG std::cerr<<"r112H1: "<<a<<","<<b<<","<<m<<","<<c<<","<<d<<","<<n<<std::end
                                 }
                                 return power(c,in)*power(c+d*x,fn)/power(1+d/c*x,fn) * rubi112(_ex0,b,m,_ex1,d/c,n,x);
                         }
+                        // H.1.3.2
                         ex fm,im;
                         if (is_exactly_a<numeric>(m)) {
                                 fm = ex_to<numeric>(m).frac();
