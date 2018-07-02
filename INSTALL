@@ -1,3 +1,8 @@
+(The following is from the original GiNaC file, Pynac is part of Sage and
+requires a full Sage installation, for instructions see
+http://doc.sagemath.org/html/en/installation/
+Developers please see CONTRIBUTING.md for setting up your work directory.
+
 PREREQUISITES
 =============
 
