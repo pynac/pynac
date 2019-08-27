@@ -7,5 +7,6 @@ Name: pynac
 Description: C++/Python library for symbolic calculations
 Version: @VERSION@
 Requires: python-@PYTHON_VERSION@ factory
-Libs: -L${libdir} -lpynac @LIBGIAC@ -lflint -lgmp
+Libs: -L${libdir} -lpynac
+Libs.private: @LIBGIAC@ -lflint -lgmp
 Cflags: -I${includedir}
