@@ -36,6 +36,8 @@ AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
 dnl This defines PACKAGE and VERSION.
 AM_INIT_AUTOMAKE([gnu 1.7 dist-bzip2])
+# Allow "configure --disable-maintainer-mode" to disable timestamp checking 
+AM_MAINTAINER_MODE([enable])
 
 AM_PATH_PYTHON([2.7])
 dnl AM_PATH_PYTHON([3.4.1])
