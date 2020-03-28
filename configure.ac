@@ -30,7 +30,7 @@ m4_define([lt_age], [3])
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 
-AC_INIT([pynac], ginac_version, [<pynac-devel@googlegroups.com>])
+AC_INIT([pynac], ginac_version[.sage-2020-03-28], [<pynac-devel@googlegroups.com>])
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
@@ -53,7 +53,7 @@ AC_MSG_CHECKING([for Python library flags])
 PYTHON_LDFLAGS=$($PYTHON - <<EOD
 import sys
 import sysconfig
-libs = list(('-lpython' + sysconfig.get_config_var('VERSION') + sys.abiflags,))
+libs = list(('-lpython' + sysconfig.get_config_var('VERSION') + getattr(sys, 'abiflags', ''),))
 libs += sysconfig.get_config_var('LIBS').split()
 libs += sysconfig.get_config_var('SYSLIBS').split()
 if not sysconfig.get_config_var('PYTHONFRAMEWORK'):
