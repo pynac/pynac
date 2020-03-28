@@ -38,8 +38,30 @@ dnl This defines PACKAGE and VERSION.
 AM_INIT_AUTOMAKE([gnu 1.7 dist-bzip2])
 
 AM_PATH_PYTHON([2.7])
-dnl AM_PATH_PYTHON([3.4.1])
-AX_PYTHON_DEVEL
+
+dnl Adapted from CPython 3.8 cpython/Misc/python-config.in
+AC_MSG_CHECKING([for Python preprocessor flags])
+PYTHON_CPPFLAGS=$($PYTHON - <<EOD
+import sysconfig
+print(' '.join(list(('-I' + sysconfig.get_path('include'),
+                     '-I' + sysconfig.get_path('platinclude'),))
+               + sysconfig.get_config_var('CFLAGS').split()))
+EOD)
+AC_MSG_RESULT([$PYTHON_CPPFLAGS])
+AC_SUBST([PYTHON_CPPFLAGS])
+AC_MSG_CHECKING([for Python library flags])
+PYTHON_LDFLAGS=$($PYTHON - <<EOD
+import sys
+import sysconfig
+libs = list(('-lpython' + sysconfig.get_config_var('VERSION') + sys.abiflags,))
+libs += sysconfig.get_config_var('LIBS').split()
+libs += sysconfig.get_config_var('SYSLIBS').split()
+if not sysconfig.get_config_var('PYTHONFRAMEWORK'):
+    libs.extend(sysconfig.get_config_var('LINKFORSHARED').split())
+print(' '.join(libs))
+EOD)
+AC_MSG_RESULT([$PYTHON_LDFLAGS])
+AC_SUBST([PYTHON_LDFLAGS])
 
 AC_CANONICAL_HOST
 AC_MSG_CHECKING([for Cygwin])
