@@ -30,7 +30,7 @@ m4_define([lt_age], [3])
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 
-AC_INIT([pynac], ginac_version[.sage-2020-03-28], [<pynac-devel@googlegroups.com>])
+AC_INIT([pynac], ginac_version[.sage-2020-03-28a], [<pynac-devel@googlegroups.com>])
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
@@ -49,16 +49,17 @@ print(' '.join(list(('-I' + sysconfig.get_path('include'),
 EOD)
 AC_MSG_RESULT([$PYTHON_CPPFLAGS])
 AC_SUBST([PYTHON_CPPFLAGS])
+
 AC_MSG_CHECKING([for Python library flags])
-PYTHON_LDFLAGS=$($PYTHON - <<EOD
+PYTHON_LDFLAGS=$(CC=dummy-cc $PYTHON - <<EOD
+from distutils.ccompiler import new_compiler
+from distutils.sysconfig import customize_compiler
+compiler = new_compiler()
+customize_compiler(compiler)
 import sys
 import sysconfig
-libs = list(('-lpython' + sysconfig.get_config_var('VERSION') + getattr(sys, 'abiflags', ''),))
-libs += sysconfig.get_config_var('LIBS').split()
-libs += sysconfig.get_config_var('SYSLIBS').split()
-if not sysconfig.get_config_var('PYTHONFRAMEWORK'):
-    libs.extend(sysconfig.get_config_var('LINKFORSHARED').split())
-print(' '.join(libs))
+assert compiler.linker_so[[0]] == 'dummy-cc'
+print(' '.join(compiler.linker_so[[1:]]))
 EOD)
 AC_MSG_RESULT([$PYTHON_LDFLAGS])
 AC_SUBST([PYTHON_LDFLAGS])
