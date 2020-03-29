@@ -58,8 +58,9 @@ compiler = new_compiler()
 customize_compiler(compiler)
 import sys
 import sysconfig
-assert compiler.linker_so[[0]] == 'dummy-cc'
-print(' '.join(compiler.linker_so[[1:]]))
+if compiler.linker_so.pop(0) != 'dummy-cc':
+    sys.stderr.write('Warning: linker_so has a changed linker command; avoid setting the LDSHARED environment variable\n')
+print(' '.join(compiler.linker_so))
 EOD)
 AC_MSG_RESULT([$PYTHON_LDFLAGS])
 AC_SUBST([PYTHON_LDFLAGS])
