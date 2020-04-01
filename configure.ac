@@ -46,7 +46,8 @@ import sysconfig
 print(' '.join(list(('-I' + sysconfig.get_path('include'),
                      '-I' + sysconfig.get_path('platinclude'),))
                + sysconfig.get_config_var('CFLAGS').split()))
-EOD)
+EOD
+)
 AC_MSG_RESULT([$PYTHON_CPPFLAGS])
 AC_SUBST([PYTHON_CPPFLAGS])
 
@@ -61,7 +62,8 @@ import sysconfig
 if compiler.linker_so.pop(0) != 'dummy-cc':
     sys.stderr.write('Warning: linker_so has a changed linker command; avoid setting the LDSHARED environment variable\n')
 print(' '.join(compiler.linker_so))
-EOD)
+EOD
+)
 AC_MSG_RESULT([$PYTHON_LDFLAGS])
 AC_SUBST([PYTHON_LDFLAGS])
 
