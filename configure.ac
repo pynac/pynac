@@ -72,6 +72,16 @@ AC_MSG_CHECKING([for Cygwin])
 case $host_os in
      *cygwin*)
         AM_CONDITIONAL(CYGWIN, true)
+        dnl On Cygwin, we need to link through with the Python library,
+        dnl otherwise libtool complains.
+        PYTHON_LDFLAGS="$PYTHON_LDFLAGS $($PYTHON - <<EOD
+import sysconfig
+print(' '.join(list(('-L' + sysconfig.get_config_var('LIBDIR'),
+                     '-lpython' + sysconfig.get_config_var('LDVERSION'),
+                     sysconfig.get_config_var('SHLIBS'),
+                     sysconfig.get_config_var('SYSLIBS')))))
+EOD
+)"
         ;;
      *)
         AM_CONDITIONAL(CYGWIN, false)
