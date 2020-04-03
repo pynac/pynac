@@ -15,7 +15,12 @@ libpynac_la_SOURCES = add.cpp archive.cpp assume.cpp basic.cpp \
   utils.cpp wildcard.cpp templates.cpp infoflagbase.cpp sum.cpp \
   remember.h tostring.h utils.h compiler.h order.cpp useries.cpp
 
+#The -no-undefined breaks Pynac on OS X 10.4.  See #9135
+if CYGWIN
+libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO) -no-undefined
+else
 libpynac_la_LDFLAGS = -version-info $(LT_VERSION_INFO)
+endif
 libpynac_la_CPPFLAGS = $(PYTHON_CPPFLAGS) @FACTORY_CFLAGS@ -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wno-unused-parameter -Wno-unknown-pragmas -Wno-parentheses-equality
 
 libpynac_la_LIBADD = $(PYTHON_LDFLAGS) $(LIBS) @FACTORY_LIBS@ $(LIBGIAC)
