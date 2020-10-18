@@ -14,6 +14,7 @@ EXTRA_DIST = pynac.pc pynac.spec CONTRIBUTING.md PACKAGING.md
 $(PACKAGE)-$(VERSION).tar.gz: dist
 
 # Rule to build RPM distribution package
+.PHONY: rpm
 rpm: $(PACKAGE)-$(VERSION).tar.gz
 	rpmbuild -ta --clean $(PACKAGE)-$(VERSION).tar.gz
 
