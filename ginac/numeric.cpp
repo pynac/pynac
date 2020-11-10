@@ -767,7 +767,6 @@ numeric::numeric(const numeric& other) : basic(&numeric::tinfo_static) {
                 return;
         case PYOBJECT:
                 v = other.v;
-                Py_INCREF(v._pyobject);
                 return;
         case MPZ:
                 mpz_init(v._bigint);
