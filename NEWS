@@ -652,7 +652,7 @@ Backporting bug-fix release from version 1.4.1.
   less brain-dead ones and should now have much better performance.
 * Checks were completely reorganized and split up into three parts:
   a) exams (small regression tests with predefined input)
-  b) checks (lenghty coherence checks with random input)
+  b) checks (lengthy coherence checks with random input)
   c) timings (for coherence and crude benchmarking)
 * Behaviour of .evalf() was changed: it doesn't .evalf() any exponents.
 * Expanded expressions now remember they are expanded to prevent
@@ -671,7 +671,7 @@ Backporting bug-fix release from version 1.4.1.
 * Fixes a small number of bugs.
 
 0.5.0 (7 February 2000)
-* Expressions can be written ("archived") to files and read therefrom.
+* Expressions can be written ("archived") to files and read from there.
 * Addition of GiNaC-cint, which lets you write complete programs in
   an interactive shell-like manner in your favoured programming
   language (i.e. C++).
