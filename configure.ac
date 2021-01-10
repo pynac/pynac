@@ -30,7 +30,7 @@ m4_define([lt_age], [3])
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 
-AC_INIT([pynac], ginac_version, [<pynac-devel@googlegroups.com>])
+AC_INIT([pynac], ginac_version[.sage-2020-04-03], [<pynac-devel@googlegroups.com>])
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
@@ -40,14 +40,50 @@ AM_INIT_AUTOMAKE([gnu 1.7 dist-bzip2])
 AM_MAINTAINER_MODE([enable])
 
 AM_PATH_PYTHON([2.7])
-dnl AM_PATH_PYTHON([3.4.1])
-AX_PYTHON_DEVEL
+
+dnl Adapted from CPython 3.8 cpython/Misc/python-config.in
+AC_MSG_CHECKING([for Python preprocessor flags])
+PYTHON_CPPFLAGS=$($PYTHON - <<EOD
+import sysconfig
+print(' '.join(list(('-I' + sysconfig.get_path('include'),
+                     '-I' + sysconfig.get_path('platinclude'),))
+               + sysconfig.get_config_var('CFLAGS').split()))
+EOD
+)
+AC_MSG_RESULT([$PYTHON_CPPFLAGS])
+AC_SUBST([PYTHON_CPPFLAGS])
+
+AC_MSG_CHECKING([for Python library flags])
+PYTHON_LDFLAGS=$(CC=dummy-cc $PYTHON - <<EOD
+from distutils.ccompiler import new_compiler
+from distutils.sysconfig import customize_compiler
+compiler = new_compiler()
+customize_compiler(compiler)
+import sys
+import sysconfig
+if compiler.linker_so.pop(0) != 'dummy-cc':
+    sys.stderr.write('Warning: linker_so has a changed linker command; avoid setting the LDSHARED environment variable\n')
+print(' '.join(compiler.linker_so))
+EOD
+)
+AC_MSG_RESULT([$PYTHON_LDFLAGS])
+AC_SUBST([PYTHON_LDFLAGS])
 
 AC_CANONICAL_HOST
 AC_MSG_CHECKING([for Cygwin])
 case $host_os in
      *cygwin*)
         AM_CONDITIONAL(CYGWIN, true)
+        dnl On Cygwin, we need to link through with the Python library,
+        dnl otherwise libtool complains.
+        PYTHON_LDFLAGS="$PYTHON_LDFLAGS $($PYTHON - <<EOD
+import sysconfig
+print(' '.join(list(('-L' + sysconfig.get_config_var('LIBDIR'),
+                     '-lpython' + sysconfig.get_config_var('LDVERSION'),
+                     sysconfig.get_config_var('SHLIBS'),
+                     sysconfig.get_config_var('SYSLIBS')))))
+EOD
+)"
         ;;
      *)
         AM_CONDITIONAL(CYGWIN, false)
