@@ -6,9 +6,9 @@ dnl ===========================================================================
 
 dnl Usage: GINAC_RLVERSION
 dnl The maintainers of libreadline are complete morons: they don't care a shit
-dnl about compatiblilty (which is not so bad by itself) and at the same time 
+dnl about compatibility (which is not so bad by itself) and at the same time 
 dnl they don't export the version to the preprocessor so we could kluge around 
-dnl incomatiblities.  The only reliable way to figure out the version is by 
+dnl incompatibilities.  The only reliable way to figure out the version is by 
 dnl checking the extern variable rl_library_version at runtime.  &#@$%*!
 AC_DEFUN([GINAC_LIB_READLINE_VERSION],
 [AC_CACHE_CHECK([for version of libreadline], ginac_cv_rlversion, [
@@ -89,7 +89,7 @@ ginac_warning=yes])
 dnl Usage: GINAC_CHECK_ERRORS
 dnl (must be put at end of configure.in, because it exits on error)
 dnl This macro displays a warning message if GINAC_ERROR or GINAC_WARNING 
-dnl has occured previously.
+dnl has occurred previously.
 AC_DEFUN([GINAC_CHECK_ERRORS],[
 if test "x${ginac_error}" = "xyes"; then
     echo "**** The following problems have been detected by configure."
