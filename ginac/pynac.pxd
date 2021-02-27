@@ -1,7 +1,9 @@
 # distutils: language = c++
 # distutils: libraries = pynac gmp
-# distutils: extra_compile_args = -std=c++11 SINGULAR_CFLAGS
-# distutils: include_dirs = SINGULAR_INCDIR
+# distutils: extra_compile_args = -std=c++11
+# distutils: include_dirs =
+#
+#  SINGULAR_CFLAGS SINGULAR_INCDIR
 # pynac/basic.h includes
 #   factory/factory.h    so this ^ is needed to find it
 """
@@ -34,7 +36,7 @@ from cpython.object cimport PyObject
 from libcpp.vector cimport vector
 from libcpp.pair cimport pair
 from libcpp.string cimport string as stdstring
-from sage.libs.gmp.types cimport mpz_t, mpq_t, mpz_ptr, mpq_ptr
+from ginac.gmptypes cimport mpz_t, mpq_t, mpz_ptr, mpq_ptr
 
 cdef extern from "pynac_wrap.h":
     void ginac_pyinit_Integer(object)
@@ -573,7 +575,7 @@ cdef extern from "pynac_wrap.h":
 
     py_funcs_struct py_funcs "GiNaC::py_funcs"
 
-cdef extern from "pynac/order.h":
+cdef extern from "ginac/order.h":
     bint print_order_compare "GiNaC::print_order().compare" \
             (GEx left, GEx right) except +
     bint print_order_compare_mul "GiNaC::print_order_mul().compare" \

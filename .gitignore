@@ -2,6 +2,7 @@ Makefile
 Makefile.in
 aclocal.m4
 autom4te.cache/
+compile
 config.guess
 config.h
 pynac-config.h
@@ -32,6 +33,13 @@ m4/ltsugar.m4
 m4/ltversion.m4
 m4/lt~obsolete.m4
 missing
+pynac.pc
+pynac.spec
 pynac*tar.bz2
 pynac*tar.gz
 stamp-h1
+# Editor temp files
+*~
+# Python-generated
+ginac/pynac.cpp
+build/
