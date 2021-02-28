@@ -1,13 +1,22 @@
 from setuptools import setup
 from setuptools.extension import Extension
+from distutils.command.build_ext import build_ext as du_build_ext
 import os
 import sys
-from Cython.Build.Dependencies import cythonize
+
+class build_ext(du_build_ext):
+    def run(self):
+        from Cython.Build.Dependencies import cythonize
+        self.distribution.ext_modules[:] = cythonize(
+            self.distribution.ext_modules,
+            language_level=3,
+            include_path=['.'] + sys.path)
+        du_build_ext.run(self)
 
 extensions = [
     Extension('ginac.libpynac', sources=(
         ['ginac/pynac.pyx']
-        # From ginac/Makefile.am
+        # From ginac/Makefile.am, removed .h files
         + [os.path.join('ginac/', f)
            for f in "\
   add.cpp archive.cpp assume.cpp basic.cpp \
@@ -29,9 +38,9 @@ extensions = [
                        ('PYNAC_ARCHIVE_AGE', '0')],
 )]
 
-setup(ext_modules=cythonize(extensions, language_level=3,
-                            include_path=['.'] + sys.path),
+setup(ext_modules=extensions,
       include_dirs = ['.'] + sys.path,
       package_dir = {'ginac': 'ginac'},
       package_data = {'ginac': ['*.pxd', '*.h']},
+      cmdclass = {'build_ext': build_ext},
       )

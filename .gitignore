@@ -46,3 +46,4 @@ ginac/pynac.cpp
 build/
 dist/
 *.egg-info
+.tox
