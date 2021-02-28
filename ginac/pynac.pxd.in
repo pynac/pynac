@@ -1,11 +1,7 @@
 # distutils: language = c++
-# distutils: libraries = pynac gmp
-# distutils: extra_compile_args = -std=c++11
-# distutils: include_dirs =
-#
-#  SINGULAR_CFLAGS SINGULAR_INCDIR
-# pynac/basic.h includes
-#   factory/factory.h    so this ^ is needed to find it
+# distutils: libraries = flint gmp
+# distutils: extra_link_args = @FACTORY_LIBS@ @LIBGIAC@
+# distutils: extra_compile_args = -std=c++11 @FACTORY_CFLAGS@
 """
 Declarations for pynac, a Python frontend for ginac
 

@@ -6,11 +6,12 @@ import sys
 
 class build_ext(du_build_ext):
     def run(self):
+        if os.system("./configure") != 0:
+            raise SystemExit("configure failed, see config.log")
         from Cython.Build.Dependencies import cythonize
         self.distribution.ext_modules[:] = cythonize(
             self.distribution.ext_modules,
-            language_level=3,
-            include_path=['.'] + sys.path)
+            language_level=3)
         du_build_ext.run(self)
 
 extensions = [
@@ -33,13 +34,11 @@ extensions = [
   utils.cpp wildcard.cpp templates.cpp infoflagbase.cpp sum.cpp \
   order.cpp useries.cpp".split()]
         ),
-        # From configure.ac
-        define_macros=[('PYNAC_ARCHIVE_VERSION', '3'),
-                       ('PYNAC_ARCHIVE_AGE', '0')],
+        include_dirs=[os.path.dirname(__file__) or "."]
 )]
 
 setup(ext_modules=extensions,
-      include_dirs = ['.'] + sys.path,
+      include_dirs = [os.path.dirname(__file__) or "."] + sys.path,
       package_dir = {'ginac': 'ginac'},
       package_data = {'ginac': ['*.pxd', '*.h']},
       cmdclass = {'build_ext': build_ext},

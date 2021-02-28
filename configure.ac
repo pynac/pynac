@@ -221,6 +221,7 @@ pynac.spec
 pynac.pc
 ginac/Makefile
 ginac/version.h
+ginac/pynac.pxd
 ])
 AX_PREFIX_CONFIG_H(ginac/pynac-config.h)
 AC_OUTPUT

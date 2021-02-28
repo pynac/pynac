@@ -1,2 +1,4 @@
+include configure config.h.in config.sub install-sh ltmain.sh missing Makefile.in pynac.spec.in pynac.pc.in ginac/Makefile.in ginac/version.h.in
+include ginac/pynac.pxd.in
 recursive-include ginac *.pxd *.pyx *.py *.h *.hpp
 exclude ginac/pynac.cpp
