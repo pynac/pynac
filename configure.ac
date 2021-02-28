@@ -143,10 +143,10 @@ AC_CHECK_HEADERS([flint/fmpq_poly.h], , AC_MSG_ERROR([This package needs flint h
 AC_SEARCH_LIBS([fmpq_get_mpz_frac], [flint], [], [AC_MSG_ERROR([This package needs libflint])])
 
 AC_ARG_WITH([giac],
-  [AS_HELP_STRING([--with-giac],
-    [use giac for polynomial manipulations @<:@default=check@:>@])],
+  [AS_HELP_STRING([--with-giac@<:@=no|check|yes@:>@],
+    [use giac for polynomial manipulations @<:@default=no@:>@ (experimental)])],
   [],
-  [with_giac=check])
+  [with_giac=no])
 
 LIBGIAC=
 AS_IF([test "x$with_giac" != xno],
