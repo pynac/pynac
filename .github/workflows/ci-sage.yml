@@ -54,7 +54,7 @@ env:
   # Sage distribution packages to build
   TARGETS_PRE:      build/make/Makefile
   TARGETS:          SAGE_CHECK=yes  pynac
-  TARGETS_OPTIONAL:
+  TARGETS_OPTIONAL: build/make/Makefile
   # Standard setting: Test the current beta release of Sage:
   SAGE_REPO:        sagemath/sage
   SAGE_REF:         develop
