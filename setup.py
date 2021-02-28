@@ -21,7 +21,7 @@ class build_ext(du_build_ext):
         du_build_ext.run(self)
 
 extensions = [
-    Extension('ginac.libpynac', sources=(
+    Extension('ginac.pynac', sources=(
         ['ginac/pynac.pyx']
         # From ginac/Makefile.am, removed .h files
         + [os.path.join('ginac/', f)
