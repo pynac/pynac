@@ -41,5 +41,8 @@ stamp-h1
 # Editor temp files
 *~
 # Python-generated
+MANIFEST
 ginac/pynac.cpp
 build/
+dist/
+*.egg-info

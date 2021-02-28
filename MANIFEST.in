@@ -1,0 +1,2 @@
+recursive-include ginac *.pxd *.pyx *.py *.h *.hpp
+exclude ginac/pynac.cpp
