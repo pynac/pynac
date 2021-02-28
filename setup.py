@@ -1,13 +1,19 @@
 from setuptools import setup
 from setuptools.extension import Extension
+from setuptools.command.build_py import build_py as setuptools_build_py
 from distutils.command.build_ext import build_ext as du_build_ext
 import os
 import sys
 
-class build_ext(du_build_ext):
+class build_py(setuptools_build_py):
     def run(self):
         if os.system("./configure") != 0:
             raise SystemExit("configure failed, see config.log")
+        self.distribution.package_data['ginac'].append('pynac.pxd')
+        setuptools_build_py.run(self)
+
+class build_ext(du_build_ext):
+    def run(self):
         from Cython.Build.Dependencies import cythonize
         self.distribution.ext_modules[:] = cythonize(
             self.distribution.ext_modules,
@@ -42,5 +48,6 @@ setup(ext_modules=extensions,
       packages = ['ginac'],
       package_dir = {'ginac': 'ginac'},
       package_data = {'ginac': ['*.pxd', '*.h']},
-      cmdclass = {'build_ext': build_ext},
+      cmdclass = {'build_py': build_py,
+                  'build_ext': build_ext},
       )
