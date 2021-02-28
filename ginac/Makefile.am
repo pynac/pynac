@@ -36,4 +36,6 @@ ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h \
   symbol.h version.h wildcard.h order.h templates.h \
   infoflagbase.h assume.h upoly.h useries.h useries-flint.h sum.h
 
+ginacinclude_HEADERS += pynac-config.h
+
 EXTRA_DIST = version.h.in
