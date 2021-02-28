@@ -39,6 +39,7 @@ extensions = [
 
 setup(ext_modules=extensions,
       include_dirs = [os.path.dirname(__file__) or "."] + sys.path,
+      packages = ['ginac'],
       package_dir = {'ginac': 'ginac'},
       package_data = {'ginac': ['*.pxd', '*.h']},
       cmdclass = {'build_ext': build_ext},
