@@ -571,7 +571,7 @@ cdef extern from "pynac_wrap.h":
 
     py_funcs_struct py_funcs "GiNaC::py_funcs"
 
-cdef extern from "ginac/order.h":
+cdef extern from "order.h":
     bint print_order_compare "GiNaC::print_order().compare" \
             (GEx left, GEx right) except +
     bint print_order_compare_mul "GiNaC::print_order_mul().compare" \
