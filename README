@@ -5,9 +5,21 @@ of the full GiNaC, and it is *only* meant to be used as a Python library.
 
  -- William Stein
 
+As an experimental feature, Pynac can now be built as a Python package instead.
 
+To prepare a Python source distribution:
 
-ORIGINAL README 
+  $ autoreconf -fi
+  $ python3 setup.py sdist
+
+To test:
+
+  $ autoreconf -fi
+  $ tox -v -v -v
+
+ -- Matthias Koeppe
+
+ORIGINAL README of GiNaC
 
 General Information
 ===================
