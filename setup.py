@@ -20,12 +20,8 @@ class build_ext(du_build_ext):
             language_level=3)
         du_build_ext.run(self)
 
-extensions = [
-    Extension('ginac.pynac', sources=(
-        ['ginac/pynac.pyx']
-        # From ginac/Makefile.am, removed .h files
-        + [os.path.join('ginac/', f)
-           for f in "\
+# From ginac/Makefile.am
+libpynac_la_SOURCES = "\
   add.cpp archive.cpp assume.cpp basic.cpp \
   cmatcher.cpp constant.cpp context.cpp ex.cpp expair.cpp \
   expairseq.cpp exprseq.cpp fderivative.cpp function.cpp function_info.cpp \
@@ -38,9 +34,33 @@ extensions = [
   registrar.cpp relational.cpp remember.cpp \
   pseries.cpp print.cpp symbol.cpp upoly-ginac.cpp \
   utils.cpp wildcard.cpp templates.cpp infoflagbase.cpp sum.cpp \
-  order.cpp useries.cpp".split()]
-        ),
-        include_dirs=[os.path.dirname(__file__) or "."]
+  remember.h tostring.h utils.h compiler.h order.cpp useries.cpp"
+
+# From ginac/Makefile.am
+ginacinclude_HEADERS = "\
+  ginac.h py_funcs.h add.h archive.h assertion.h \
+  basic.h class_info.h cmatcher.h constant.h container.h context.h \
+  ex.h ex_utils.h expair.h expairseq.h exprseq.h \
+  fderivative.h flags.h function.h \
+  inifcns.h infinity.h lst.h matrix.h mpoly.h mul.h \
+  normal.h numeric.h operators.h optional.hpp \
+  power.h print.h pseries.h ptr.h registrar.h relational.h extern_templates.h \
+  symbol.h version.h wildcard.h order.h templates.h \
+  infoflagbase.h assume.h upoly.h useries.h useries-flint.h sum.h"
+
+extensions = [
+    Extension('ginac.pynac',
+              sources=(['ginac/pynac.pyx']
+                       + [os.path.join('ginac/', f)
+                          for f in libpynac_la_SOURCES.split()
+                          # strangely this contains some .h files
+                          if not f.endswith(".h")]),
+              depends=([os.path.join('ginac/', f)
+                        for f in libpynac_la_SOURCES.split()
+                          if f.endswith(".h")]
+                       + [os.path.join('ginac/', f)
+                          for f in ginacinclude_HEADERS.split()]),
+              include_dirs=[os.path.dirname(__file__) or "."]
 )]
 
 setup(ext_modules=extensions,
