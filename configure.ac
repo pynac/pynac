@@ -192,10 +192,19 @@ fi
 PKG_PROG_PKG_CONFIG
 
 dnl Find Singular's factory header and library with pkg-config
-PKG_CHECK_MODULES([FACTORY], [factory],[
-    AC_SUBST(FACTORY_CFLAGS)
-    AC_SUBST(FACTORY_LIBS)],
-    [AC_MSG_ERROR([This package needs libfactory])])
+PKG_CHECK_MODULES([FACTORY], [factory], [
+    dnl Found it
+  ], [
+    dnl Debian renames factory to singular-factory, look for that
+    PKG_CHECK_MODULES([SINGULAR_FACTORY], [singular-factory], [
+      FACTORY_CFLAGS="$SINGULAR_FACTORY_CFLAGS"
+      FACTORY_LIBS="$SINGULAR_FACTORY_LIBS"
+    ], [
+      AC_MSG_ERROR([This package needs libfactory])
+    ])
+])
+AC_SUBST(FACTORY_CFLAGS)
+AC_SUBST(FACTORY_LIBS)
 
 dnl Check for utilities needed by the different kinds of documentation.
 dnl Documentation needs only be built when extending it, so never mind if it
