@@ -39,3 +39,5 @@ ginacinclude_HEADERS = ginac.h py_funcs.h add.h archive.h assertion.h \
 ginacinclude_HEADERS += pynac-config.h
 
 EXTRA_DIST = version.h.in
+
+DISTCLEANFILES = pynac-config.h
