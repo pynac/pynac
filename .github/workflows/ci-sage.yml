@@ -48,7 +48,7 @@ on: [push, pull_request]
 
 env:
   # Ubuntu packages to install so that the project's "make dist" can succeed
-  DIST_PREREQ:      libtool libflint-dev libsingular4-dev
+  DIST_PREREQ:      libtool libflint-dev libsingular4-dev libpython3-dev python3-setuptools cython3 python3-wheel
   # Name of this project in the Sage distribution
   SPKG:             pynac
   # Sage distribution packages to build
@@ -79,8 +79,8 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install $DIST_PREREQ
       - name: Run make dist, prepare upstream artifact
         run: |
-          (cd build/pkgs/${{ env.SPKG }}/src && autoreconf -fi && ./configure && make dist) \
-          && mkdir -p upstream && cp build/pkgs/${{ env.SPKG }}/src/*.tar.gz upstream/${{ env.SPKG }}-git.tar.gz \
+          (cd build/pkgs/${{ env.SPKG }}/src && autoreconf -fi && python3 setup.py sdist) \
+          && mkdir -p upstream && cp build/pkgs/${{ env.SPKG }}/src/dist/*.tar.gz upstream/${{ env.SPKG }}-git.tar.gz \
           && echo "sage-package create ${{ env.SPKG }} --version git --tarball ${{ env.SPKG }}-git.tar.gz --type=standard" > upstream/update-pkgs.sh \
           && if [ -n "${{ env.REMOVE_PATCHES }}" ]; then echo "(cd ../build/pkgs/${{ env.SPKG }}/patches && rm -f ${{ env.REMOVE_PATCHES }}; :)" >> upstream/update-pkgs.sh; fi \
           && ls -l upstream/
