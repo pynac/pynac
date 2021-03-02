@@ -58,10 +58,10 @@ env:
   # Standard setting: Test the current beta release of Sage:
   SAGE_REPO:        sagemath/sage
   SAGE_REF:         develop
-  # Temporarily test on the branch from sage ticket 31064 (updated cygwin workflow)
+  # Temporarily test on the branch from sage ticket 30534 (pynac as python package, updated cygwin workflow)
   SAGE_TRAC_GIT:    git://trac.sagemath.org/sage.git
   SAGE_TRAC_COMMAND: try
-  SAGE_TICKET:      31064
+  SAGE_TICKET:      30534
   REMOVE_PATCHES:   "*"
 
 jobs:
