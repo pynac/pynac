@@ -21,6 +21,7 @@ ginac/*.o
 ginac/*.orig
 ginac/*.rej
 ginac/*.swp
+ginac/pynac-config.h
 ginac/version.h
 install-sh
 libtool

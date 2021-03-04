@@ -231,7 +231,7 @@ pynac.pc
 ginac/Makefile
 ginac/version.h
 ])
-AX_PREFIX_CONFIG_H
+AX_PREFIX_CONFIG_H(ginac/pynac-config.h)
 AC_OUTPUT
 dnl Display a final warning if there has been a GINAC_ERROR or a GINAC_WARNING
 GINAC_CHECK_ERRORS
