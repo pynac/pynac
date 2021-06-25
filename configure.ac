@@ -30,8 +30,8 @@ m4_define([lt_age], [3])
 m4_define([ginac_version], [ginac_major_version.ginac_minor_version.ginac_micro_version])
 m4_define([ginac_release], [ginac_major_version.ginac_minor_version])
 
-AC_INIT([pynac], ginac_version, [<pynac-devel@googlegroups.com>])
-AC_PREREQ(2.59)
+AC_INIT([pynac],[ginac_version],[<pynac-devel@googlegroups.com>])
+AC_PREREQ([2.69])
 AC_CONFIG_SRCDIR(ginac/basic.cpp)
 AC_CONFIG_HEADERS(config.h)
 dnl This defines PACKAGE and VERSION.
@@ -134,7 +134,6 @@ AC_PROG_CXX
 AC_PROG_CXXCPP
 AC_PROG_INSTALL
 LT_INIT
-AC_LIBTOOL_WIN32_DLL
 
 AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs gmp headers]))
 AC_SEARCH_LIBS([__gmpz_get_str], [gmp], [], [AC_MSG_ERROR([This package needs libgmp])])
