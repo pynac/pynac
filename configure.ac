@@ -135,6 +135,10 @@ AC_PROG_CXXCPP
 AC_PROG_INSTALL
 LT_INIT
 
+dnl Switch to C++ language mode for the following libraries and headers.
+AC_LANG([C++])
+AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
+
 AC_CHECK_HEADERS([gmp.h], , AC_MSG_ERROR([This package needs gmp headers]))
 AC_SEARCH_LIBS([__gmpz_get_str], [gmp], [], [AC_MSG_ERROR([This package needs libgmp])])
 
@@ -167,10 +171,6 @@ AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(long double)
 AC_CHECK_SIZEOF(void *)
-
-dnl Switch to C++ language mode for the following libraries and headers.
-AC_LANG([C++])
-AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
 
 dnl Make sure all the necessary standard headers are installed on the system.
 AC_CHECK_HEADER(iosfwd, , GINAC_ERROR([The standard <iosfwd> header file could not be found.]))
