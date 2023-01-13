@@ -991,7 +991,7 @@ void expairseq::make_flat(const exvector &v, bool do_hold)
 	make_flat_inserter mf(v, do_idx_rename);
         for (const auto & elem : v) {
 		if (ex_to<basic>(elem).tinfo()==this->tinfo() && !do_hold) {
-			ex newfactor = mf.handle_factor(elem, _ex1);
+			ex newfactor = elem;
 			const expairseq &subseqref = ex_to<expairseq>(newfactor);
 			combine_overall_coeff(subseqref.overall_coeff);
                         for (const auto & elem2 : subseqref.seq)
@@ -1000,7 +1000,7 @@ void expairseq::make_flat(const exvector &v, bool do_hold)
 			if (is_exactly_a<numeric>(elem))
 				combine_overall_coeff(ex_to<numeric>(elem));
 			else {
-				ex newfactor = mf.handle_factor(elem, _ex1);
+				ex newfactor = elem;
 				seq.push_back(split_ex_to_pair(newfactor));
 			}
 		}
@@ -1046,7 +1046,7 @@ void expairseq::make_flat(const epvector &v, bool do_index_renaming)
                                         ex_to<numeric>(elem2.coeff).mul_dyn(ex_to<numeric>(elem.coeff)));
 		} else {
 			if (elem.is_canonical_numeric())
-				combine_overall_coeff(ex_to<numeric>(mf.handle_factor(elem.rest, _ex1)));
+				combine_overall_coeff(ex_to<numeric>(elem.rest));
 			else {
 			        if ((is_exactly_a<numeric>(elem.coeff) and elem.coeff.is_zero())
 			                or (is_exactly_a<numeric>(elem.rest)
